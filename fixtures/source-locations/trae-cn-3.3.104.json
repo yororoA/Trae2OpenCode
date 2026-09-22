@@ -1,0 +1,87 @@
+{
+  "fixtureVersion": 1,
+  "sourceProduct": {
+    "name": "trae-cn",
+    "version": "3.3.104"
+  },
+  "profileId": "trae-cn-ai-agent-v1",
+  "profileVerification": "unverified",
+  "database": {
+    "relativePath": "ModularData/ai-agent/database.db",
+    "observedFormat": "opaque",
+    "ownerProcess": "ai-agent",
+    "sidecarsObserved": [
+      "database.db-wal",
+      "database.db-shm"
+    ],
+    "evidenceLevel": "path-observed"
+  },
+  "runtimeReadPath": {
+    "serviceMethod": "_aiAgentChatService.getSessionMessages",
+    "endpoint": "lite/get_messages",
+    "evidenceLevel": "schema-observed"
+  },
+  "locations": [
+    {
+      "contentKind": "user",
+      "availability": "located",
+      "sourcePath": "ModularData/ai-agent/database.db#chat_message",
+      "fields": [
+        "message_id",
+        "session_id",
+        "turn_id",
+        "content",
+        "message_role",
+        "message_type",
+        "message_index",
+        "user_message_context"
+      ],
+      "evidenceLevel": "schema-observed"
+    },
+    {
+      "contentKind": "assistant",
+      "availability": "located",
+      "sourcePath": "ModularData/ai-agent/database.db#chat_message",
+      "fields": [
+        "message_id",
+        "session_id",
+        "turn_id",
+        "content",
+        "message_role",
+        "message_type",
+        "message_index"
+      ],
+      "evidenceLevel": "schema-observed"
+    },
+    {
+      "contentKind": "reasoning",
+      "availability": "located",
+      "sourcePath": "ModularData/ai-agent/database.db#plan_item",
+      "fields": [
+        "turn_id",
+        "thought"
+      ],
+      "evidenceLevel": "schema-observed"
+    },
+    {
+      "contentKind": "tool",
+      "availability": "located",
+      "sourcePath": "ModularData/ai-agent/database.db#plan_item",
+      "fields": [
+        "turn_id",
+        "tool_id",
+        "tool_name",
+        "tool_params",
+        "tool_result",
+        "tool_status"
+      ],
+      "evidenceLevel": "schema-observed"
+    }
+  ],
+  "verification": {
+    "rowSampled": false,
+    "runtimeReadback": false,
+    "status": "unverified",
+    "reason": "The SQLCipher database and lite/get_messages response have not been sampled through a redacted read path."
+  }
+}

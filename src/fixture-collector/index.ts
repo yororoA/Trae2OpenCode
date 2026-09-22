@@ -17,13 +17,14 @@ import {
   getProfileVerification,
   identifyStorageProfile,
 } from "./profiles";
+import { probeMessageSources } from "./source-locations";
 import type {
   FixtureReport,
   CollectorOptions,
   WorkspaceSnapshot,
 } from "./types";
 
-const COLLECTOR_VERSION = "0.1.2";
+const COLLECTOR_VERSION = "0.2.0";
 
 export function collect(options: CollectorOptions = {}): FixtureReport {
   const traeRoots = discoverTraeRoots(options.traeRoot);
@@ -176,6 +177,10 @@ export function collect(options: CollectorOptions = {}): FixtureReport {
       workspaceStoragePath: "workspaceStorage",
     },
     globalStorage: { stateVscdb: globalStateVscdb },
+    messageSources: probeMessageSources(
+      traeRoots.userDataPath,
+      options.productVersion ?? null,
+    ),
     workspaces,
     summary: {
       totalWorkspaces: workspaces.length,

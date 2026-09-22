@@ -140,14 +140,19 @@ TRAE roots
 
 ### 4.1 TRAE 数据源优先级
 
-1. `workspaceStorage/<id>/workspace.json`
-2. `workspaceStorage/<id>/state.vscdb`
-3. `workspaceStorage/<id>/long-text/`
-4. `workspaceStorage/<id>/paste-files/`
-5. `globalStorage/state.vscdb`
-6. 经用户显式授权的其他本地缓存或官方 API
+1. 客户端运行时 `_aiAgentChatService.getSessionMessages`
+   (`lite/get_messages`)
+2. `ModularData/ai-agent/database.db`（加密/不透明；不得绕过访问控制）
+3. `workspaceStorage/<id>/workspace.json`
+4. `workspaceStorage/<id>/state.vscdb`
+5. `workspaceStorage/<id>/long-text/`
+6. `workspaceStorage/<id>/paste-files/`
+7. `globalStorage/state.vscdb`
+8. 经用户显式授权的其他本地缓存或官方 API
 
 扫描数据库时使用只读连接或一致性快照，不能直接操作运行中的数据库文件。
+当前版本的消息来源证据与验证状态见
+[`m0-3-source-location.md`](./m0-3-source-location.md)。
 
 ### 4.2 IR 最小结构
 
