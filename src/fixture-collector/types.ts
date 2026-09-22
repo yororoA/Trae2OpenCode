@@ -68,6 +68,10 @@ export interface FixtureReport {
   collectorVersion: string;
   collectedAt: string;
   os: string;
+  sourceProduct: {
+    name: "trae-cn";
+    version: string | null;
+  };
   traeRoots: TraeDataRoots;
   globalStorage: {
     stateVscdb: SqliteSnapshot | null;
@@ -84,6 +88,8 @@ export interface FixtureReport {
 
 export interface CollectorOptions {
   traeRoot?: string;
+  /** TRAE 客户端版本，用于区分存储 profile */
+  productVersion?: string;
   /** 限制最多处理的 workspace 数 */
   maxWorkspaces?: number;
   /** 输出路径 */

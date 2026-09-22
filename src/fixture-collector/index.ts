@@ -13,11 +13,11 @@ import {
   scanDirectory,
   hashFileSha256,
 } from "./snapshot";
+import { identifyStorageProfile } from "./profiles";
 import type {
   FixtureReport,
   CollectorOptions,
   WorkspaceSnapshot,
-  ProfileFeatures,
 } from "./types";
 
 const COLLECTOR_VERSION = "0.1.2";
@@ -151,7 +151,7 @@ export function collect(options: CollectorOptions = {}): FixtureReport {
   // profile 统计
   const profileCounts: Record<string, number> = {};
   for (const ws of workspaces) {
-    const profile = buildProfileLabel(ws.profileFeatures);
+    const profile = identifyStorageProfile(ws.profileFeatures);
     profileCounts[profile] = (profileCounts[profile] || 0) + 1;
   }
 
@@ -159,6 +159,10 @@ export function collect(options: CollectorOptions = {}): FixtureReport {
     collectorVersion: COLLECTOR_VERSION,
     collectedAt: new Date().toISOString(),
     os: traeRoots.os,
+    sourceProduct: {
+      name: "trae-cn",
+      version: options.productVersion ?? null,
+    },
     traeRoots: {
       os: traeRoots.os,
       userDataPath: "<trae-user-data>",
@@ -181,19 +185,6 @@ export function collect(options: CollectorOptions = {}): FixtureReport {
       profileCounts,
     },
   };
-}
-
-function buildProfileLabel(features: ProfileFeatures): string {
-  if (features.hasMementoStorage && features.keyTables.length === 0) {
-    return "legacy-memento";
-  }
-  if (features.hasLongText && features.hasPasteFiles) {
-    return "modern-3.x-with-attachments";
-  }
-  if (features.keyTables.length > 0) {
-    return "modern-3.x-basic";
-  }
-  return "unknown";
 }
 
 export function collectToFile(options: CollectorOptions = {}): string {
