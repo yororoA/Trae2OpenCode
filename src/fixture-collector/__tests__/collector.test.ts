@@ -5,8 +5,15 @@ import assert from "node:assert/strict";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import * as os from "node:os";
-import { analyzeJsonStructure, hashFileSha256 } from "../snapshot";
-import { discoverTraeRoots } from "../discovery";
+import {
+  analyzeJsonStructure,
+  hashFileSha256,
+  scanDirectory,
+} from "../snapshot";
+import {
+  discoverTraeRoots,
+  getDefaultTraeUserDataPaths,
+} from "../discovery";
 
 describe("analyzeJsonStructure", () => {
   it("提取顶层 key", () => {
@@ -56,7 +63,36 @@ describe("hashFileSha256", () => {
   });
 });
 
+describe("scanDirectory", () => {
+  it("递归记录嵌套文件", () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "t2o-test-"));
+    const nestedDir = path.join(tmpDir, "session-id");
+    fs.mkdirSync(nestedDir);
+    fs.writeFileSync(path.join(nestedDir, "content.txt"), "fixture");
+
+    const entries = scanDirectory(tmpDir);
+    assert.strictEqual(entries.length, 1);
+    assert.strictEqual(entries[0].relativePathHash.length, 64);
+    assert.strictEqual(entries[0].extension, ".txt");
+    assert.strictEqual(entries[0].depth, 2);
+    assert.strictEqual(entries[0].sha256.length, 64);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+});
+
 describe("discoverTraeRoots", () => {
+  it("优先发现 macOS Trae CN 数据目录", () => {
+    const candidates = getDefaultTraeUserDataPaths(
+      "darwin",
+      "/Users/tester",
+      {},
+    );
+    assert.strictEqual(
+      candidates[0],
+      "/Users/tester/Library/Application Support/Trae CN/User",
+    );
+  });
+
   it("不存在时返回 null", () => {
     const result = discoverTraeRoots("/nonexistent/path/to/trae");
     assert.strictEqual(result, null);

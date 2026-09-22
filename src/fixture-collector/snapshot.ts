@@ -4,16 +4,31 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import Database from "better-sqlite3";
 import type {
-  FileEntry,
   SqliteSnapshot,
   SqliteTableSchema,
   JsonFileSnapshot,
   JsonKeyStructure,
+  DirectorySnapshot,
 } from "./types";
 
 export function hashFileSha256(filePath: string): string {
-  const buf = fs.readFileSync(filePath);
-  return crypto.createHash("sha256").update(buf).digest("hex");
+  const hash = crypto.createHash("sha256");
+  const buffer = Buffer.allocUnsafe(64 * 1024);
+  const fd = fs.openSync(filePath, "r");
+
+  try {
+    let bytesRead = 0;
+    do {
+      bytesRead = fs.readSync(fd, buffer, 0, buffer.length, null);
+      if (bytesRead > 0) {
+        hash.update(buffer.subarray(0, bytesRead));
+      }
+    } while (bytesRead > 0);
+  } finally {
+    fs.closeSync(fd);
+  }
+
+  return hash.digest("hex");
 }
 
 export function readSqliteSnapshot(
@@ -21,7 +36,7 @@ export function readSqliteSnapshot(
   relativePath: string,
 ): SqliteSnapshot {
   const sha256 = hashFileSha256(absolutePath);
-  // 只读打开，直接读文件而非连接可能被写入的 WAL
+  // M0 只读取结构；一致性快照由 M2-3 实现。
   const db = new Database(absolutePath, { readonly: true, fileMustExist: true });
 
   const tables: SqliteTableSchema[] = [];
@@ -133,22 +148,39 @@ export function readJsonSnapshot(
 
 export function scanDirectory(
   absolutePath: string,
-  relativePath: string,
-): { name: string; sizeBytes: number; sha256: string }[] {
+): DirectorySnapshot["entries"] {
   if (!fs.existsSync(absolutePath)) return [];
 
-  const entries: { name: string; sizeBytes: number; sha256: string }[] = [];
-  const dirEntries = fs.readdirSync(absolutePath, { withFileTypes: true });
+  const entries: DirectorySnapshot["entries"] = [];
 
-  for (const entry of dirEntries) {
-    if (!entry.isFile()) continue;
-    const fullPath = path.join(absolutePath, entry.name);
-    entries.push({
-      name: entry.name,
-      sizeBytes: fs.statSync(fullPath).size,
-      sha256: hashFileSha256(fullPath),
-    });
+  function walk(currentPath: string, relativePrefix: string): void {
+    const dirEntries = fs
+      .readdirSync(currentPath, { withFileTypes: true })
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    for (const entry of dirEntries) {
+      const fullPath = path.join(currentPath, entry.name);
+      const relativeName = path.join(relativePrefix, entry.name);
+
+      if (entry.isDirectory()) {
+        walk(fullPath, relativeName);
+        continue;
+      }
+      if (!entry.isFile()) continue;
+
+      entries.push({
+        relativePathHash: crypto
+          .createHash("sha256")
+          .update(relativeName)
+          .digest("hex"),
+        extension: path.extname(entry.name).toLowerCase(),
+        depth: relativeName.split(path.sep).length,
+        sizeBytes: fs.statSync(fullPath).size,
+        sha256: hashFileSha256(fullPath),
+      });
+    }
   }
 
+  walk(absolutePath, "");
   return entries;
 }

@@ -4,24 +4,41 @@ import * as path from "node:path";
 import * as fs from "node:fs";
 import type { TraeDataRoots } from "./types";
 
-const PLATFORM_PATHS: Record<string, string[]> = {
-  darwin: [
-    path.join(os.homedir(), "Library", "Application Support", "Trae", "User"),
-  ],
-  win32: [
-    path.join(process.env.APPDATA || "", "Trae", "User"),
-    path.join(process.env.LOCALAPPDATA || "", "Trae", "User"),
-  ],
-  linux: [
-    path.join(os.homedir(), ".config", "Trae", "User"),
-  ],
-};
+export function getDefaultTraeUserDataPaths(
+  platform = process.platform,
+  homeDir = os.homedir(),
+  env = process.env,
+): string[] {
+  if (platform === "darwin") {
+    return ["Trae CN", "Trae"].map((product) =>
+      path.join(homeDir, "Library", "Application Support", product, "User"),
+    );
+  }
+
+  if (platform === "win32") {
+    return [env.APPDATA, env.LOCALAPPDATA]
+      .filter((root): root is string => Boolean(root))
+      .flatMap((root) =>
+        ["Trae CN", "Trae"].map((product) =>
+          path.join(root, product, "User"),
+        ),
+      );
+  }
+
+  if (platform === "linux") {
+    return ["Trae CN", "Trae"].map((product) =>
+      path.join(homeDir, ".config", product, "User"),
+    );
+  }
+
+  return [];
+}
 
 export function discoverTraeRoots(customRoot?: string): TraeDataRoots | null {
   const platform = process.platform;
   const candidates = customRoot
     ? [customRoot]
-    : (PLATFORM_PATHS[platform] ?? []);
+    : getDefaultTraeUserDataPaths(platform);
 
   for (const candidate of candidates) {
     const globalStoragePath = path.join(candidate, "globalStorage");
@@ -65,7 +82,8 @@ export function listWorkspaceDirs(
   const entries = fs.readdirSync(workspaceStoragePath, { withFileTypes: true });
   const dirs = entries
     .filter((e) => e.isDirectory())
-    .map((e) => path.join(workspaceStoragePath, e.name));
+    .map((e) => path.join(workspaceStoragePath, e.name))
+    .sort();
 
   return maxWorkspaces ? dirs.slice(0, maxWorkspaces) : dirs;
 }

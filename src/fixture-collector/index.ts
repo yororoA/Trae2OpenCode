@@ -2,6 +2,7 @@
 
 import * as path from "node:path";
 import * as fs from "node:fs";
+import * as crypto from "node:crypto";
 import {
   discoverTraeRoots,
   listWorkspaceDirs,
@@ -10,6 +11,7 @@ import {
   readSqliteSnapshot,
   readJsonSnapshot,
   scanDirectory,
+  hashFileSha256,
 } from "./snapshot";
 import type {
   FixtureReport,
@@ -18,15 +20,15 @@ import type {
   ProfileFeatures,
 } from "./types";
 
-const COLLECTOR_VERSION = "0.1.0";
+const COLLECTOR_VERSION = "0.1.2";
 
 export function collect(options: CollectorOptions = {}): FixtureReport {
   const traeRoots = discoverTraeRoots(options.traeRoot);
   if (!traeRoots) {
     throw new Error(
       "未找到 TRAE 数据目录。请通过 --trae-root 指定路径。\n" +
-        "macOS 默认：~/Library/Application Support/Trae/User\n" +
-        "Windows 默认：%APPDATA%/Trae/User",
+        "macOS 默认：~/Library/Application Support/Trae CN/User\n" +
+        "Windows 默认：%APPDATA%/Trae CN/User",
     );
   }
 
@@ -85,7 +87,7 @@ export function collect(options: CollectorOptions = {}): FixtureReport {
       ws.profileFeatures.hasLongText = true;
       ws.directories.push({
         relativePath: `${wsId}/long-text`,
-        entries: scanDirectory(longTextPath, `${wsId}/long-text`),
+        entries: scanDirectory(longTextPath),
       });
     }
 
@@ -95,7 +97,7 @@ export function collect(options: CollectorOptions = {}): FixtureReport {
       ws.profileFeatures.hasPasteFiles = true;
       ws.directories.push({
         relativePath: `${wsId}/paste-files`,
-        entries: scanDirectory(pasteFilesPath, `${wsId}/paste-files`),
+        entries: scanDirectory(pasteFilesPath),
       });
     }
 
@@ -112,9 +114,15 @@ export function collect(options: CollectorOptions = {}): FixtureReport {
           if (!entry.isFile()) continue;
           const fullPath = path.join(agentStoragePath, entry.name);
           const ext = path.extname(entry.name);
-          const relPath = `${wsId}/memento/icube-ai-agent-storage/${entry.name}`;
+          const relativePathHash = crypto
+            .createHash("sha256")
+            .update(entry.name)
+            .digest("hex");
+          const relPath =
+            `${wsId}/memento/icube-ai-agent-storage/` +
+            `${relativePathHash}${ext.toLowerCase()}`;
 
-          if (ext === ".json") {
+          if (ext.toLowerCase() === ".json") {
             try {
               ws.jsonFiles.push(readJsonSnapshot(fullPath, relPath));
             } catch {
@@ -123,9 +131,11 @@ export function collect(options: CollectorOptions = {}): FixtureReport {
                 relativePath: relPath,
                 entries: [
                   {
-                    name: entry.name,
+                    relativePathHash,
+                    extension: ext.toLowerCase(),
+                    depth: 1,
                     sizeBytes: fs.statSync(fullPath).size,
-                    sha256: "",
+                    sha256: hashFileSha256(fullPath),
                   },
                 ],
               });
@@ -149,7 +159,12 @@ export function collect(options: CollectorOptions = {}): FixtureReport {
     collectorVersion: COLLECTOR_VERSION,
     collectedAt: new Date().toISOString(),
     os: traeRoots.os,
-    traeRoots,
+    traeRoots: {
+      os: traeRoots.os,
+      userDataPath: "<trae-user-data>",
+      globalStoragePath: "globalStorage",
+      workspaceStoragePath: "workspaceStorage",
+    },
     globalStorage: { stateVscdb: globalStateVscdb },
     workspaces,
     summary: {

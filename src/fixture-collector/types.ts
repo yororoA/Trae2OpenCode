@@ -7,13 +7,6 @@ export interface TraeDataRoots {
   workspaceStoragePath: string;
 }
 
-export interface FileEntry {
-  relativePath: string;
-  sizeBytes: number;
-  mtimeMs: number;
-  sha256: string;
-}
-
 export interface SqliteTableSchema {
   name: string;
   columns: { cid: number; name: string; type: string; notnull: number; pk: number }[];
@@ -43,7 +36,13 @@ export interface JsonFileSnapshot {
 
 export interface DirectorySnapshot {
   relativePath: string;
-  entries: { name: string; sizeBytes: number; sha256: string }[];
+  entries: {
+    relativePathHash: string;
+    extension: string;
+    depth: number;
+    sizeBytes: number;
+    sha256: string;
+  }[];
 }
 
 export interface WorkspaceSnapshot {
