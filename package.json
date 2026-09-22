@@ -9,6 +9,7 @@
   "scripts": {
     "test": "node --import tsx --test src/**/__tests__/*.test.ts",
     "collect-fixtures": "npx tsx scripts/collect-fixtures.ts",
+    "verify:opencode": "tsx scripts/verify-opencode-roundtrip.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit"
   },
@@ -19,6 +20,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.6.2",
+    "ajv": "^8.20.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   },

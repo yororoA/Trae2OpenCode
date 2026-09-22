@@ -1,0 +1,156 @@
+{
+  "reportVersion": 1,
+  "targetVersion": "2.0.12",
+  "checkedAt": "2026-09-22T16:41:16.287Z",
+  "status": "verified-with-limitations",
+  "source": "synthetic-fixture-only",
+  "fixtureSha256": "3cbb7a247fa9f9991530c4eef0051f95a9ab810a8b657f5436f2295d14131e9e",
+  "schemaSha256": "bac482e2b137ea65ac723663700182efff047e0584302bbc3749ce3a5dfde076",
+  "isolation": {
+    "privateServer": true,
+    "separateDatabase": true,
+    "separateXdgDirectories": true
+  },
+  "checks": {
+    "duplicateImport": {
+      "status": 409,
+      "existingTranscriptUnchanged": true
+    },
+    "missingParent": {
+      "status": 404,
+      "sessionAbsent": true
+    },
+    "unknownMessageType": {
+      "schemaRejected": true,
+      "status": 400,
+      "sessionAbsent": true
+    }
+  },
+  "cases": [
+    {
+      "name": "completed",
+      "schemaValid": true,
+      "cliApiReadbackEqual": true,
+      "sourceMessages": 2,
+      "readbackMessages": 2,
+      "sourceMessagesSha256": "e88b6c26d63a675bfbab4af86239dff5e8766b04839d2b69ca3697137737d238",
+      "readbackMessagesSha256": "e88b6c26d63a675bfbab4af86239dff5e8766b04839d2b69ca3697137737d238",
+      "messageDiff": [],
+      "sessionChanges": [
+        "$.info.projectID",
+        "$.info.model.variant",
+        "$.info.time.updated",
+        "$.info.subpath"
+      ],
+      "fidelity": "exact-messages",
+      "lostMessageIds": []
+    },
+    {
+      "name": "unfinished-tools",
+      "schemaValid": true,
+      "cliApiReadbackEqual": true,
+      "sourceMessages": 4,
+      "readbackMessages": 3,
+      "sourceMessagesSha256": "e3f058b66cfc56ee635f38d7207823785dacb9816ad0a48df9f3f0f3ef736a1b",
+      "readbackMessagesSha256": "14c07c1ed85a2a76dbf5490f515ee753a9e092e60257cf3d847a8175e3d0f90a",
+      "messageDiff": [
+        "$.messages[3]"
+      ],
+      "sessionChanges": [
+        "$.info.projectID",
+        "$.info.model.variant",
+        "$.info.time.updated",
+        "$.info.subpath"
+      ],
+      "fidelity": "loss-observed",
+      "lostMessageIds": [
+        "msg_m04_assistant_2_unfinished_tools"
+      ]
+    },
+    {
+      "name": "unfinished-text",
+      "schemaValid": true,
+      "cliApiReadbackEqual": true,
+      "sourceMessages": 4,
+      "readbackMessages": 3,
+      "sourceMessagesSha256": "082c47241309dcae8fef46436a076f42aaf420722a4fa7b4716f55dd1bc17181",
+      "readbackMessagesSha256": "9ac2dab108f9ba24d7460e2df39affc16d9e1b6fd318336e81a4d2212bb6f79f",
+      "messageDiff": [
+        "$.messages[3]"
+      ],
+      "sessionChanges": [
+        "$.info.projectID",
+        "$.info.model.variant",
+        "$.info.time.updated",
+        "$.info.subpath"
+      ],
+      "fidelity": "loss-observed",
+      "lostMessageIds": [
+        "msg_m04_assistant_2_unfinished_text"
+      ]
+    },
+    {
+      "name": "finish-without-completed",
+      "schemaValid": true,
+      "cliApiReadbackEqual": true,
+      "sourceMessages": 4,
+      "readbackMessages": 3,
+      "sourceMessagesSha256": "9736c70db1794600247a897970edecf8935c7d512e9e91488d6d3a5285caac77",
+      "readbackMessagesSha256": "0c469c08c7b04e538805c4bc9d510d38c070b533bf406c9402674aa8632a1cef",
+      "messageDiff": [
+        "$.messages[3]"
+      ],
+      "sessionChanges": [
+        "$.info.projectID",
+        "$.info.model.variant",
+        "$.info.time.updated",
+        "$.info.subpath"
+      ],
+      "fidelity": "loss-observed",
+      "lostMessageIds": [
+        "msg_m04_assistant_2_finish_only"
+      ]
+    },
+    {
+      "name": "completed-with-active-tools",
+      "schemaValid": true,
+      "cliApiReadbackEqual": true,
+      "sourceMessages": 4,
+      "readbackMessages": 4,
+      "sourceMessagesSha256": "3ec7459a87d4b18094c04c1b24b25afc8d64f9febbcb29d995d5ccf3586a8b74",
+      "readbackMessagesSha256": "3ec7459a87d4b18094c04c1b24b25afc8d64f9febbcb29d995d5ccf3586a8b74",
+      "messageDiff": [],
+      "sessionChanges": [
+        "$.info.projectID",
+        "$.info.model.variant",
+        "$.info.time.updated",
+        "$.info.subpath"
+      ],
+      "fidelity": "exact-messages",
+      "lostMessageIds": []
+    },
+    {
+      "name": "child-after-parent",
+      "schemaValid": true,
+      "cliApiReadbackEqual": true,
+      "sourceMessages": 2,
+      "readbackMessages": 2,
+      "sourceMessagesSha256": "28b90fca9fa7b18df7938439e4cfde5082fc471d73cb28a072c3ce8cd6778bc9",
+      "readbackMessagesSha256": "28b90fca9fa7b18df7938439e4cfde5082fc471d73cb28a072c3ce8cd6778bc9",
+      "messageDiff": [],
+      "sessionChanges": [
+        "$.info.projectID",
+        "$.info.model.variant",
+        "$.info.time.updated",
+        "$.info.subpath"
+      ],
+      "fidelity": "exact-messages",
+      "lostMessageIds": []
+    }
+  ],
+  "limitations": [
+    "Assistant messages without time.completed disappear from CLI and API export, even with finish=stop.",
+    "Session projectID, subpath, time.updated and summary model.variant are projected by the target.",
+    "This probe does not validate TRAE recovery, file attachments, other OpenCode versions or Windows."
+  ]
+}
