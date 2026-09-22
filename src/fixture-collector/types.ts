@@ -83,6 +83,10 @@ export interface FixtureReport {
     totalJsonFiles: number;
     totalFileEntriesInDirs: number;
     profileCounts: Record<string, number>;
+    profileVerification: Record<
+      string,
+      "verified" | "unverified" | "unsupported"
+    >;
   };
 }
 

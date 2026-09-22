@@ -13,7 +13,10 @@ import {
   scanDirectory,
   hashFileSha256,
 } from "./snapshot";
-import { identifyStorageProfile } from "./profiles";
+import {
+  getProfileVerification,
+  identifyStorageProfile,
+} from "./profiles";
 import type {
   FixtureReport,
   CollectorOptions,
@@ -150,9 +153,12 @@ export function collect(options: CollectorOptions = {}): FixtureReport {
 
   // profile 统计
   const profileCounts: Record<string, number> = {};
+  const profileVerification: FixtureReport["summary"]["profileVerification"] =
+    {};
   for (const ws of workspaces) {
     const profile = identifyStorageProfile(ws.profileFeatures);
     profileCounts[profile] = (profileCounts[profile] || 0) + 1;
+    profileVerification[profile] = getProfileVerification(profile);
   }
 
   return {
@@ -183,6 +189,7 @@ export function collect(options: CollectorOptions = {}): FixtureReport {
         0,
       ),
       profileCounts,
+      profileVerification,
     },
   };
 }

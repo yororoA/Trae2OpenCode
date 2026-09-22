@@ -1,6 +1,6 @@
 {
   "collectorVersion": "0.1.2",
-  "collectedAt": "2026-09-22T10:17:58.716Z",
+  "collectedAt": "2026-09-22T11:36:15.826Z",
   "os": "darwin",
   "sourceProduct": {
     "name": "trae-cn",
@@ -15,7 +15,7 @@
   "globalStorage": {
     "stateVscdb": {
       "relativePath": "globalStorage/state.vscdb",
-      "sha256": "fa3f0b3d1a58a9cbfa8e3bacf93355963fd01fb34cdf83b2047ba3bda0e0f830",
+      "sha256": "1f9738325b742a2aead51a1d2b365b347f33b0150bfdcbbcc538063341304c29",
       "tables": [
         {
           "name": "ItemTable",
@@ -1509,7 +1509,7 @@
       "sqliteFiles": [
         {
           "relativePath": "e4304a21628c7561dd64d3a663027fb3/state.vscdb",
-          "sha256": "5805a7b3d975124096e9974818084eefe90d2529bf08d9926c9be55e964988a6",
+          "sha256": "c6af16b3a510ef33e323c156b1ab6ebc7cbd5078954ef1368025829ebdf80c22",
           "tables": [
             {
               "name": "ItemTable",
@@ -1568,6 +1568,9 @@
     "totalFileEntriesInDirs": 113,
     "profileCounts": {
       "trae-cn-workspace-v3": 11
+    },
+    "profileVerification": {
+      "trae-cn-workspace-v3": "verified"
     }
   }
 }

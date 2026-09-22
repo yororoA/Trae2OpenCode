@@ -14,7 +14,10 @@ import {
   discoverTraeRoots,
   getDefaultTraeUserDataPaths,
 } from "../discovery";
-import { identifyStorageProfile } from "../profiles";
+import {
+  getProfileVerification,
+  identifyStorageProfile,
+} from "../profiles";
 
 describe("analyzeJsonStructure", () => {
   it("提取顶层 key", () => {
@@ -108,25 +111,25 @@ describe("identifyStorageProfile", () => {
   };
 
   it("识别 3.x workspace storage", () => {
-    assert.strictEqual(
-      identifyStorageProfile({
-        ...baseFeatures,
-        hasMementoStorage: false,
-        keyTables: ["ItemTable"],
-      }),
-      "trae-cn-workspace-v3",
-    );
+    const profile = identifyStorageProfile({
+      ...baseFeatures,
+      hasMementoStorage: false,
+      keyTables: ["ItemTable"],
+    });
+
+    assert.strictEqual(profile, "trae-cn-workspace-v3");
+    assert.strictEqual(getProfileVerification(profile), "verified");
   });
 
   it("识别旧 memento storage", () => {
-    assert.strictEqual(
-      identifyStorageProfile({
-        ...baseFeatures,
-        hasMementoStorage: true,
-        keyTables: [],
-      }),
-      "trae-cn-memento-v1",
-    );
+    const profile = identifyStorageProfile({
+      ...baseFeatures,
+      hasMementoStorage: true,
+      keyTables: [],
+    });
+
+    assert.strictEqual(profile, "trae-cn-memento-v1");
+    assert.strictEqual(getProfileVerification(profile), "unverified");
   });
 });
 
@@ -143,6 +146,10 @@ describe("Trae CN 3.3.104 fixture", () => {
 
     assert.strictEqual(fixture.sourceProduct.version, "3.3.104");
     assert.ok(fixture.summary.totalWorkspaces > 0);
+    assert.strictEqual(
+      fixture.summary.profileVerification["trae-cn-workspace-v3"],
+      "verified",
+    );
     assert.doesNotMatch(content, /\/Users\//);
     assert.doesNotMatch(content, /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/);
   });
