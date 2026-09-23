@@ -1,6 +1,6 @@
 # Trae2OpenCode 实现规划
 
-> 状态：M0 已完成，待进入 M1
+> 状态：M0 技术验收完成，待合入里程碑分支；M1-1 尚未启动
 > 核验日期：2026-09-23
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
@@ -24,6 +24,21 @@
 
 M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP 的第一个实现阶段
 仍是“可恢复性盘点器”：先按会话验证字段覆盖率，再生成 IR，避免静默丢失内容。
+
+### 1.1 当前状态快照
+
+| 范围 | 状态 | 当前结果 |
+| --- | --- | --- |
+| M0 格式勘探 | 已完成 | M0-1 至 M0-5 的证据、策略和测试均已完成 |
+| M0 分支交付 | 待集成 | `m0-5/adr-mapping` 已推送至 `22213ed`，尚未合入 `m0/format-exploration` 和 `main` |
+| M1 工程骨架 | 部分基础已具备 | TypeScript、`node:test`、typecheck 和 build 可运行；CLI 入口、lint、CI 尚缺 |
+| M1 IR/schema | 未开始 | 尚无版本化 IR 类型、JSON Schema 或 golden fixture 框架 |
+| M2/M3 TRAE 读取 | 未开始 | M0 collector/probe 只用于勘探；生产 scanner、runtime reader 和 recovery grading 尚未实现 |
+| M4 OpenCode adapter | 契约验证完成，实现未开始 | 2.0.12 隔离 import/export 已验证，尚无生产 capability probe 与 import adapter |
+| M5-M7 | 未开始 | 编排、安全、资源迁移、兼容与发布能力均未实现 |
+
+当前结论不能表述为“迁移工具已可用”。准确状态是：M0 已解除源数据可恢复性
+阻塞，项目可以进入工程实现阶段；目前仍不能执行真实 TRAE 会话迁移。
 
 ## 2. 目标与边界
 
@@ -59,7 +74,8 @@ M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP
 
 ### ADR-001：先做单包 CLI，不提前拆 monorepo
 
-仓库目前没有代码。MVP 使用一个 TypeScript 包，通过目录划分边界：
+仓库已有 M0 阶段的 TypeScript 采集、证据校验和 OpenCode 验证代码。MVP 继续
+保持单包结构，并在 M1 补齐 CLI 入口后按以下目录划分边界：
 
 ```text
 src/
@@ -223,13 +239,13 @@ trae2opencode rollback --manifest <path>
 
 ### M0：格式勘探与决策冻结，2-4 天
 
-| ID | 任务 | 依赖 | 验收 |
-| --- | --- | --- | --- |
-| M0-1 | 建立脱敏 fixture 采集脚本 | 无 | 只保留结构、类型、hash 和测试所需样本 |
-| M0-2 | 固化 TRAE CN 3.3.104 存储 profile | M0-1 | 当前结构有真实脱敏 fixture；旧 `memento` 标记为未验证并 fail closed |
-| M0-3 | 定位 assistant/reasoning/tool 的真实来源 | M0-2 | 每类字段有来源路径，或明确判定本地不可得 |
-| M0-4 | 验证 OpenCode import round-trip | 无 | 原生消息类型可完整回读 |
-| M0-5 | 固化 ADR 与映射矩阵 | M0-3, M0-4 | 字段映射、降级策略和不支持项评审通过 |
+| ID | 任务 | 依赖 | 验收 | 状态 |
+| --- | --- | --- | --- | --- |
+| M0-1 | 建立脱敏 fixture 采集脚本 | 无 | 只保留结构、类型、hash 和测试所需样本 | 已完成 |
+| M0-2 | 固化 TRAE CN 3.3.104 存储 profile | M0-1 | 当前结构有真实脱敏 fixture；旧 `memento` 标记为未验证并 fail closed | 已完成 |
+| M0-3 | 定位 assistant/reasoning/tool 的真实来源 | M0-2 | 每类字段有来源路径，或明确判定本地不可得 | 已完成 |
+| M0-4 | 验证 OpenCode import round-trip | 无 | 原生消息类型可完整回读 | 已完成 |
+| M0-5 | 固化 ADR 与映射矩阵 | M0-3, M0-4 | 字段映射、降级策略和不支持项评审通过 | 已完成 |
 
 **退出条件**：至少一个真实会话能恢复完整消息链；若做不到，项目目标降级为
 “本地可用数据导出器”，不能继续宣称完整迁移。
@@ -250,14 +266,25 @@ trae2opencode rollback --manifest <path>
   只导出 metadata/diagnostic；缺少真实完成时间的 assistant 仍拒绝目标写入。
 - M0 退出条件已满足：至少一个真实会话的完整消息链可从结构化 runtime 入口恢复。
   这允许进入 M1-M3 实现，不表示生产迁移 reader 或目标写入已经完成。
+- M0 最新交付提交为 `22213ed`，已推送到 `origin/m0-5/adr-mapping`。按当前分支
+  策略，仍需通过 PR 合入 `m0/format-exploration`，再由里程碑分支合入 `main`。
 - 开发执行通道曾发生 transport 故障，原因、备用方案与复现方法见
   [开发环境故障排查](./development-troubleshooting.md)。
+
+#### 进入 M1 的剩余门槛
+
+1. 完成 M0 任务分支到里程碑分支及 `main` 的集成。
+2. 为包增加可执行 CLI 入口、参数解析、帮助和版本命令。
+3. 增加 lint 与 CI，保留现有 31 项单测、typecheck 和 build 门禁。
+4. 定义版本化 IR 与 JSON Schema，再让 scanner 和 runtime reader 依赖该契约。
+5. 将 M0 renderer 探针替换为生产 runtime adapter；探针、日志和数据库解密均
+   不得成为生产数据源。
 
 ### M1：工程骨架与 IR，2-3 天
 
 | ID | 任务 | 依赖 | 验收 |
 | --- | --- | --- | --- |
-| M1-1 | 初始化 TypeScript CLI、lint、test、build | M0-5 | 本地和 CI 可构建 |
+| M1-1 | 完善 TypeScript CLI 入口、lint、test、build | M0-5 | CLI 可执行，本地和 CI 可检查与构建 |
 | M1-2 | 定义版本化 IR 和 JSON Schema | M0-5 | 合法/非法 fixture 校验覆盖 |
 | M1-3 | 统一错误码、诊断和结构化日志 | M1-1 | CLI 错误可定位且正文不泄露 |
 | M1-4 | 建立 golden fixture 测试框架 | M1-1, M1-2 | IR 变化必须显式更新 golden |
@@ -398,13 +425,16 @@ OpenCode import 是实验性能力。M4-6 必须验证实际导入结果，不�
 
 ## 10. 推荐执行顺序
 
-1. 实现 IR、scanner 和 runtime capability probe。
-2. 实现 3.3.104 V2 reader 与 `export`，先形成稳定、可审计的离线产物。
-3. 用真实脱敏结构契约打通 OpenCode import/export round-trip。
-4. 增加批量迁移、manifest、resume 和 rollback。
-5. 最后处理附件、Skill、MCP；SQLite Writer 保持为可选项。
+1. 将 `m0-5/adr-mapping` 合入 M0 里程碑分支，再合入 `main`。
+2. 完成 M1-1 CLI/lint/CI 骨架和 M1-2 IR/schema，固定后续模块契约。
+3. 实现 scanner、runtime capability probe 和 3.3.104 V2 reader。
+4. 生成可审计 IR，并打通真实来源到 OpenCode 的 import/export 对账。
+5. 增加批量迁移、manifest、resume 和 rollback。
+6. 最后处理附件、Skill、MCP；SQLite Writer 保持为可选项。
 
-原始 P0 估算为 20-30 个工程日；M0 已完成，剩余工期应在 M1 拆分后重新评估。
+原始 P0 估算为 20-30 个工程日。当前完成的是高风险的 M0 勘探，不宜按任务数直接
+折算整体百分比；M1-M5 和 M7 仍包含主要产品实现工作，剩余工期应在 M1 拆分后
+重新评估。
 
 ## 11. 分支命名规范
 
