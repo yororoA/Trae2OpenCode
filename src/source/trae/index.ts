@@ -64,3 +64,18 @@ export {
   type TraeSessionRecoveryOptions,
   type TraeSessionRecoveryReport,
 } from "./recovery-grading.js";
+export {
+  parseTraeRuntimeSessionMetadata,
+  readTraeSessionMetadata,
+  VERIFIED_TRAE_SESSION_METADATA_VERSION,
+  type ReadTraeSessionMetadataOptions,
+  type TraeRuntimeSessionMetadataProvider,
+  type TraeRuntimeSessionMetadataRequest,
+  type TraeSessionMetadata,
+  type TraeSessionMetadataIssue,
+  type TraeSessionMetadataIssueCode,
+  type TraeSessionMetadataReport,
+  type TraeSessionMetadataSource,
+  type TraeSessionMetadataSourceKind,
+  type TraeSessionMetadataStatus,
+} from "./session-metadata.js";

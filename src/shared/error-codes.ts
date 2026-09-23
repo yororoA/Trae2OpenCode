@@ -79,6 +79,14 @@ export const ERROR_DEFINITIONS = {
     exitCode: 4,
     message: "TRAE session evidence provider failed.",
   },
+  T2O_TRAE_SESSION_INDEX_VERSION_UNSUPPORTED: {
+    exitCode: 4,
+    message: "The TRAE session index version is unsupported.",
+  },
+  T2O_TRAE_SESSION_METADATA_PROVIDER_FAILED: {
+    exitCode: 4,
+    message: "The TRAE session metadata provider failed.",
+  },
   T2O_INTERNAL_UNEXPECTED: {
     exitCode: 1,
     message: "An unexpected internal error occurred.",

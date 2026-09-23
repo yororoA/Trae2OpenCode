@@ -31,6 +31,8 @@ M1-3 统一三类对外契约：
 | `T2O_TRAE_RECOVERY_EVIDENCE_INVALID` | 4 | 会话恢复证据矛盾或重复 |
 | `T2O_TRAE_SESSION_DISCOVERY_FAILED` | 4 | session metadata 发现失败 |
 | `T2O_TRAE_SESSION_EVIDENCE_PROVIDER_FAILED` | 4 | session 消息证据 provider 失败 |
+| `T2O_TRAE_SESSION_INDEX_VERSION_UNSUPPORTED` | 4 | session index 版本不受支持 |
+| `T2O_TRAE_SESSION_METADATA_PROVIDER_FAILED` | 4 | session metadata provider 失败 |
 
 调用方应依赖错误码和退出码，不应解析英文 message。新增错误必须先进入
 `src/shared/error-codes.ts`，不能在各模块内自行定义退出码。

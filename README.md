@@ -5,7 +5,8 @@ TRAE CN 3.3.104 的 V2 runtime profile 已通过真实结构化回读验证，�
 reasoning、tool payload、关系和时间字段。M2-1 已提供 macOS/Windows 生产路径
 发现，M2-2 已实现 workspace 与项目路径解析，M2-3 已实现 SQLite 一致性只读
 快照，M2-4/M2-5 已实现 capability probe 与会话恢复分级；runtime reader 与
-完整迁移流程尚未实现。
+完整迁移流程尚未实现。M3-1 已实现会话候选发现、runtime metadata 规范化、
+稳定排序及标题/时间缺失诊断。
 
 ## 开发与验证
 
@@ -53,6 +54,7 @@ npm run verify:opencode
 - [M2-3 SQLite 一致性只读快照](docs/m2-3-sqlite-snapshot.md)
 - [M2-4 数据源能力探测](docs/m2-4-capability-probe.md)
 - [M2-5 会话恢复等级](docs/m2-5-recovery-grading.md)
+- [M3-1 会话索引、时间与标题解析](docs/m3-1-session-metadata.md)
 - [TRAE 消息来源定位](docs/m0-3-source-location.md)
 - [OpenCode 导入验证与限制](docs/m0-4-import-roundtrip.md)
 - [M0-5 字段映射与降级矩阵](docs/m0-5-mapping-matrix.md)
