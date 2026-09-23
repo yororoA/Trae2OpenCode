@@ -15,6 +15,14 @@ M1-3 统一三类对外契约：
 | `T2O_CLI_UNKNOWN_COMMAND` | 2 | CLI 命令未知 |
 | `T2O_CLI_COMMAND_NOT_IMPLEMENTED` | 2 | 规划命令尚未实现 |
 | `T2O_IR_SCHEMA_INVALID` | 3 | Migration Bundle 不符合 IR Schema |
+| `T2O_TRAE_ROOT_NOT_FOUND` | 4 | 未找到 TRAE 数据根目录 |
+| `T2O_TRAE_PLATFORM_UNSUPPORTED` | 4 | 当前平台不支持 TRAE 扫描 |
+| `T2O_TRAE_WORKSPACE_STORAGE_UNREADABLE` | 4 | workspace storage 无法读取 |
+| `T2O_TRAE_WORKSPACE_METADATA_NOT_FOUND` | 4 | workspace metadata 缺失 |
+| `T2O_TRAE_WORKSPACE_METADATA_INVALID` | 4 | workspace metadata 无效 |
+| `T2O_TRAE_WORKSPACE_URI_UNSUPPORTED` | 4 | workspace URI 不受支持 |
+| `T2O_TRAE_WORKSPACE_CONFIG_NOT_FOUND` | 4 | workspace 配置文件缺失 |
+| `T2O_TRAE_WORKSPACE_CONFIG_INVALID` | 4 | workspace 配置文件无效 |
 
 调用方应依赖错误码和退出码，不应解析英文 message。新增错误必须先进入
 `src/shared/error-codes.ts`，不能在各模块内自行定义退出码。

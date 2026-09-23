@@ -23,6 +23,30 @@ export const ERROR_DEFINITIONS = {
     exitCode: 4,
     message: "TRAE scanning is not supported on this platform.",
   },
+  T2O_TRAE_WORKSPACE_STORAGE_UNREADABLE: {
+    exitCode: 4,
+    message: "TRAE workspace storage could not be read.",
+  },
+  T2O_TRAE_WORKSPACE_METADATA_NOT_FOUND: {
+    exitCode: 4,
+    message: "TRAE workspace metadata was not found.",
+  },
+  T2O_TRAE_WORKSPACE_METADATA_INVALID: {
+    exitCode: 4,
+    message: "TRAE workspace metadata is invalid.",
+  },
+  T2O_TRAE_WORKSPACE_URI_UNSUPPORTED: {
+    exitCode: 4,
+    message: "TRAE workspace URI is unsupported.",
+  },
+  T2O_TRAE_WORKSPACE_CONFIG_NOT_FOUND: {
+    exitCode: 4,
+    message: "TRAE workspace configuration was not found.",
+  },
+  T2O_TRAE_WORKSPACE_CONFIG_INVALID: {
+    exitCode: 4,
+    message: "TRAE workspace configuration is invalid.",
+  },
   T2O_INTERNAL_UNEXPECTED: {
     exitCode: 1,
     message: "An unexpected internal error occurred.",

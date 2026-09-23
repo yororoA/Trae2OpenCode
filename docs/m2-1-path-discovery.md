@@ -1,6 +1,6 @@
 # M2-1 TRAE 路径发现
 
-> 状态：已完成
+> 状态：已通过 PR #12 合入 `m2/trae-scanner`
 > 核验日期：2026-09-23
 > 范围：macOS、Windows、显式 `--trae-root`
 

@@ -9,3 +9,18 @@ export {
   type TraeRootDiscoveryOptions,
   type TraeRootSource,
 } from "./path-discovery.js";
+export {
+  normalizeWorkspaceFileUri,
+  resolveTraeWorkspaces,
+  resolveWorkspaceLocation,
+  type ParsedWorkspaceLocation,
+  type ProjectPathSource,
+  type ResolvedProjectPath,
+  type ResolvedTraeWorkspace,
+  type WorkspaceLocation,
+  type WorkspaceLocationKind,
+  type WorkspaceResolutionIssue,
+  type WorkspaceResolutionIssueCode,
+  type WorkspaceResolutionOptions,
+  type WorkspaceResolutionReport,
+} from "./workspace-resolution.js";

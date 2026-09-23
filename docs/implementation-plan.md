@@ -1,6 +1,6 @@
 # Trae2OpenCode 实现规划
 
-> 状态：M0、M1 已合入 `main`；M2-1 已完成，待任务分支 PR
+> 状态：M0、M1 已合入 `main`；M2-1 已合入 M2 里程碑分支；M2-2 已完成
 > 核验日期：2026-09-23
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
@@ -32,8 +32,9 @@ M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP
 | M0 格式勘探 | 已完成 | M0-1 至 M0-5 的证据、策略和测试均已完成 |
 | M0 分支交付 | 已集成 | PR #5 已合入 `m0/format-exploration`，PR #6 已合入 `main` |
 | M1 工程骨架与 IR | 已集成 | PR #7 至 #10 已合入里程碑分支，PR #11 已合入 `main` |
-| M2 路径发现 | M2-1 已完成 | 已实现 macOS/Windows 默认路径、显式根目录和稳定错误码 |
-| M2 扫描后续/M3 读取 | 未开始 | workspace 解析、快照、能力探测、runtime reader 和 recovery grading 尚未实现 |
+| M2 路径发现 | M2-1 已集成 | PR #12 已合入 `m2/trae-scanner` |
+| M2 workspace 解析 | M2-2 已完成 | 已实现 folder/workspace URI、JSONC multi-root 和逐记录诊断 |
+| M2 扫描后续/M3 读取 | 未开始 | 快照、能力探测、runtime reader 和 recovery grading 尚未实现 |
 | M4 OpenCode adapter | 契约验证完成，实现未开始 | 2.0.12 隔离 import/export 已验证，尚无生产 capability probe 与 import adapter |
 | M5-M7 | 未开始 | 编排、安全、资源迁移、兼容与发布能力均未实现 |
 
@@ -282,10 +283,12 @@ trae2opencode rollback --manifest <path>
 4. M1-4 已通过 PR #10 合入里程碑分支：golden fixture 只读检查、显式更新、
    Schema hash 和 bundle hash 已建立。
 5. M1 已通过 PR #11 合入 `main`。
-6. M2-1 已完成生产路径发现器：支持 macOS/Windows 默认路径与显式
-   `--trae-root`，详细契约见
+6. M2-1 已通过 PR #12 合入里程碑分支：支持 macOS/Windows 默认路径与显式
+   `--trae-root`。详细契约见
    [M2-1 路径发现](./m2-1-path-discovery.md)。
-7. 后续将 M0 renderer 探针替换为生产 runtime adapter；探针、日志和数据库解密
+7. M2-2 已完成 workspace 与项目路径解析，详细契约见
+   [M2-2 Workspace 解析](./m2-2-workspace-resolution.md)。
+8. 后续将 M0 renderer 探针替换为生产 runtime adapter；探针、日志和数据库解密
    均不得成为生产数据源。
 
 ### M1：工程骨架与 IR，2-3 天
@@ -301,8 +304,8 @@ trae2opencode rollback --manifest <path>
 
 | ID | 任务 | 依赖 | 验收 | 状态 |
 | --- | --- | --- | --- | --- |
-| M2-1 | macOS/Windows 路径发现器 | M1-1 | 支持默认路径和 `--trae-root` | 已完成 |
-| M2-2 | workspace 与项目路径解析 | M2-1 | folder/workspace URI 均可规范化 | 未开始 |
+| M2-1 | macOS/Windows 路径发现器 | M1-1 | 支持默认路径和 `--trae-root` | 已完成并集成 |
+| M2-2 | workspace 与项目路径解析 | M2-1 | folder/workspace URI 均可规范化 | 已完成 |
 | M2-3 | SQLite 一致性只读快照 | M2-1 | TRAE 运行时扫描也不写源库 | 未开始 |
 | M2-4 | 数据源能力探测器 | M2-2, M2-3 | 输出 storage profile 和字段覆盖率 | 未开始 |
 | M2-5 | 会话级 recovery grading | M2-4 | 每个会话都有等级和缺失原因 | 未开始 |
@@ -434,8 +437,8 @@ OpenCode import 是实验性能力。M4-6 必须验证实际导入结果，不�
 ## 10. 推荐执行顺序
 
 1. M0、M1 已完成并合入 `main`。
-2. M2-1 路径发现器已完成；合入后进入 M2-2 workspace 与项目路径解析。
-3. 完成只读快照、runtime capability probe 和 recovery grading。
+2. M2-1、M2-2 已完成；下一步进入 M2-3 SQLite 一致性只读快照。
+3. 完成 runtime capability probe 和 recovery grading。
 4. 生成可审计 IR，并打通真实来源到 OpenCode 的 import/export 对账。
 5. 增加批量迁移、manifest、resume 和 rollback。
 6. 最后处理附件、Skill、MCP；SQLite Writer 保持为可选项。
@@ -444,26 +447,47 @@ OpenCode import 是实验性能力。M4-6 必须验证实际导入结果，不�
 折算整体百分比；M1-M5 和 M7 仍包含主要产品实现工作，剩余工期应在 M1 拆分后
 重新评估。
 
-## 11. 分支命名规范
+## 11. 分支与提交规范
 
-### 11.1 命名格式
+### 11.1 里程碑分支
 
 | 层级 | 格式 | 示例 |
 | --- | --- | --- |
 | 里程碑分支 | `m{编号}/{kebab-case-short-name}` | `m0/format-exploration` |
-| 任务分支 | `m{编号}-{序号}/{kebab-case-short-name}` | `m0-1/fixture-collection` |
 
-### 11.2 合并策略
+M0、M1 已使用并完成任务分支流程。自 M2-2 起不再创建任务分支，任务直接提交到
+对应里程碑分支。
+
+### 11.2 提交格式
+
+提交使用 Conventional Commits，scope 固定为任务 ID：
 
 ```text
-任务分支 ──PR──▶ 里程碑分支 ──PR──▶ main
+feat(m2-2): resolve workspace project paths
+fix(m2-2): reject ambiguous workspace metadata
+test(m2-2): cover Windows file URI normalization
+docs(m2-2): record workspace resolution contract
+chore(m2-2): update task tooling
 ```
 
-- 任务分支完成后通过 PR 合入对应的里程碑分支。
-- 每个里程碑的退出条件满足后，里程碑分支合入 `main`。
+类型按提交内容选择，不把功能实现标为 `chore`。一个任务允许多个提交，但每个
+提交都必须保留对应任务 scope。
+
+### 11.3 合并策略
+
+```text
+任务提交 ──▶ 里程碑分支 ──PR──▶ main
+```
+
+- 任务提交直接推送至当前里程碑分支。
+- 每个任务提交前必须通过完整质量门禁。
+- 每个里程碑的退出条件满足后，里程碑分支通过 PR 合入 `main`。
 - `main` 始终是可发布状态（P0 完成后即具备首个可用版本）。
 
-### 11.3 分支一览
+### 11.4 分支一览
+
+M0、M1 的子分支仅作为既有历史保留；M2 起仅维护里程碑分支，M2-1 的既有 PR
+记录仍保留在 Git 历史中。
 
 ```text
 main
@@ -482,49 +506,9 @@ main
 │   └── m1-4/golden-fixtures        #   建立 golden fixture 测试框架
 │
 ├── m2/trae-scanner                 # M2：TRAE 扫描与恢复等级
-│   ├── m2-1/path-discovery         #   macOS/Windows 路径发现器
-│   ├── m2-2/workspace-resolution   #   workspace 与项目路径解析
-│   ├── m2-3/sqlite-snapshot        #   SQLite 一致性只读快照
-│   ├── m2-4/capability-probe       #   数据源能力探测器
-│   └── m2-5/recovery-grading       #   会话级 recovery grading
-│
 ├── m3/trae-parser                  # M3：TRAE Parser 与 IR 标准化
-│   ├── m3-1/session-index          #   会话索引、时间、标题解析
-│   ├── m3-2/user-messages          #   用户消息与查询缓存解析
-│   ├── m3-3/assistant-longtext     #   assistant 文本与 long-text 关联
-│   ├── m3-4/reasoning-parser       #   reasoning/plan 解析
-│   ├── m3-5/tool-call-merge        #   tool call/result 状态机归并
-│   ├── m3-6/attachment-parser      #   图片、文件、长文本附件解析 [P1]
-│   ├── m3-7/profile-registry       #   多 profile 解析器注册表
-│   └── m3-8/ir-validation          #   IR 排序、去重与完整性校验
-│
 ├── m4/opencode-import              # M4：OpenCode 原生导入
-│   ├── m4-1/capability-probe       #   版本与 OpenAPI capability probe
-│   ├── m4-2/ir-to-transfer         #   IR → SessionTransfer.Data 映射
-│   ├── m4-3/stable-id-ordering     #   稳定 ID 与父子依赖排序
-│   ├── m4-4/cli-import-adapter     #   原生 CLI import adapter
-│   ├── m4-5/project-path-strategy  #   项目目录与不存在路径策略
-│   └── m4-6/roundtrip-verify       #   导入后 export/readback 对账
-│
 ├── m5/migration-orchestration      # M5：迁移编排与安全性
-│   ├── m5-1/doctor-scan-preview    #   doctor/scan/preview/export 命令
-│   ├── m5-2/dry-run                #   migrate --dry-run
-│   ├── m5-3/manifest-checkpoint    #   manifest、checkpoint、resume
-│   ├── m5-4/idempotent-strategy    #   冲突与幂等策略
-│   ├── m5-5/rollback               #   rollback
-│   └── m5-6/sensitive-filter       #   敏感信息过滤
-│
 ├── m6/resource-migration           # M6：资源迁移 [P1，可独立发布]
-│   ├── m6-1/skill-discovery        #   Skill 发现、校验与冲突预览
-│   ├── m6-2/skill-copy             #   Skill 复制与来源 manifest
-│   ├── m6-3/mcp-discovery          #   MCP 配置发现与脱敏
-│   ├── m6-4/mcp-mapping            #   TRAE → OpenCode MCP 映射
-│   └── m6-5/runtime-readiness      #   runtime readiness 检查
-│
 └── m7/compatibility-release        # M7：兼容与发布
-    ├── m7-1/os-matrix              #   macOS/Windows 集成矩阵
-    ├── m7-2/version-contract       #   OpenCode 版本契约测试
-    ├── m7-3/stress-recovery        #   大会话与异常中断测试
-    ├── m7-4/install-docs           #   安装包、README、故障排查
-    └── m7-5/sqlite-fallback        #   可选 SQLite fallback 评估 [P2]
 ```
