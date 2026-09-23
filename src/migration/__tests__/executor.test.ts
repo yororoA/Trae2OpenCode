@@ -178,6 +178,7 @@ describe("migration executor", () => {
       manifest.sessions[0].state = "importing";
       manifest.sessions[0].created = false;
       delete manifest.sessions[0].actual;
+      delete manifest.sessions[0].deletionHash;
       await store.save(manifest);
     });
     const recovered = await migrate(plan, fake.api, { resumeManifest: filename });
@@ -193,5 +194,43 @@ describe("migration executor", () => {
     assert.equal(result.created, 0);
     assert.equal(fake.imports.length, 0);
     await assert.rejects(migrate(plan, fake.api, { outputDirectory }), { code: "T2O_MIGRATION_CHECKPOINT_FAILED" });
+  }));
+
+  it("skips an entire existing parent graph without claiming a missing parent", () => setup(async ({ plan, fake, outputDirectory }) => {
+    plan.sessions[1].parentId = plan.sessions[0].targetId;
+    plan.sessions[1].transfer!.info.parentID = plan.sessions[0].targetId;
+    for (const item of plan.sessions) fake.sessions.set(item.targetId, item.transfer!);
+    const result = await migrate(plan, fake.api, { outputDirectory });
+    assert.equal(result.skipped, 2);
+    assert.equal(result.hasFailures, false);
+    assert.equal(fake.imports.length, 0);
+  }, true));
+
+  it("does not attach a new child to a skipped foreign parent", () => setup(async ({ plan, fake, outputDirectory }) => {
+    plan.sessions[1].parentId = plan.sessions[0].targetId;
+    plan.sessions[1].transfer!.info.parentID = plan.sessions[0].targetId;
+    fake.sessions.set(plan.sessions[0].targetId, plan.sessions[0].transfer!);
+    const result = await migrate(plan, fake.api, { outputDirectory });
+    assert.equal(result.skipped, 1);
+    assert.equal(result.hasFailures, true);
+    assert.deepEqual(result.sessions[1].codes, ["T2O_OPENCODE_PARENT_MISSING"]);
+    assert.equal(fake.imports.length, 0);
+  }, true));
+
+  it("keeps the first partial readback hash when the target is subsequently edited", () => setup(async ({ plan, fake, filename, outputDirectory }) => {
+    const nativeImport = fake.api.importSession;
+    fake.api.importSession = async (transfer) => {
+      const partial = structuredClone(transfer);
+      partial.messages.pop();
+      return nativeImport(partial);
+    };
+    const first = await migrate(plan, fake.api, { outputDirectory });
+    const originalHash = first.sessions[0].deletionHash;
+    assert.ok(originalHash);
+    fake.sessions.get(plan.sessions[0].targetId)!.messages[0].text = "later edit";
+    const resumed = await migrate(plan, fake.api, { resumeManifest: filename });
+    assert.equal(resumed.sessions[0].deletionHash, originalHash);
+    assert.deepEqual(resumed.sessions[0].codes, ["T2O_MIGRATION_TARGET_CHANGED"]);
+    assert.equal(fake.imports.length, 1);
   }));
 });

@@ -4,6 +4,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, it } from "node:test";
 import { hashCanonicalJson } from "../../ir/canonical.js";
+import { readBundleFile } from "../bundle-file.js";
+import { migrate } from "../executor.js";
+import { buildMigrationPlan } from "../plan.js";
 import { readManifest, withManifestStore, type MigrationManifest } from "../manifest.js";
 
 const hash = hashCanonicalJson("synthetic");
@@ -79,5 +82,33 @@ describe("migration manifest persistence", () => {
     await assert.rejects(withManifestStore(filename, async () => assert.fail("Bad lock accepted")),
       { code: "T2O_MIGRATION_CHECKPOINT_FAILED" });
     assert.equal(await fs.readFile(target, "utf8"), "{}");
+  }));
+
+  it("rejects inconsistent deletion evidence and replacement checkpoints", () => temporary(async (filename) => {
+    const plan = await buildMigrationPlan(await readBundleFile("fixtures/ir/v1/valid-trae-assembled.json"), {
+      fallbackDirectory: path.dirname(filename),
+    });
+    const outputDirectory = path.join(path.dirname(filename), "run");
+    const result = await migrate(plan, {
+      async describe() { return emptyManifest().target; },
+      async readSession() { return null; },
+      async importSession() { throw new Error("simulated failure"); },
+    }, { outputDirectory });
+    const source = path.join(outputDirectory, result.manifest);
+    await withManifestStore(source, async (store) => {
+      const original = await store.read();
+      const invalidHash = structuredClone(original);
+      invalidHash.sessions[0].deletionHash = hash;
+      await assert.rejects(store.save(invalidHash), { code: "T2O_MIGRATION_CHECKPOINT_FAILED" });
+      const prematureImport = structuredClone(original);
+      prematureImport.sessions[0].replacement = {
+        runId: emptyManifest().runId, deletionHash: hash, state: "deleting",
+      };
+      await assert.rejects(store.save(prematureImport), { code: "T2O_MIGRATION_CHECKPOINT_FAILED" });
+      const recursive = structuredClone(original);
+      recursive.sessions[0].replacement = { runId: original.runId, deletionHash: hash, state: "deleted" };
+      await assert.rejects(store.save(recursive), { code: "T2O_MIGRATION_CHECKPOINT_FAILED" });
+      assert.deepEqual(await store.read(), original);
+    });
   }));
 });

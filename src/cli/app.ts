@@ -77,6 +77,10 @@ Options:
       --output <dir>  Create a private export or migration directory
       --resume <path>
                       Resume migration using a manifest and the same source/options
+      --replace <path>
+                      Replace unchanged tool sessions proven by a previous manifest
+      --exclusive-target
+                      Acknowledge all other target writers are stopped during deletion
       --manifest <path>
                       Manifest to verify
       --session <id>  Select one source session
@@ -180,6 +184,8 @@ export async function runCli(
         "fallback-directory": { type: "string" },
         manifest: { type: "string" },
         resume: { type: "string" },
+        replace: { type: "string" },
+        "exclusive-target": { type: "boolean" },
       },
     });
   } catch (cause) {
@@ -270,6 +276,7 @@ export async function runCli(
         pathMaps: parsed.values["path-map"] as string[] | undefined,
         fallbackDirectory: stringOption("fallback-directory"),
         manifest: stringOption("manifest"), resume: stringOption("resume"),
+        replace: stringOption("replace"), exclusiveTarget: parsed.values["exclusive-target"] === true,
       });
       io.stdout(`${JSON.stringify(result, null, useJson ? undefined : 2)}\n`);
       const failed = typeof result === "object" && result !== null &&

@@ -46,4 +46,14 @@ describe("read commands", () => {
       assert.doesNotMatch(JSON.stringify(doctor), new RegExp(root));
     } finally { await fs.rm(root, { recursive: true, force: true }); }
   });
+
+  it("rejects replacement flag misuse before opening source or target", async () => {
+    await assert.rejects(executeReadCommand("scan", { replace: "old.json" }), { code: "T2O_CLI_INVALID_ARGUMENTS" });
+    await assert.rejects(executeReadCommand("migrate", { dryRun: true, replace: "old.json" }),
+      { code: "T2O_CLI_INVALID_ARGUMENTS" });
+    await assert.rejects(executeReadCommand("migrate", { server: "invalid", resume: "resume.json", replace: "old.json" }),
+      { code: "T2O_CLI_INVALID_ARGUMENTS" });
+    await assert.rejects(executeReadCommand("migrate", { server: "invalid", output: "new", replace: "old.json" }),
+      { code: "T2O_MIGRATION_EXCLUSIVE_REQUIRED" });
+  });
 });

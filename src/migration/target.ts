@@ -1,6 +1,7 @@
 import { hashCanonicalJson } from "../ir/canonical.js";
 import type { JsonValue } from "../ir/types.js";
 import { requireOpenCodeCapabilities } from "../target/opencode/capability-probe.js";
+import { createOpenCodeDeletionAdapter } from "../target/opencode/deletion.js";
 import type { OpenCodeTransfer } from "../target/opencode/mapping.js";
 import {
   createNativeOpenCodeAdapter, type NativeOpenCodeAdapterOptions,
@@ -19,6 +20,8 @@ export interface MigrationTarget {
   describe(): Promise<MigrationTargetDescriptor>;
   readSession(id: string): Promise<OpenCodeTransfer | null>;
   importSession(transfer: OpenCodeTransfer): Promise<OpenCodeTransfer>;
+  listChildren?(id: string): Promise<string[]>;
+  deleteSession?(id: string, expectedHash: string, exclusiveTarget: boolean): Promise<void>;
 }
 
 /** Endpoint + verified contract, not a claim of database identity or authentication. */
@@ -29,6 +32,7 @@ export function createMigrationTarget(options: NativeOpenCodeAdapterOptions): Mi
   const adapter = createNativeOpenCodeAdapter({ ...options, transport });
   return {
     ...adapter,
+    ...createOpenCodeDeletionAdapter(transport, options.serverUrl, adapter.readSession),
     async describe() {
       const capabilities = await requireOpenCodeCapabilities(transport);
       const descriptor = {

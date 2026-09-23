@@ -75,6 +75,26 @@ export const ERROR_DEFINITIONS = {
     exitCode: 5,
     message: "A session from this migration exists but failed reconciliation; no overwrite was attempted.",
   },
+  T2O_MIGRATION_EXCLUSIVE_REQUIRED: {
+    exitCode: 2,
+    message: "Stop other target writers, then provide --exclusive-target to acknowledge exclusive use during deletion.",
+  },
+  T2O_MIGRATION_REPLACEMENT_INVALID: {
+    exitCode: 5,
+    message: "Replacement requires a verified tool-owned session and its unchanged readback hash in the previous manifest.",
+  },
+  T2O_MIGRATION_CHILDREN_PROTECTED: {
+    exitCode: 5,
+    message: "A child session is outside the deletion plan; no cascading deletion is allowed.",
+  },
+  T2O_OPENCODE_DELETE_FAILED: {
+    exitCode: 5,
+    message: "Session deletion did not complete; resume with the same manifest.",
+  },
+  T2O_OPENCODE_DELETE_UNSUPPORTED: {
+    exitCode: 5,
+    message: "The target lacks the verified session deletion and child-listing contract.",
+  },
   T2O_TRAE_ROOT_NOT_FOUND: {
     exitCode: 4,
     message: "No readable TRAE data root was found.",

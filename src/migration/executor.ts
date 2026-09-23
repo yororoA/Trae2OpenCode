@@ -1,10 +1,8 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { hashCanonicalJson } from "../ir/canonical.js";
-import type { JsonObject, JsonValue } from "../ir/types.js";
+import type { JsonObject } from "../ir/types.js";
 import { normalizeError, Trae2OpenCodeError } from "../shared/errors.js";
-import { isRecord } from "../target/opencode/contract.js";
 import type { OpenCodeTransfer } from "../target/opencode/mapping.js";
 import { reconcileOpenCodeTransfer } from "../target/opencode/reconciliation.js";
 import {
@@ -12,9 +10,11 @@ import {
   type ReconciliationSnapshot,
 } from "./manifest.js";
 import { summarizeMigrationPlan, type MigrationPlan } from "./plan.js";
+import { isOwnedByRun, jsonHash } from "./ownership.js";
+import { authorizeReplacements, removeReplacements } from "./replacement.js";
 import type { MigrationTarget, MigrationTargetDescriptor } from "./target.js";
 
-const jsonHash = (value: unknown) => hashCanonicalJson(JSON.parse(JSON.stringify(value)) as JsonValue);
+export { isOwnedByRun } from "./ownership.js";
 const snapshot = (transfer: OpenCodeTransfer) => reconcileOpenCodeTransfer(transfer, transfer).actual;
 const equalSnapshot = (left: ReconciliationSnapshot, right: ReconciliationSnapshot) => jsonHash(left) === jsonHash(right);
 
@@ -23,14 +23,6 @@ function ownedTransfer(transfer: OpenCodeTransfer, runId: string): OpenCodeTrans
   const metadata = copy.info.metadata as JsonObject;
   (metadata.trae2opencode as JsonObject).migrationRunId = runId;
   return copy;
-}
-
-export function isOwnedByRun(transfer: OpenCodeTransfer, manifest: MigrationManifest, item: ManifestSession): boolean {
-  const metadata = transfer.info.metadata;
-  const marker = isRecord(metadata) ? metadata.trae2opencode : undefined;
-  return transfer.info.id === item.targetId && isRecord(marker) &&
-    marker.migrationRunId === manifest.runId && marker.sourceSessionId === item.sourceId &&
-    marker.mappingVersion === 1 && item.attempts > 0;
 }
 
 function createManifest(plan: MigrationPlan, target: MigrationTargetDescriptor): MigrationManifest {
@@ -60,7 +52,7 @@ function requireTarget(manifest: MigrationManifest, target: MigrationTargetDescr
 /** All checkpoints are outside failure isolation: a persistence failure stops every later write. */
 async function executeSession(
   transfer: OpenCodeTransfer, item: ManifestSession, manifest: MigrationManifest,
-  target: MigrationTarget, store: ManifestStore,
+  target: MigrationTarget, store: ManifestStore, parentSatisfied: boolean,
 ): Promise<void> {
   let existing: OpenCodeTransfer | null;
   try { existing = await target.readSession(item.targetId); }
@@ -76,8 +68,12 @@ async function executeSession(
     if (owned) {
       item.created = true;
       const matches = equalSnapshot(item.expected!, item.actual);
-      item.state = matches ? "verified" : "failed";
-      item.codes = matches ? [] : ["T2O_MIGRATION_PARTIAL_WRITE"];
+      const changedReadback = item.deletionHash !== undefined && jsonHash(existing) !== item.deletionHash;
+      item.state = matches && !changedReadback ? "verified" : "failed";
+      item.codes = changedReadback ? ["T2O_MIGRATION_TARGET_CHANGED"] :
+        matches ? [] : ["T2O_MIGRATION_PARTIAL_WRITE"];
+      // After interruption, only a complete expected transcript can establish new deletion evidence.
+      if (matches) item.deletionHash ??= jsonHash(existing);
     } else {
       item.state = item.attempts === 0 ? "skipped" : "failed";
       item.codes = [item.attempts === 0 ? "T2O_OPENCODE_SESSION_CONFLICT" : "T2O_MIGRATION_TARGET_CHANGED"];
@@ -88,6 +84,12 @@ async function executeSession(
   if (item.created) {
     item.state = "failed";
     item.codes = ["T2O_MIGRATION_TARGET_CHANGED"];
+    await store.save(manifest);
+    return;
+  }
+  if (!parentSatisfied) {
+    item.state = "failed";
+    item.codes = ["T2O_OPENCODE_PARENT_MISSING"];
     await store.save(manifest);
     return;
   }
@@ -107,6 +109,7 @@ async function executeSession(
     const owned = actual && isOwnedByRun(actual, manifest, item);
     if (owned) {
       item.created = true;
+      item.deletionHash = jsonHash(actual);
       item.actual = snapshot(actual);
       item.state = equalSnapshot(item.expected!, item.actual) ? "verified" : "failed";
       if (item.state === "failed") item.codes.push("T2O_MIGRATION_PARTIAL_WRITE");
@@ -127,7 +130,8 @@ export function summarizeManifest(manifest: MigrationManifest) {
     sourceFingerprint: manifest.sourceFingerprint, irHash: manifest.irHash,
     target: manifest.target, revision: manifest.revision,
     hasFailures: manifest.sessions.some((item) => ["failed", "blocked", "importing", "pending"].includes(item.state)),
-    created: manifest.sessions.filter((item) => item.created).length,
+    created: manifest.sessions.filter((item) => item.created && !item.replacement).length,
+    replaced: manifest.sessions.filter((item) => item.created && item.replacement).length,
     verified: manifest.sessions.filter((item) => item.state === "verified").length,
     skipped: manifest.sessions.filter((item) => item.state === "skipped").length,
     sessions: manifest.sessions.map((item) => structuredClone(item)),
@@ -136,11 +140,15 @@ export function summarizeManifest(manifest: MigrationManifest) {
 
 export async function migrate(
   inputPlan: MigrationPlan, target: MigrationTarget,
-  options: { outputDirectory?: string; resumeManifest?: string },
+  options: { outputDirectory?: string; resumeManifest?: string; replaceManifest?: string; exclusiveTarget?: boolean },
 ) {
   const plan = structuredClone(inputPlan);
   const validMode = Boolean(options.outputDirectory) !== Boolean(options.resumeManifest);
   if (!validMode) throw new Trae2OpenCodeError("T2O_CLI_INVALID_ARGUMENTS");
+  if (options.replaceManifest && options.resumeManifest) throw new Trae2OpenCodeError("T2O_CLI_INVALID_ARGUMENTS");
+  if (options.replaceManifest && !options.exclusiveTarget) {
+    throw new Trae2OpenCodeError("T2O_MIGRATION_EXCLUSIVE_REQUIRED");
+  }
   const descriptor = await target.describe();
   let filename: string;
   if (options.resumeManifest) filename = path.resolve(options.resumeManifest);
@@ -153,6 +161,10 @@ export async function migrate(
   return withManifestStore(filename, async (store) => {
     const manifest = options.resumeManifest ? await store.read() : createManifest(plan, descriptor);
     requireTarget(manifest, descriptor);
+    if (options.replaceManifest) {
+      await withManifestStore(options.replaceManifest, async (previousStore) =>
+        authorizeReplacements(manifest, await previousStore.read()));
+    }
     const changedPlan = manifest.irHash !== plan.irHash || manifest.sourceFingerprint !== plan.sourceFingerprint ||
       manifest.planHash !== jsonHash(summarizeMigrationPlan(plan));
     if (changedPlan) throw new Trae2OpenCodeError("T2O_MIGRATION_PLAN_CHANGED");
@@ -174,18 +186,13 @@ export async function migrate(
       }
     }
     await store.save(manifest);
+    await removeReplacements(manifest, store, target, options.exclusiveTarget === true);
     const byId = new Map(manifest.sessions.map((item) => [item.targetId, item]));
     for (const item of manifest.sessions) {
       const transfer = planned.get(item.targetId)?.transfer;
       if (!transfer || item.state === "verified") continue;
-      const parentFailed = item.parentId !== undefined && byId.get(item.parentId)?.state !== "verified";
-      if (parentFailed) {
-        item.state = "failed";
-        item.codes = ["T2O_OPENCODE_PARENT_MISSING"];
-        await store.save(manifest);
-        continue;
-      }
-      await executeSession(ownedTransfer(transfer, manifest.runId), item, manifest, target, store);
+      const parentSatisfied = item.parentId === undefined || byId.get(item.parentId)?.state === "verified";
+      await executeSession(ownedTransfer(transfer, manifest.runId), item, manifest, target, store, parentSatisfied);
     }
     return { command: "migrate", manifest: path.basename(filename), ...summarizeManifest(manifest) };
   });

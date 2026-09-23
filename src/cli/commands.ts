@@ -29,6 +29,8 @@ export interface CommandOptions {
   fallbackDirectory?: string;
   manifest?: string;
   resume?: string;
+  replace?: string;
+  exclusiveTarget?: boolean;
 }
 
 export async function loadCommandBundle(options: CommandOptions) {
@@ -51,6 +53,9 @@ export async function executeReadCommand(command: string, options: CommandOption
     options.recovery !== undefined || options.pathMaps !== undefined || options.fallbackDirectory !== undefined;
   if (command !== "migrate" && planningOption) throw new Trae2OpenCodeError("T2O_CLI_INVALID_ARGUMENTS");
   if (command !== "migrate" && options.resume) throw new Trae2OpenCodeError("T2O_CLI_INVALID_ARGUMENTS");
+  if (command !== "migrate" && (options.replace || options.exclusiveTarget)) {
+    throw new Trae2OpenCodeError("T2O_CLI_INVALID_ARGUMENTS");
+  }
   if (command !== "verify" && options.manifest) throw new Trae2OpenCodeError("T2O_CLI_INVALID_ARGUMENTS");
   const targetOptions = {
     serverUrl: options.server ?? "", binary: options.binary,
@@ -65,10 +70,12 @@ export async function executeReadCommand(command: string, options: CommandOption
     return verifyMigration(options.manifest, createMigrationTarget(targetOptions));
   }
   if (command === "migrate") {
-    const invalidDryRun = options.dryRun && (options.output || options.resume);
+    const invalidDryRun = options.dryRun && (options.output || options.resume || options.replace || options.exclusiveTarget);
     const invalidWrite = !options.dryRun &&
       (!options.server || Boolean(options.output) === Boolean(options.resume));
-    if (invalidDryRun || invalidWrite) throw new Trae2OpenCodeError("T2O_CLI_INVALID_ARGUMENTS");
+    const invalidReplacement = options.replace && options.resume;
+    if (invalidDryRun || invalidWrite || invalidReplacement) throw new Trae2OpenCodeError("T2O_CLI_INVALID_ARGUMENTS");
+    if (options.replace && !options.exclusiveTarget) throw new Trae2OpenCodeError("T2O_MIGRATION_EXCLUSIVE_REQUIRED");
     const recovery = parseRecovery(options.recovery);
     const pathMaps = parsePathMaps(options.pathMaps);
     const bundle = await loadCommandBundle(options);
@@ -78,6 +85,7 @@ export async function executeReadCommand(command: string, options: CommandOption
     if (!options.dryRun) {
       return migrate(plan, createMigrationTarget(targetOptions), {
         outputDirectory: options.output, resumeManifest: options.resume,
+        replaceManifest: options.replace, exclusiveTarget: options.exclusiveTarget,
       });
     }
     const target = options.server ? await probeOpenCodeCapabilities(createOpenCodeTransport({

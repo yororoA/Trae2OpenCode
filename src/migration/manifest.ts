@@ -23,6 +23,13 @@ export interface ManifestSession {
   transferHash?: string;
   expected?: ReconciliationSnapshot;
   actual?: ReconciliationSnapshot;
+  /** Exact first readback, including native projections. Never refreshed after target edits. */
+  deletionHash?: string;
+  replacement?: {
+    runId: string;
+    deletionHash: string;
+    state: "pending" | "deleting" | "deleted";
+  };
 }
 export interface MigrationManifest {
   manifestVersion: 1;
@@ -77,7 +84,15 @@ const validate = new Ajv().compile({
           state: { enum: ["pending", "importing", "verified", "failed", "skipped", "excluded", "blocked"] },
           created: { type: "boolean" }, attempts: counter,
           codes: { type: "array", items: { type: "string", pattern: "^T2O_[A-Z0-9_]+$" } },
-          transferHash: hash, expected: snapshot, actual: snapshot,
+          transferHash: hash, expected: snapshot, actual: snapshot, deletionHash: hash,
+          replacement: {
+            type: "object", additionalProperties: false,
+            required: ["runId", "deletionHash", "state"],
+            properties: {
+              runId: { type: "string", pattern: "^[a-f0-9-]{36}$" },
+              deletionHash: hash, state: { enum: ["pending", "deleting", "deleted"] },
+            },
+          },
         },
       },
     },
@@ -100,7 +115,11 @@ export function assertManifest(value: unknown): asserts value is MigrationManife
     const needsExpected = !["excluded", "blocked"].includes(session.state);
     const invalidState = (needsExpected && (!session.expected || !session.transferHash)) ||
       (session.state === "verified" && (!session.created || !session.actual)) ||
-      (session.created && session.attempts === 0);
+      (session.created && session.attempts === 0) ||
+      (session.deletionHash !== undefined && !session.created) ||
+      (session.replacement !== undefined && (!session.expected || !session.transferHash ||
+        session.replacement.runId === manifest.runId ||
+        (session.replacement.state !== "deleted" && session.attempts > 0)));
     if (invalidGraph || invalidState) throw new Trae2OpenCodeError("T2O_MIGRATION_MANIFEST_INVALID");
     seen.add(session.targetId);
     sourceIds.add(session.sourceId);
