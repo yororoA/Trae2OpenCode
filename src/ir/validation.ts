@@ -1,6 +1,8 @@
 import Ajv2020, { type ErrorObject, type ValidateFunction } from "ajv/dist/2020.js";
+import { createDiagnostic } from "../shared/diagnostics.js";
+import { Trae2OpenCodeError } from "../shared/errors.js";
 import { migrationBundleSchema } from "./schema.js";
-import type { MigrationBundle } from "./types.js";
+import type { Diagnostic, MigrationBundle } from "./types.js";
 
 export interface IrValidationIssue {
   instancePath: string;
@@ -40,6 +42,27 @@ function normalizeIssues(
   }));
 }
 
+function createValidationDiagnostics(
+  issues: IrValidationIssue[],
+): Diagnostic[] {
+  return issues.map((issue, index) =>
+    createDiagnostic({
+      id: `ir-schema-${String(index + 1).padStart(4, "0")}`,
+      severity: "error",
+      code: "T2O_IR_SCHEMA_INVALID",
+      message: issue.message,
+      subject: {
+        type: "bundle",
+      },
+      context: {
+        instancePath: issue.instancePath || "/",
+        schemaPath: issue.schemaPath,
+        keyword: issue.keyword,
+      },
+    })
+  );
+}
+
 export function validateMigrationBundle(value: unknown): IrValidationResult {
   if (validate(value)) {
     return {
@@ -60,8 +83,7 @@ export function assertMigrationBundle(value: unknown): MigrationBundle {
     return result.value;
   }
 
-  const summary = result.issues
-    .map((issue) => `${issue.instancePath || "/"}: ${issue.message}`)
-    .join("; ");
-  throw new Error(`Invalid migration bundle: ${summary}`);
+  throw new Trae2OpenCodeError("T2O_IR_SCHEMA_INVALID", {
+    diagnostics: createValidationDiagnostics(result.issues),
+  });
 }

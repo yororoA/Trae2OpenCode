@@ -51,8 +51,8 @@ describe("runCli", () => {
 
     const exitCode = runCli(["--unknown"], output.io, "9.8.7");
 
-    assert.equal(exitCode, 1);
-    assert.match(output.stderr(), /--unknown/);
+    assert.equal(exitCode, 2);
+    assert.match(output.stderr(), /T2O_CLI_INVALID_ARGUMENTS/);
     assert.doesNotMatch(output.stderr(), /\n\s+at /);
   });
 
@@ -64,7 +64,51 @@ describe("runCli", () => {
     assert.equal(exitCode, 2);
     assert.equal(
       output.stderr(),
-      'Command "migrate" is not implemented yet.\n',
+      "Error [T2O_CLI_COMMAND_NOT_IMPLEMENTED]: " +
+        "This command is not implemented yet.\n",
     );
+  });
+
+  it("emits structured errors without echoing unknown command text", () => {
+    const output = captureIO();
+    const privateCommand = "private conversation body";
+
+    const exitCode = runCli(
+      ["--json", privateCommand],
+      output.io,
+      "9.8.7",
+      {
+        clock: () => new Date("2026-09-23T06:20:00.000Z"),
+      },
+    );
+
+    assert.equal(exitCode, 2);
+    assert.equal(output.stdout(), "");
+    assert.doesNotMatch(output.stderr(), new RegExp(privateCommand));
+    assert.deepStrictEqual(JSON.parse(output.stderr()), {
+      timestamp: "2026-09-23T06:20:00.000Z",
+      level: "error",
+      event: "cli.error",
+      message: "Unknown command.",
+      code: "T2O_CLI_UNKNOWN_COMMAND",
+      context: {
+        diagnosticIds: [],
+        exitCode: 2,
+      },
+    });
+  });
+
+  it("emits a machine-readable version", () => {
+    const output = captureIO();
+
+    const exitCode = runCli(
+      ["--json", "--version"],
+      output.io,
+      "9.8.7",
+    );
+
+    assert.equal(exitCode, 0);
+    assert.equal(output.stdout(), '{"version":"9.8.7"}\n');
+    assert.equal(output.stderr(), "");
   });
 });

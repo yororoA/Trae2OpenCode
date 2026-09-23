@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, it } from "node:test";
+import { Trae2OpenCodeError } from "../../shared/errors.js";
 import { migrationBundleSchema } from "../schema.js";
 import {
   assertMigrationBundle,
@@ -80,6 +81,26 @@ describe("MigrationBundle v1 schema", () => {
 
     const result = validateMigrationBundle(fixture);
     assert.equal(result.valid, false);
+  });
+
+  it("throws a coded error with locatable diagnostics", () => {
+    const fixture = readFixture("invalid-unknown-field.json");
+
+    assert.throws(
+      () => assertMigrationBundle(fixture),
+      (error) => {
+        assert.ok(error instanceof Trae2OpenCodeError);
+        assert.equal(error.code, "T2O_IR_SCHEMA_INVALID");
+        assert.equal(error.exitCode, 3);
+        assert.ok(error.diagnostics.length > 0);
+        assert.equal(
+          error.diagnostics[0].context?.instancePath,
+          "/",
+        );
+        assert.doesNotMatch(error.message, /unmappedSourcePayload/);
+        return true;
+      },
+    );
   });
 
   it("keeps the checked-in JSON Schema synchronized", () => {

@@ -1,6 +1,6 @@
 # Trae2OpenCode 实现规划
 
-> 状态：M0 已合入 `main`；M1-1 已合入 M1 里程碑分支；M1-2 已完成，待任务分支 PR
+> 状态：M0 已合入 `main`；M1-1/M1-2 已合入 M1 里程碑分支；M1-3 已完成，待任务分支 PR
 > 核验日期：2026-09-23
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
@@ -32,7 +32,8 @@ M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP
 | M0 格式勘探 | 已完成 | M0-1 至 M0-5 的证据、策略和测试均已完成 |
 | M0 分支交付 | 已集成 | PR #5 已合入 `m0/format-exploration`，PR #6 已合入 `main` |
 | M1 工程骨架 | M1-1 已集成 | PR #7 已合入 `m1/engineering-skeleton` |
-| M1 IR/schema | M1-2 已完成 | 已定义 IR v1、JSON Schema、运行时 validator 及合法/非法 fixture 测试 |
+| M1 IR/schema | M1-2 已集成 | PR #8 已合入 `m1/engineering-skeleton` |
+| M1 错误与诊断 | M1-3 已完成 | 已统一错误码、退出码、diagnostic 和脱敏 JSON Lines 日志 |
 | M2/M3 TRAE 读取 | 未开始 | M0 collector/probe 只用于勘探；生产 scanner、runtime reader 和 recovery grading 尚未实现 |
 | M4 OpenCode adapter | 契约验证完成，实现未开始 | 2.0.12 隔离 import/export 已验证，尚无生产 capability probe 与 import adapter |
 | M5-M7 | 未开始 | 编排、安全、资源迁移、兼容与发布能力均未实现 |
@@ -275,9 +276,10 @@ trae2opencode rollback --manifest <path>
 
 1. M1-1 已通过 PR #7 合入里程碑分支；可执行 CLI、lint、CI 和统一质量门禁
    已建立。
-2. M1-2 已完成：IR v1、JSON Schema、运行时 validator 和 fixture 校验已建立，
-   单元测试增至 40 项。
-3. 统一错误码、诊断、结构化日志，并建立 golden fixture 测试框架。
+2. M1-2 已通过 PR #8 合入里程碑分支；IR v1、JSON Schema、运行时 validator
+   和 fixture 校验已建立。
+3. M1-3 已完成：错误码、退出码、diagnostic 和脱敏结构化日志已统一，单元测试
+   增至 48 项。下一步建立 golden fixture 测试框架。
 4. 将 M0 renderer 探针替换为生产 runtime adapter；探针、日志和数据库解密均
    不得成为生产数据源。
 
@@ -287,7 +289,7 @@ trae2opencode rollback --manifest <path>
 | --- | --- | --- | --- | --- |
 | M1-1 | 完善 TypeScript CLI 入口、lint、test、build | M0-5 | CLI 可执行，本地和 CI 可检查与构建 | 已完成 |
 | M1-2 | 定义版本化 IR 和 JSON Schema | M0-5 | 合法/非法 fixture 校验覆盖 | 已完成 |
-| M1-3 | 统一错误码、诊断和结构化日志 | M1-1 | CLI 错误可定位且正文不泄露 | 未开始 |
+| M1-3 | 统一错误码、诊断和结构化日志 | M1-1 | CLI 错误可定位且正文不泄露 | 已完成 |
 | M1-4 | 建立 golden fixture 测试框架 | M1-1, M1-2 | IR 变化必须显式更新 golden | 未开始 |
 
 ### M2：TRAE 扫描与恢复等级，3-5 天
@@ -427,7 +429,7 @@ OpenCode import 是实验性能力。M4-6 必须验证实际导入结果，不�
 ## 10. 推荐执行顺序
 
 1. M0 分支集成、M1-1 CLI/lint/CI 骨架和 M1-2 IR/schema 已完成。
-2. 完成 M1-3 错误/诊断和 M1-4 golden fixture 框架。
+2. 完成 M1-4 golden fixture 框架。
 3. 实现 scanner、runtime capability probe 和 3.3.104 V2 reader。
 4. 生成可审计 IR，并打通真实来源到 OpenCode 的 import/export 对账。
 5. 增加批量迁移、manifest、resume 和 rollback。
