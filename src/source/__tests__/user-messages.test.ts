@@ -84,7 +84,7 @@ function runtimeUser(
     chat_session_id: "session-runtime-a",
     role: "user",
     message_index: 1,
-    created_at: 1_700_000_000_000,
+    created_at: 1_700_000_000,
     content: "hello",
     query: JSON.stringify(["hello"]),
     ...overrides,
@@ -141,7 +141,7 @@ describe("parseTraeRuntimeUserMessages", () => {
             runtimeUser({
               message_id: "message-user-b",
               message_index: 3,
-              created_at: "2026-09-23T10:00:00.000Z",
+              created_at: 1_800_000_000,
               content: "second",
               query: JSON.stringify([
                 "second",
@@ -156,7 +156,7 @@ describe("parseTraeRuntimeUserMessages", () => {
               chat_session_id: "session-runtime-a",
               role: "assistant",
               message_index: 2,
-              created_at: 1_700_000_000_100,
+              created_at: 1_700_000_001,
             },
             runtimeUser({
               content: JSON.stringify([
@@ -214,6 +214,7 @@ describe("parseTraeRuntimeUserMessages", () => {
       },
     ]);
     assert.equal(report.messages[0].textSource.locator, "content");
+    assert.equal(report.messages[0].createdAt, 1_700_000_000_000);
     assert.equal(report.messages[0].querySource?.locator, "query");
     assert.match(
       report.messages[0].sources[0].sha256,

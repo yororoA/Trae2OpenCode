@@ -261,13 +261,12 @@ function parseNonNegativeInteger(value: unknown): number | undefined {
     : undefined;
 }
 
-function parseTimestamp(value: unknown): number | undefined {
-  const integer = parseNonNegativeInteger(value);
-  if (integer !== undefined) return integer;
-  if (typeof value !== "string") return undefined;
-
-  const parsed = Date.parse(value);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+function parseSecondTimestamp(value: unknown): number | undefined {
+  const seconds = parseNonNegativeInteger(value);
+  const maximumSeconds = Math.floor(Number.MAX_SAFE_INTEGER / 1_000);
+  return seconds !== undefined && seconds <= maximumSeconds
+    ? seconds * 1_000
+    : undefined;
 }
 
 function normalizeJsonValue(
@@ -609,7 +608,7 @@ function parseRuntimeRecord(
     SESSION_ID_PATTERN,
   );
   const order = parseNonNegativeInteger(value.message_index);
-  const createdAt = parseTimestamp(value.created_at);
+  const createdAt = parseSecondTimestamp(value.created_at);
   const hasInvalidIdentity =
     sourceMessageId === undefined ||
     sourceSessionId === undefined ||

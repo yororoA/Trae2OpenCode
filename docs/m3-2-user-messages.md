@@ -27,7 +27,7 @@
 | 消息 ID | `message_id` |
 | 会话 ID | `chat_session_id` |
 | 顺序 | `message_index`，非负安全整数 |
-| 创建时间 | `created_at`，epoch 毫秒或日期字符串 |
+| 创建时间 | `created_at`，epoch 秒，规范化为毫秒 |
 
 provider 可返回数组、`messages`、`items`、`data.messages`、
 `data.items`，以及对应的双层 `data` envelope。assistant 记录留给 M3-3 至
