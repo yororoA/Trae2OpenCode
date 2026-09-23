@@ -1,0 +1,2 @@
+# Canonical JSON and generated schemas must compare byte-for-byte on all hosts.
+* text=auto eol=lf

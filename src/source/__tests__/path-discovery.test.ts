@@ -11,6 +11,13 @@ import {
 } from "../trae/path-discovery.js";
 
 const temporaryDirectories: string[] = [];
+const nativePlatform = process.platform === "win32" ? "win32" : "darwin";
+
+function defaultUserDirectory(homeDir: string, product: string): string {
+  const applicationData = nativePlatform === "win32"
+    ? ["AppData", "Roaming"] : ["Library", "Application Support"];
+  return path.join(homeDir, ...applicationData, product, "User");
+}
 
 function createTemporaryDirectory(): string {
   const directory = fs.mkdtempSync(
@@ -89,26 +96,14 @@ describe("getDefaultTraeUserDataPaths", () => {
 describe("discoverTraeRoot", () => {
   it("prefers a populated default over an earlier empty installation", () => {
     const homeDir = createTemporaryDirectory();
-    const emptyCnUser = path.join(
-      homeDir,
-      "Library",
-      "Application Support",
-      "Trae CN",
-      "User",
-    );
-    const populatedTraeUser = path.join(
-      homeDir,
-      "Library",
-      "Application Support",
-      "Trae",
-      "User",
-    );
+    const emptyCnUser = defaultUserDirectory(homeDir, "Trae CN");
+    const populatedTraeUser = defaultUserDirectory(homeDir, "Trae");
     fs.mkdirSync(emptyCnUser, { recursive: true });
     fs.mkdirSync(path.join(populatedTraeUser, "workspaceStorage"), {
       recursive: true,
     });
 
-    const result = discoverTraeRoot({ platform: "darwin", homeDir });
+    const result = discoverTraeRoot({ platform: nativePlatform, homeDir, env: {} });
 
     assert.ok(result);
     assert.equal(result.product, "trae");
@@ -134,7 +129,7 @@ describe("discoverTraeRoot", () => {
 
     const result = discoverTraeRoot({
       traeRoot: productDataPath,
-      platform: "darwin",
+      platform: nativePlatform,
       homeDir,
     });
 
@@ -155,7 +150,7 @@ describe("discoverTraeRoot", () => {
 
     const result = discoverTraeRoot({
       traeRoot: userDataPath,
-      platform: "darwin",
+      platform: nativePlatform,
       homeDir,
     });
 
@@ -174,7 +169,7 @@ describe("discoverTraeRoot", () => {
 
     const result = discoverTraeRoot({
       traeRoot: userDataPath,
-      platform: "darwin",
+      platform: nativePlatform,
       homeDir,
     });
 
@@ -190,7 +185,7 @@ describe("discoverTraeRoot", () => {
 
     const result = discoverTraeRoot({
       traeRoot: "~/Trae CN",
-      platform: "darwin",
+      platform: nativePlatform,
       homeDir,
     });
 
@@ -201,22 +196,16 @@ describe("discoverTraeRoot", () => {
   it("does not fall back to defaults when traeRoot is explicit", () => {
     const homeDir = createTemporaryDirectory();
     fs.mkdirSync(
-      path.join(
-        homeDir,
-        "Library",
-        "Application Support",
-        "Trae CN",
-        "User",
-        "workspaceStorage",
-      ),
+      path.join(defaultUserDirectory(homeDir, "Trae CN"), "workspaceStorage"),
       { recursive: true },
     );
 
     assert.equal(
       discoverTraeRoot({
         traeRoot: path.join(homeDir, "missing"),
-        platform: "darwin",
+        platform: nativePlatform,
         homeDir,
+        env: {},
       }),
       null,
     );
@@ -252,16 +241,10 @@ describe("discoverTraeRoot", () => {
 
   it("returns an empty User directory for diagnostics when no store exists", () => {
     const homeDir = createTemporaryDirectory();
-    const userDataPath = path.join(
-      homeDir,
-      "Library",
-      "Application Support",
-      "Trae CN",
-      "User",
-    );
+    const userDataPath = defaultUserDirectory(homeDir, "Trae CN");
     fs.mkdirSync(userDataPath, { recursive: true });
 
-    const result = discoverTraeRoot({ platform: "darwin", homeDir });
+    const result = discoverTraeRoot({ platform: nativePlatform, homeDir, env: {} });
 
     assert.ok(result);
     assert.equal(result.userDataPath, userDataPath);
@@ -278,7 +261,7 @@ describe("requireTraeRoot", () => {
     const homeDir = createTemporaryDirectory();
 
     assert.throws(
-      () => requireTraeRoot({ platform: "darwin", homeDir }),
+      () => requireTraeRoot({ platform: nativePlatform, homeDir, env: {} }),
       (error) => {
         assert.ok(error instanceof Trae2OpenCodeError);
         assert.equal(error.code, "T2O_TRAE_ROOT_NOT_FOUND");

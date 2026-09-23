@@ -41,4 +41,14 @@ npm install --prefix tmp/opencode --no-package-lock --no-save @opencode/cli@2.0.
 
 本机 macOS / Node 18.20.8：339 项单测、lint、typecheck、build、smoke 通过；
 两个默认目录、原生导入与对账、resume、重复跳过通过。回读 2 条消息、
-2 个 text、2 个 reasoning、1 个 tool。Windows/Linux 结果等待 CI 实测。
+2 个 text、2 个 reasoning、1 个 tool。
+
+首轮 CI [35929953330](https://github.com/yororoA/Trae2OpenCode/actions/runs/35929953330)
+确认 macOS/Linux 的两个 Node 版本均通过，包括各自 Node 22 原生导入。
+Windows 两个版本有 17 个历史测试失败：fixture 路径工具没有遵循显式平台、
+测试把宿主临时目录传给 macOS path dialect、Git checkout 转换 golden 为 CRLF。
+
+第二轮修复保留 golden 逐字节断言，通过 `.gitattributes` 固定 LF；修正 fixture
+工具的显式平台选择；真实文件系统测试使用宿主平台且隔离 Windows env。
+补充 Windows/Linux 纯路径用例。按 Step1–6 重新执行，逐文件 15、14、12、5 项
+通过，本机完整质量门禁为 340 项通过。Windows 修复结果等待下一轮 CI。

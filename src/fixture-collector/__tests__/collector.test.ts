@@ -103,6 +103,18 @@ describe("discoverTraeRoots", () => {
     const result = discoverTraeRoots("/nonexistent/path/to/trae");
     assert.strictEqual(result, null);
   });
+
+  it("uses the requested Windows and Linux path dialect on every host", () => {
+    assert.deepEqual(getDefaultTraeUserDataPaths("win32", "C:\\Users\\tester", {
+      APPDATA: "C:\\Roaming", LOCALAPPDATA: "D:\\Local",
+    }), [
+      "C:\\Roaming\\Trae CN\\User", "C:\\Roaming\\Trae\\User",
+      "D:\\Local\\Trae CN\\User", "D:\\Local\\Trae\\User",
+    ]);
+    assert.deepEqual(getDefaultTraeUserDataPaths("linux", "/home/tester", {}), [
+      "/home/tester/.config/Trae CN/User", "/home/tester/.config/Trae/User",
+    ]);
+  });
 });
 
 describe("identifyStorageProfile", () => {
