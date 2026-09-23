@@ -8,6 +8,7 @@ import {
 } from "../src/ir/canonical.js";
 import { migrationBundleSchema } from "../src/ir/schema.js";
 import type { JsonValue } from "../src/ir/types.js";
+import { assembleTraeMigrationBundle } from "../src/source/trae/assemble-bundle.js";
 
 if (!process.argv.slice(2).includes("--accept")) {
   process.stderr.write(
@@ -17,6 +18,14 @@ if (!process.argv.slice(2).includes("--accept")) {
 } else {
   const fixtureRoot = path.join(process.cwd(), "fixtures", "ir", "v1");
   const goldenRoot = path.join(fixtureRoot, "golden");
+  const assemblyInput = JSON.parse(fs.readFileSync(
+    path.join(process.cwd(), "fixtures/source/trae-cn-3.3.104/assembly.json"), "utf8",
+  ));
+  fs.writeFileSync(
+    path.join(fixtureRoot, "valid-trae-assembled.json"),
+    canonicalizeMigrationBundle(assembleTraeMigrationBundle(assemblyInput)),
+    "utf8",
+  );
   const sourceFiles = fs
     .readdirSync(fixtureRoot)
     .filter((name) => /^valid-.*\.json$/.test(name))

@@ -15,6 +15,10 @@ export const ERROR_DEFINITIONS = {
     exitCode: 3,
     message: "Migration bundle failed schema validation.",
   },
+  T2O_TRAE_BUNDLE_INPUT_INVALID: {
+    exitCode: 4,
+    message: "TRAE bundle inputs have inconsistent versions, identities, or counts.",
+  },
   T2O_TRAE_ROOT_NOT_FOUND: {
     exitCode: 4,
     message: "No readable TRAE data root was found.",

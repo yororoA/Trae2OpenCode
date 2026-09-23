@@ -11,7 +11,9 @@ workspace 输入历史只读解析；M3-3 已实现 runtime assistant 正文投�
 时间规范化，以及仅基于精确路径证据的 long-text 关联；M3-4 已接入持久化
 reasoning 与 plan 来源解析；M3-5 已接入 tool call/result 状态归并与冲突诊断；
 M3-6 已实现图片/文件/长文本资源 hash、MIME、精确路径引用及缺失状态解析；
-M3-7 已实现版本化 parser 注册表与统一的 profile/能力门禁。
+M3-7 已实现版本化 parser 注册表与统一的 profile/能力门禁；
+M3-8 已完成 IR 组装、来源指纹、内容交错排序、关系完整性与保守恢复分级，
+累计 186 项测试通过。
 
 ## 开发与验证
 
@@ -66,6 +68,7 @@ npm run verify:opencode
 - [M3-5 Tool call/result 归并](docs/m3-5-tool-calls.md)
 - [M3-6 图片、文件和长文本资源](docs/m3-6-resources.md)
 - [M3-7 版本化 parser 注册表](docs/m3-7-parser-registry.md)
+- [M3-8 IR 组装与完整性校验](docs/m3-8-ir-assembly.md)
 - [TRAE 消息来源定位](docs/m0-3-source-location.md)
 - [OpenCode 导入验证与限制](docs/m0-4-import-roundtrip.md)
 - [M0-5 字段映射与降级矩阵](docs/m0-5-mapping-matrix.md)

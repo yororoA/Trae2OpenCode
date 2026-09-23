@@ -5,6 +5,12 @@
       "name": "valid-complete",
       "sha256": "sha256:49fdcbd07879121514feff9824dabeea962033c62d33e81e22413992f1160296",
       "source": "fixtures/ir/v1/valid-complete.json"
+    },
+    {
+      "golden": "fixtures/ir/v1/golden/valid-trae-assembled.json",
+      "name": "valid-trae-assembled",
+      "sha256": "sha256:44bc48d20a25c892f7944d36f628bad4a5d3c4fc1513642c87b2ae00d8859498",
+      "source": "fixtures/ir/v1/valid-trae-assembled.json"
     }
   ],
   "goldenVersion": 1,

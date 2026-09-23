@@ -1,0 +1,87 @@
+{
+  "productVersion": "3.3.104",
+  "platform": "darwin",
+  "collectedAt": "2026-09-24T00:00:00.000Z",
+  "metadata": {
+    "reportVersion": 1,
+    "productVersion": "3.3.104",
+    "sessions": [{
+      "sourceSessionId": "session-synthetic",
+      "title": "Synthetic assembly fixture",
+      "createdAt": 1700000000000,
+      "updatedAt": 1700000004000,
+      "workspaceStorageIds": ["workspace-synthetic"],
+      "metadataStatus": "complete",
+      "sources": [{
+        "kind": "runtime-metadata",
+        "locator": "runtime:getSessions#session",
+        "sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }]
+    }],
+    "sourceCounts": {
+      "runtime-metadata": 1,
+      "snapshot-directory": 0,
+      "workspace-active-session": 0,
+      "workspace-session-index": 0
+    },
+    "issues": []
+  },
+  "workspaces": {
+    "workspaces": [{
+      "workspaceStorageId": "workspace-synthetic",
+      "workspaceStoragePath": "/synthetic/storage",
+      "metadataPath": "/synthetic/storage/workspace.json",
+      "location": { "kind": "folder", "path": "/synthetic/project", "exists": false },
+      "projects": [{ "path": "/synthetic/project", "source": "folder-uri", "exists": false }]
+    }],
+    "issues": []
+  },
+  "messageReads": [{
+    "sourceSessionId": "session-synthetic",
+    "status": "available",
+    "expectedMessageCount": 2,
+    "value": [{
+      "message_id": "assistant-synthetic",
+      "chat_session_id": "session-synthetic",
+      "turn_id": "turn-synthetic",
+      "reply_to_message_id": "user-synthetic",
+      "role": "assistant",
+      "message_type": "task",
+      "message_index": 2,
+      "created_at": 1700000001,
+      "chat_start_time": 1700000001100,
+      "chat_end_time": 1700000004000,
+      "status": "completed",
+      "content": {
+        "messages": [{
+          "type": "proposal",
+          "proposal": { "content": { "reasoning_content": "First persisted reasoning.", "thought": "Opening text.\n" } }
+        }, {
+          "type": "plan_item",
+          "plan_item": {
+            "id": "plan-synthetic",
+            "reasoning_content": "Tool reasoning.",
+            "tool_call_info": {
+              "id": "call-synthetic",
+              "name": "read_file",
+              "params": { "path": "example.txt" },
+              "result": { "status": "success", "data": { "text": "中文\n" } }
+            },
+            "timing": { "tool_call_started_at_ms": 1700000002000, "tool_call_finished_at_ms": 1700000003000 }
+          }
+        }, {
+          "type": "proposal",
+          "proposal": { "content": { "thought": "Final response.\n" } }
+        }]
+      }
+    }, {
+      "message_id": "user-synthetic",
+      "chat_session_id": "session-synthetic",
+      "role": "user",
+      "message_index": 1,
+      "created_at": 1700000000,
+      "content": "Read this file. 中文\n"
+    }]
+  }],
+  "resources": { "resources": [], "issues": [] }
+}

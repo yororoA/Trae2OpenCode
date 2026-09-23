@@ -6,6 +6,7 @@ export {
   parseCanonicalMigrationBundle,
 } from "./canonical.js";
 export { migrationBundleSchema } from "./schema.js";
+export { validateMigrationBundleIntegrity } from "./integrity.js";
 export {
   assertMigrationBundle,
   validateMigrationBundle,

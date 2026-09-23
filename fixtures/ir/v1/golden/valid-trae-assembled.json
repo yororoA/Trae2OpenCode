@@ -1,0 +1,275 @@
+{
+  "createdAt": "2026-09-24T00:00:00.000Z",
+  "diagnostics": [],
+  "projects": [
+    {
+      "path": "/synthetic/project",
+      "sourceId": "sha256:7f65ac9411fbb1a36e00d5109f810ee2f096c474026b79e0391a989dc35f832b",
+      "sourceRefs": [
+        {
+          "locator": {
+            "type": "workspace-state",
+            "value": "workspace.json#resolved-project:sha256:7f65ac9411fbb1a36e00d5109f810ee2f096c474026b79e0391a989dc35f832b"
+          },
+          "parserProfile": {
+            "id": "trae-cn-workspace-v3",
+            "version": 1
+          },
+          "sha256": "sha256:c60bf1c3078cba3cc92263675b2b130752a581aceefccb33b28a29de1ed251fc",
+          "sourceSessionId": null,
+          "workspaceStorageId": "workspace-synthetic"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 1,
+  "sessions": [
+    {
+      "createdAt": 1700000000000,
+      "events": [
+        {
+          "createdAt": 1700000000000,
+          "order": 1,
+          "sourceId": "user-synthetic",
+          "sourceRefs": [
+            {
+              "locator": {
+                "type": "runtime-field",
+                "value": "runtime:getMessages#message[\"user-synthetic\"].content"
+              },
+              "parserProfile": {
+                "id": "trae-cn-runtime-v2",
+                "version": 1
+              },
+              "sha256": "sha256:a70485f802e0c1f5426a1d509866b21da612db2604c165861c1f681eac98a1dd",
+              "sourceSessionId": "session-synthetic",
+              "workspaceStorageId": "workspace-synthetic"
+            },
+            {
+              "locator": {
+                "type": "runtime-field",
+                "value": "runtime:getMessages#message[\"user-synthetic\"]"
+              },
+              "parserProfile": {
+                "id": "trae-cn-runtime-v2",
+                "version": 1
+              },
+              "sha256": "sha256:08870e5daac6d8d5d496e47f28e70890a2a9d67e05f06f0c0aa9d188bc472bce",
+              "sourceSessionId": "session-synthetic",
+              "workspaceStorageId": "workspace-synthetic"
+            }
+          ],
+          "text": "Read this file. 中文\n",
+          "type": "user"
+        },
+        {
+          "completedAt": 1700000004000,
+          "content": [
+            {
+              "sourceRefs": [
+                {
+                  "locator": {
+                    "type": "runtime-field",
+                    "value": "runtime:getMessages#message[\"assistant-synthetic\"].content.messages[0].proposal.content.reasoning_content"
+                  },
+                  "parserProfile": {
+                    "id": "trae-cn-runtime-v2",
+                    "version": 1
+                  },
+                  "sha256": "sha256:e2392d46bf1029dc7b3d99ce4cdb830ab9645a0985186cdcaaa6278fd669efb6",
+                  "sourceSessionId": "session-synthetic",
+                  "workspaceStorageId": "workspace-synthetic"
+                }
+              ],
+              "text": "First persisted reasoning.",
+              "type": "reasoning"
+            },
+            {
+              "sourceRefs": [
+                {
+                  "locator": {
+                    "type": "runtime-field",
+                    "value": "runtime:getMessages#message[\"assistant-synthetic\"].content.messages[0].proposal.content.thought"
+                  },
+                  "parserProfile": {
+                    "id": "trae-cn-runtime-v2",
+                    "version": 1
+                  },
+                  "sha256": "sha256:0e6038d6593627c97bfa0f7307f5fe5924c02319e27cd4bc166a4d27dd3d4509",
+                  "sourceSessionId": "session-synthetic",
+                  "workspaceStorageId": "workspace-synthetic"
+                }
+              ],
+              "text": "Opening text.\n",
+              "type": "text"
+            },
+            {
+              "sourceRefs": [
+                {
+                  "locator": {
+                    "type": "runtime-field",
+                    "value": "runtime:getMessages#message[\"assistant-synthetic\"].content.messages[1].plan_item.reasoning_content"
+                  },
+                  "parserProfile": {
+                    "id": "trae-cn-runtime-v2",
+                    "version": 1
+                  },
+                  "sha256": "sha256:84b0248088bb0da21dc1f41c8c1a8c4b52794b55deeb32d9a5c2775fd7a73d16",
+                  "sourceSessionId": "session-synthetic",
+                  "workspaceStorageId": "workspace-synthetic"
+                }
+              ],
+              "text": "Tool reasoning.",
+              "type": "reasoning"
+            },
+            {
+              "callId": "call-synthetic",
+              "completedAt": 1700000003000,
+              "createdAt": 1700000002000,
+              "input": {
+                "path": "example.txt"
+              },
+              "name": "read_file",
+              "output": {
+                "text": "中文\n"
+              },
+              "sourceRefs": [
+                {
+                  "locator": {
+                    "type": "runtime-field",
+                    "value": "runtime:getMessages#message[\"assistant-synthetic\"].content.messages[1].plan_item.tool_call_info"
+                  },
+                  "parserProfile": {
+                    "id": "trae-cn-runtime-v2",
+                    "version": 1
+                  },
+                  "sha256": "sha256:dd5e6e6a8084354525321eccc4634ccf0c817ebb9f396a8d11b77eda02a82caf",
+                  "sourceSessionId": "session-synthetic",
+                  "workspaceStorageId": "workspace-synthetic"
+                }
+              ],
+              "status": "completed",
+              "type": "tool"
+            },
+            {
+              "sourceRefs": [
+                {
+                  "locator": {
+                    "type": "runtime-field",
+                    "value": "runtime:getMessages#message[\"assistant-synthetic\"].content.messages[2].proposal.content.thought"
+                  },
+                  "parserProfile": {
+                    "id": "trae-cn-runtime-v2",
+                    "version": 1
+                  },
+                  "sha256": "sha256:5ff27edfce99d5d4a4ba47bb9b0d2b5fb876d855ebd4804643c47de9fbbd864e",
+                  "sourceSessionId": "session-synthetic",
+                  "workspaceStorageId": "workspace-synthetic"
+                }
+              ],
+              "text": "Final response.\n",
+              "type": "text"
+            }
+          ],
+          "createdAt": 1700000001000,
+          "order": 2,
+          "replyToSourceId": "user-synthetic",
+          "sourceId": "assistant-synthetic",
+          "sourceRefs": [
+            {
+              "locator": {
+                "type": "runtime-field",
+                "value": "runtime:getMessages#message[\"assistant-synthetic\"]"
+              },
+              "parserProfile": {
+                "id": "trae-cn-runtime-v2",
+                "version": 1
+              },
+              "sha256": "sha256:7e48a6347d615b96933568213a827f6219c7092891d2cbbe8db579385cfcc30d",
+              "sourceSessionId": "session-synthetic",
+              "workspaceStorageId": "workspace-synthetic"
+            }
+          ],
+          "status": "completed",
+          "turnSourceId": "turn-synthetic",
+          "type": "assistant"
+        }
+      ],
+      "projectPath": "/synthetic/project",
+      "projectSourceId": "sha256:7f65ac9411fbb1a36e00d5109f810ee2f096c474026b79e0391a989dc35f832b",
+      "recovery": "complete",
+      "resources": [],
+      "sourceId": "session-synthetic",
+      "sourceRefs": [
+        {
+          "locator": {
+            "type": "runtime-field",
+            "value": "runtime:getSessions#session"
+          },
+          "parserProfile": {
+            "id": "trae-cn-runtime-v2",
+            "version": 1
+          },
+          "sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "sourceSessionId": "session-synthetic",
+          "workspaceStorageId": null
+        },
+        {
+          "locator": {
+            "type": "runtime-field",
+            "value": "runtime:getMessages#message[\"user-synthetic\"].content"
+          },
+          "parserProfile": {
+            "id": "trae-cn-runtime-v2",
+            "version": 1
+          },
+          "sha256": "sha256:a70485f802e0c1f5426a1d509866b21da612db2604c165861c1f681eac98a1dd",
+          "sourceSessionId": "session-synthetic",
+          "workspaceStorageId": "workspace-synthetic"
+        },
+        {
+          "locator": {
+            "type": "runtime-field",
+            "value": "runtime:getMessages#message[\"assistant-synthetic\"]"
+          },
+          "parserProfile": {
+            "id": "trae-cn-runtime-v2",
+            "version": 1
+          },
+          "sha256": "sha256:7e48a6347d615b96933568213a827f6219c7092891d2cbbe8db579385cfcc30d",
+          "sourceSessionId": "session-synthetic",
+          "workspaceStorageId": "workspace-synthetic"
+        },
+        {
+          "locator": {
+            "type": "runtime-field",
+            "value": "runtime:getMessages#message[\"user-synthetic\"]"
+          },
+          "parserProfile": {
+            "id": "trae-cn-runtime-v2",
+            "version": 1
+          },
+          "sha256": "sha256:08870e5daac6d8d5d496e47f28e70890a2a9d67e05f06f0c0aa9d188bc472bce",
+          "sourceSessionId": "session-synthetic",
+          "workspaceStorageId": "workspace-synthetic"
+        }
+      ],
+      "title": "Synthetic assembly fixture",
+      "updatedAt": 1700000004000
+    }
+  ],
+  "source": {
+    "collectedAt": "2026-09-24T00:00:00.000Z",
+    "platform": "darwin",
+    "product": {
+      "name": "trae-cn",
+      "version": "3.3.104"
+    },
+    "profile": {
+      "id": "trae-cn-runtime-v2",
+      "verification": "verified",
+      "version": 1
+    },
+    "sourceFingerprint": "sha256:27142ba6ed027227e5e120679012d20ed1e0e41b18fc4aac671efff6142a27dc"
+  }
+}

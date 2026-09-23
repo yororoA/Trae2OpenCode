@@ -134,3 +134,8 @@ export {
   type TraeToolIssueCode,
   type TraeToolReport,
 } from "./tool-calls.js";
+export {
+  assembleTraeMigrationBundle,
+  type AssembleTraeBundleOptions,
+  type TraeSessionMessageRead,
+} from "./assemble-bundle.js";
