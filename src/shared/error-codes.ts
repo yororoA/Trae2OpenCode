@@ -47,6 +47,22 @@ export const ERROR_DEFINITIONS = {
     exitCode: 4,
     message: "TRAE workspace configuration is invalid.",
   },
+  T2O_TRAE_SQLITE_SOURCE_NOT_FOUND: {
+    exitCode: 4,
+    message: "TRAE SQLite source was not found.",
+  },
+  T2O_TRAE_SQLITE_SOURCE_INVALID: {
+    exitCode: 4,
+    message: "TRAE SQLite source is invalid or unreadable.",
+  },
+  T2O_TRAE_SQLITE_SNAPSHOT_FAILED: {
+    exitCode: 4,
+    message: "TRAE SQLite snapshot could not be created.",
+  },
+  T2O_TRAE_SQLITE_SNAPSHOT_INVALID: {
+    exitCode: 4,
+    message: "TRAE SQLite snapshot failed integrity validation.",
+  },
   T2O_INTERNAL_UNEXPECTED: {
     exitCode: 1,
     message: "An unexpected internal error occurred.",

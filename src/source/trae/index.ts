@@ -24,3 +24,9 @@ export {
   type WorkspaceResolutionOptions,
   type WorkspaceResolutionReport,
 } from "./workspace-resolution.js";
+export {
+  createReadonlySqliteSnapshot,
+  withReadonlySqliteSnapshot,
+  type ReadonlySqliteSnapshot,
+  type SqliteSnapshotOptions,
+} from "./sqlite-snapshot.js";

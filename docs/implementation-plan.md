@@ -1,6 +1,6 @@
 # Trae2OpenCode 实现规划
 
-> 状态：M0、M1 已合入 `main`；M2-1 已合入 M2 里程碑分支；M2-2 已完成
+> 状态：M0、M1 已合入 `main`；M2-1 已集成；M2-2、M2-3 已完成
 > 核验日期：2026-09-23
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
@@ -34,7 +34,8 @@ M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP
 | M1 工程骨架与 IR | 已集成 | PR #7 至 #10 已合入里程碑分支，PR #11 已合入 `main` |
 | M2 路径发现 | M2-1 已集成 | PR #12 已合入 `m2/trae-scanner` |
 | M2 workspace 解析 | M2-2 已完成 | 已实现 folder/workspace URI、JSONC multi-root 和逐记录诊断 |
-| M2 扫描后续/M3 读取 | 未开始 | 快照、能力探测、runtime reader 和 recovery grading 尚未实现 |
+| M2 SQLite 快照 | M2-3 已完成 | 已实现 Online Backup、WAL 一致性、完整性校验和自动清理 |
+| M2 扫描后续/M3 读取 | 未开始 | 能力探测、runtime reader 和 recovery grading 尚未实现 |
 | M4 OpenCode adapter | 契约验证完成，实现未开始 | 2.0.12 隔离 import/export 已验证，尚无生产 capability probe 与 import adapter |
 | M5-M7 | 未开始 | 编排、安全、资源迁移、兼容与发布能力均未实现 |
 
@@ -272,33 +273,87 @@ trae2opencode rollback --manifest <path>
 - 开发执行通道曾发生 transport 故障，原因、备用方案与复现方法见
   [开发环境故障排查](./development-troubleshooting.md)。
 
-#### M1 完成与 M2 启动
+#### M1 完成明细
 
-1. M1-1 已通过 PR #7 合入里程碑分支；可执行 CLI、lint、CI 和统一质量门禁
-   已建立。
-2. M1-2 已通过 PR #8 合入里程碑分支；IR v1、JSON Schema、运行时 validator
-   和 fixture 校验已建立。
-3. M1-3 已通过 PR #9 合入里程碑分支；错误码、退出码、diagnostic 和脱敏
-   结构化日志已统一。
-4. M1-4 已通过 PR #10 合入里程碑分支：golden fixture 只读检查、显式更新、
-   Schema hash 和 bundle hash 已建立。
-5. M1 已通过 PR #11 合入 `main`。
-6. M2-1 已通过 PR #12 合入里程碑分支：支持 macOS/Windows 默认路径与显式
+| 任务 | 交付提交 | 集成 PR | 核心结果 | 完成时测试数 |
+| --- | --- | --- | --- | ---: |
+| M1-1 | `f76d031`、`69434d8` | #7 | CLI、lint、CI 和统一质量门禁 | 35 |
+| M1-2 | `89ed76a` | #8 | IR v1、JSON Schema 和运行时校验 | 40 |
+| M1-3 | `214c8af` | #9 | 错误码、diagnostic 和脱敏结构化日志 | 48 |
+| M1-4 | `74ea549` | #10 | deterministic golden fixture 框架 | 51 |
+
+M1-1 建立了可发布的 TypeScript CLI 骨架：
+
+- 增加 `trae2opencode` 可执行入口、参数解析、帮助和版本输出。
+- `doctor`、`scan`、`preview`、`export`、`migrate`、`verify`、`rollback`
+  在实现前明确 fail closed，不会误执行未完成的迁移流程。
+- 使用 Biome 建立 lint 门禁，并将 lint、test、typecheck、build、CLI smoke
+  合并为 `npm run check`。
+- 增加 GitHub Actions `Quality` workflow，使用 Node.js 20 和 `npm ci` 执行
+  同一本地质量门禁。
+- 固定公共 npm registry，验证打包后的 bin 具有可执行权限。
+
+M1-2 固化了后续 scanner、reader 和 OpenCode adapter 共用的
+`MigrationBundle` v1 契约：
+
+- 定义 source、project、session、user/assistant event、text/reasoning/tool
+  content、resource 和 diagnostic 类型。
+- session、event、assistant content 和 resource 强制携带 `sourceRefs`，记录
+  workspace storage ID、源 session ID、locator、parser profile 和 SHA-256。
+- JSON Schema 使用 Draft 2020-12，对已知对象执行
+  `additionalProperties: false`，未知源字段不能被静默接受。
+- 提供 `validateMigrationBundle` 和 `assertMigrationBundle` 运行时接口，以及
+  checked-in 独立 Schema、合法/非法 fixture 和同步检查。
+- `unknown` 恢复或工具状态只允许进入离线 IR，不自动获得 OpenCode 写入资格。
+  完整契约见 [Migration Bundle IR v1](./ir-schema-v1.md)。
+
+M1-3 统一了可供 CLI 和后续模块复用的错误与诊断边界：
+
+- 建立稳定的 `T2O_*` 错误码与退出码，调用方无需解析英文 message。
+- Schema issue 转换为可定位的 IR diagnostic，只包含 instance/schema path、
+  keyword 和安全 message，不回显被校验正文。
+- CLI `--json` 使用 JSON Lines 输出机器可读错误；未知异常统一转换为
+  `T2O_INTERNAL_UNEXPECTED`。
+- 日志 context 采用字段白名单；正文、query、reasoning、tool input/output、
+  payload、token、credential 和绝对用户路径默认脱敏。
+- 详细约束见 [错误、诊断与结构化日志](./error-diagnostics.md)。
+
+M1-4 建立了 IR 变更的显式评审门禁：
+
+- `canonicalizeMigrationBundle` 先执行 Schema 校验，再递归排序对象 key；消息、
+  content block 和 resource 数组保持原始顺序。
+- golden manifest 同时记录 Schema hash、bundle hash、输入路径和期望输出路径；
+  即使只改变可选 Schema 字段，也会触发 CI 漂移。
+- `npm run golden:check` 只读比较，不会自动覆盖期望结果。
+- `npm run golden:update -- --accept` 是唯一更新入口；缺少 `--accept` 时以退出码
+  2 拒绝写入，确保 IR 变化必须产生可审查 diff。
+- 详细流程见 [IR Golden Fixture 工作流](./golden-fixtures.md)。
+
+M1 里程碑分支最终通过 PR #11 合入 `main`，合并提交为 `4a9219d`。退出时
+51 项单元测试、lint、TypeScript typecheck、build 和 CLI smoke 全部通过。
+M1 只完成工程骨架与数据契约，不表示生产 scanner、runtime reader 或真实迁移
+已经可用。
+
+#### M2 当前进展
+
+1. M2-1 已通过 PR #12 合入里程碑分支：支持 macOS/Windows 默认路径与显式
    `--trae-root`。详细契约见
    [M2-1 路径发现](./m2-1-path-discovery.md)。
-7. M2-2 已完成 workspace 与项目路径解析，详细契约见
+2. M2-2 已完成 workspace 与项目路径解析，详细契约见
    [M2-2 Workspace 解析](./m2-2-workspace-resolution.md)。
-8. 后续将 M0 renderer 探针替换为生产 runtime adapter；探针、日志和数据库解密
+3. M2-3 已完成 SQLite 一致性只读快照，WAL 与真实 TRAE 数据库验证均通过，
+   详细契约见 [M2-3 SQLite 快照](./m2-3-sqlite-snapshot.md)。
+4. 后续将 M0 renderer 探针替换为生产 runtime adapter；探针、日志和数据库解密
    均不得成为生产数据源。
 
 ### M1：工程骨架与 IR，2-3 天
 
 | ID | 任务 | 依赖 | 验收 | 状态 |
 | --- | --- | --- | --- | --- |
-| M1-1 | 完善 TypeScript CLI 入口、lint、test、build | M0-5 | CLI 可执行，本地和 CI 可检查与构建 | 已完成 |
-| M1-2 | 定义版本化 IR 和 JSON Schema | M0-5 | 合法/非法 fixture 校验覆盖 | 已完成 |
-| M1-3 | 统一错误码、诊断和结构化日志 | M1-1 | CLI 错误可定位且正文不泄露 | 已完成 |
-| M1-4 | 建立 golden fixture 测试框架 | M1-1, M1-2 | IR 变化必须显式更新 golden | 已完成 |
+| M1-1 | 完善 TypeScript CLI 入口、lint、test、build | M0-5 | CLI 可执行，本地和 CI 可检查与构建 | 已完成并集成 |
+| M1-2 | 定义版本化 IR 和 JSON Schema | M0-5 | 合法/非法 fixture 校验覆盖 | 已完成并集成 |
+| M1-3 | 统一错误码、诊断和结构化日志 | M1-1 | CLI 错误可定位且正文不泄露 | 已完成并集成 |
+| M1-4 | 建立 golden fixture 测试框架 | M1-1, M1-2 | IR 变化必须显式更新 golden | 已完成并集成 |
 
 ### M2：TRAE 扫描与恢复等级，3-5 天
 
@@ -306,7 +361,7 @@ trae2opencode rollback --manifest <path>
 | --- | --- | --- | --- | --- |
 | M2-1 | macOS/Windows 路径发现器 | M1-1 | 支持默认路径和 `--trae-root` | 已完成并集成 |
 | M2-2 | workspace 与项目路径解析 | M2-1 | folder/workspace URI 均可规范化 | 已完成 |
-| M2-3 | SQLite 一致性只读快照 | M2-1 | TRAE 运行时扫描也不写源库 | 未开始 |
+| M2-3 | SQLite 一致性只读快照 | M2-1 | TRAE 运行时扫描也不写源库 | 已完成 |
 | M2-4 | 数据源能力探测器 | M2-2, M2-3 | 输出 storage profile 和字段覆盖率 | 未开始 |
 | M2-5 | 会话级 recovery grading | M2-4 | 每个会话都有等级和缺失原因 | 未开始 |
 
@@ -437,15 +492,15 @@ OpenCode import 是实验性能力。M4-6 必须验证实际导入结果，不�
 ## 10. 推荐执行顺序
 
 1. M0、M1 已完成并合入 `main`。
-2. M2-1、M2-2 已完成；下一步进入 M2-3 SQLite 一致性只读快照。
+2. M2-1 至 M2-3 已完成；下一步进入 M2-4 数据源能力探测。
 3. 完成 runtime capability probe 和 recovery grading。
 4. 生成可审计 IR，并打通真实来源到 OpenCode 的 import/export 对账。
 5. 增加批量迁移、manifest、resume 和 rollback。
 6. 最后处理附件、Skill、MCP；SQLite Writer 保持为可选项。
 
 原始 P0 估算为 20-30 个工程日。当前完成的是高风险的 M0 勘探，不宜按任务数直接
-折算整体百分比；M1-M5 和 M7 仍包含主要产品实现工作，剩余工期应在 M1 拆分后
-重新评估。
+折算整体百分比；M2-M5 和 M7 仍包含主要产品实现工作，剩余工期应在 M2 扫描
+契约冻结后重新评估。
 
 ## 11. 分支与提交规范
 
