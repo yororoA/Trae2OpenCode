@@ -118,3 +118,12 @@ export {
   type TraeRuntimeAssistantMessageProvider,
   type TraeRuntimeAssistantMessageRequest,
 } from "./assistant-messages.js";
+export {
+  parseTraeReasoningPlan,
+  type TraeReasoningBlock,
+  type TraePlanItem,
+  type TraeContentSource,
+  type TraeReasoningPlanIssue,
+  type TraeReasoningPlanIssueCode,
+  type TraeReasoningPlanReport,
+} from "./reasoning-plan.js";

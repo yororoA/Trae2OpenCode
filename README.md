@@ -8,7 +8,8 @@ reasoning、tool payload、关系和时间字段。M2-1 已提供 macOS/Windows 
 bridge 与完整迁移流程尚未实现。M3-1 已实现会话候选发现与 runtime metadata
 规范化；M3-2 已实现 runtime 用户消息解析、正文/query 优先级、冲突去重及
 workspace 输入历史只读解析；M3-3 已实现 runtime assistant 正文投影、关系与
-时间规范化，以及仅基于精确路径证据的 long-text 关联。
+时间规范化，以及仅基于精确路径证据的 long-text 关联；M3-4 已接入持久化
+reasoning 与 plan 来源解析。
 
 ## 开发与验证
 
@@ -59,6 +60,7 @@ npm run verify:opencode
 - [M3-1 会话索引、时间与标题解析](docs/m3-1-session-metadata.md)
 - [M3-2 用户消息与查询缓存解析](docs/m3-2-user-messages.md)
 - [M3-3 Assistant 文本与 long-text 关联](docs/m3-3-assistant-messages.md)
+- [M3-4 持久化 reasoning 与 plan](docs/m3-4-reasoning-plan.md)
 - [TRAE 消息来源定位](docs/m0-3-source-location.md)
 - [OpenCode 导入验证与限制](docs/m0-4-import-roundtrip.md)
 - [M0-5 字段映射与降级矩阵](docs/m0-5-mapping-matrix.md)

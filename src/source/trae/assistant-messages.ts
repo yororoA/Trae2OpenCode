@@ -5,6 +5,12 @@ import { fileURLToPath } from "node:url";
 import { ERROR_DEFINITIONS } from "../../shared/error-codes.js";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
 import type { DiscoveredTraeRoot } from "./path-discovery.js";
+import {
+  parseTraeReasoningPlan,
+  type TraePlanItem,
+  type TraeReasoningBlock,
+  type TraeReasoningPlanIssueCode,
+} from "./reasoning-plan.js";
 import type { TraeQueryCacheEntry } from "./user-messages.js";
 
 export const VERIFIED_TRAE_ASSISTANT_MESSAGE_VERSION = "3.3.104";
@@ -21,6 +27,7 @@ export type TraeAssistantMessageSourceKind =
   | "explicit-long-text-reference";
 
 export type TraeAssistantMessageIssueCode =
+  | TraeReasoningPlanIssueCode
   | "T2O_TRAE_ASSISTANT_MESSAGE_CONTAINER_INVALID"
   | "T2O_TRAE_ASSISTANT_MESSAGE_RECORD_INVALID"
   | "T2O_TRAE_ASSISTANT_MESSAGE_CONTENT_INVALID"
@@ -69,6 +76,8 @@ export interface TraeAssistantMessage {
   completedAt?: number;
   status: TraeAssistantMessageStatus;
   textBlocks: TraeAssistantText[];
+  reasoningBlocks: TraeReasoningBlock[];
+  planItems: TraePlanItem[];
   sources: TraeAssistantMessageSource[];
 }
 
@@ -103,6 +112,7 @@ export interface TraeAssistantMessageIssue {
   field?: "content" | "status" | "chat_start_time" | "chat_end_time";
   resourcePathSha256?: string;
   referenceSha256?: string;
+  contentLocator?: string;
 }
 
 export interface TraeAssistantMessageReport {
@@ -162,7 +172,7 @@ const QUERY_LONG_TEXT_PATH_FIELDS = new Set([
 ]);
 
 const ISSUE_MESSAGES: Record<
-  TraeAssistantMessageIssueCode,
+  Exclude<TraeAssistantMessageIssueCode, TraeReasoningPlanIssueCode>,
   string
 > = {
   T2O_TRAE_ASSISTANT_MESSAGE_CONTAINER_INVALID:
@@ -244,7 +254,7 @@ function sha256Buffer(value: Buffer): string {
 }
 
 function createIssue(
-  code: TraeAssistantMessageIssueCode,
+  code: keyof typeof ISSUE_MESSAGES,
   options: Omit<TraeAssistantMessageIssue, "code" | "message">,
 ): TraeAssistantMessageIssue {
   return {
@@ -360,6 +370,7 @@ function parseToolSummary(value: unknown): string | undefined {
   }
   const toolCall = value.tool_call_info;
   const isResponseTool =
+    toolCall.name === "finish" ||
     toolCall.name === "Finish" ||
     toolCall.name === "response_to_user";
   if (!isResponseTool) return undefined;
@@ -740,6 +751,19 @@ function parseRuntimeRecord(
     );
   }
 
+  const reasoningPlan = parseTraeReasoningPlan(
+    value.content,
+    messageType,
+    VERIFIED_TRAE_ASSISTANT_MESSAGE_VERSION,
+    content.textBlocks.map((block) => block.source.locator),
+  );
+  issues.push(...reasoningPlan.issues.map((issue) => ({
+    ...issue,
+    sourceSessionId,
+    sourceMessageId,
+    entryIndex,
+  })));
+
   return {
     sourceMessageId,
     sourceSessionId,
@@ -752,6 +776,8 @@ function parseRuntimeRecord(
     ...(completedAt === undefined ? {} : { completedAt }),
     status,
     textBlocks: content.textBlocks,
+    reasoningBlocks: reasoningPlan.reasoningBlocks,
+    planItems: reasoningPlan.planItems,
     sources: [
       {
         kind: "runtime-assistant-message",

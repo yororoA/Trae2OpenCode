@@ -172,9 +172,10 @@ describe("parseTraeRuntimeAssistantMessages", () => {
       "content.content",
     );
     assert.doesNotMatch(
-      JSON.stringify(report.messages),
+      JSON.stringify(report.messages[0].textBlocks),
       /private reasoning/,
     );
+    assert.equal(report.messages[0].reasoningBlocks[0].text, "private reasoning");
     assert.deepStrictEqual(report.issues, []);
   });
 
@@ -198,6 +199,7 @@ describe("parseTraeRuntimeAssistantMessages", () => {
               {
                 type: "plan_item",
                 plan_item: {
+                  id: "plan-proposal-a",
                   thought: "private plan thought",
                   reasoning_content: "private plan reasoning",
                 },
@@ -222,10 +224,13 @@ describe("parseTraeRuntimeAssistantMessages", () => {
       ["first proposal", "second proposal"],
     );
     assert.doesNotMatch(
-      JSON.stringify(report.messages),
+      JSON.stringify(report.messages[0].textBlocks),
       /private proposal reasoning|private plan thought|private plan reasoning/,
     );
-    assert.deepStrictEqual(report.issues, []);
+    assert.deepEqual(report.messages[0].reasoningBlocks.map((block) => block.text),
+      ["private proposal reasoning", "private plan reasoning"]);
+    assert.deepEqual(report.issues.map((issue) => issue.code), ["T2O_TRAE_PLAN_THOUGHT_UNMAPPED"]);
+    assert.doesNotMatch(JSON.stringify(report.issues), /private proposal reasoning|private plan thought|private plan reasoning/);
   });
 
   it("uses chat plan thought and lets an explicit response summary override it", () => {
@@ -239,6 +244,7 @@ describe("parseTraeRuntimeAssistantMessages", () => {
               {
                 type: "plan_item",
                 plan_item: {
+                  id: "plan-chat-a",
                   thought: "initial visible response",
                   reasoning_content: "private reasoning",
                 },
@@ -246,6 +252,7 @@ describe("parseTraeRuntimeAssistantMessages", () => {
               {
                 type: "plan_item",
                 plan_item: {
+                  id: "plan-chat-b",
                   thought: "later plan thought",
                   tool_call_info: {
                     name: "response_to_user",
@@ -271,7 +278,7 @@ describe("parseTraeRuntimeAssistantMessages", () => {
       "content.messages[1].plan_item.tool_call_info.params.summary",
     );
     assert.doesNotMatch(
-      JSON.stringify(report.messages),
+      JSON.stringify(report.messages[0].textBlocks),
       /initial visible response|later plan thought|private reasoning/,
     );
 
@@ -285,11 +292,11 @@ describe("parseTraeRuntimeAssistantMessages", () => {
               messages: [
                 {
                   type: "plan_item",
-                  plan_item: { thought: "" },
+                  plan_item: { id: "plan-chat-a", thought: "" },
                 },
                 {
                   type: "plan_item",
-                  plan_item: { thought: "later private thought" },
+                  plan_item: { id: "plan-chat-b", thought: "later private thought" },
                 },
               ],
             },
@@ -329,6 +336,21 @@ describe("parseTraeRuntimeAssistantMessages", () => {
       JSON.stringify(report.issues),
       /private reasoning only/,
     );
+  });
+
+  it("projects the verified lowercase finish summary", () => {
+    const report = parseTraeRuntimeAssistantMessages([runtimeAssistant({
+      message_type: "task",
+      agent_type: "chat",
+      content: { messages: [{
+        type: "plan_item",
+        plan_item: {
+          id: "plan-finish",
+          tool_call_info: { name: "finish", params: { summary: "final answer" } },
+        },
+      }] },
+    })], "3.3.104");
+    assert.deepEqual(report.messages[0].textBlocks.map((block) => block.text), ["final answer"]);
   });
 
   it("isolates invalid timing and status without leaking content", () => {
