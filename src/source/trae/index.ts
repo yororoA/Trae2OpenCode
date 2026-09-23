@@ -79,3 +79,22 @@ export {
   type TraeSessionMetadataSourceKind,
   type TraeSessionMetadataStatus,
 } from "./session-metadata.js";
+export {
+  parseTraeQueryCache,
+  parseTraeRuntimeUserMessages,
+  readTraeUserMessages,
+  VERIFIED_TRAE_USER_MESSAGE_VERSION,
+  type ReadTraeUserMessagesOptions,
+  type TraeQueryCacheEntry,
+  type TraeQueryCacheFile,
+  type TraeQueryCacheMultimedia,
+  type TraeRuntimeUserMessageProvider,
+  type TraeRuntimeUserMessageRequest,
+  type TraeUserMessage,
+  type TraeUserMessageFieldSource,
+  type TraeUserMessageIssue,
+  type TraeUserMessageIssueCode,
+  type TraeUserMessageReport,
+  type TraeUserMessageSource,
+  type TraeUserMessageSourceKind,
+} from "./user-messages.js";

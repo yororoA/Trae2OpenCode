@@ -87,6 +87,14 @@ export const ERROR_DEFINITIONS = {
     exitCode: 4,
     message: "The TRAE session metadata provider failed.",
   },
+  T2O_TRAE_USER_MESSAGE_VERSION_UNSUPPORTED: {
+    exitCode: 4,
+    message: "The TRAE user message version is unsupported.",
+  },
+  T2O_TRAE_USER_MESSAGE_PROVIDER_FAILED: {
+    exitCode: 4,
+    message: "The TRAE user message provider failed.",
+  },
   T2O_INTERNAL_UNEXPECTED: {
     exitCode: 1,
     message: "An unexpected internal error occurred.",
