@@ -179,6 +179,10 @@ export const ERROR_DEFINITIONS = {
     exitCode: 5,
     message: "The target project directory must be an existing absolute local directory.",
   },
+  T2O_OPENCODE_PATH_MAP_INVALID: {
+    exitCode: 5,
+    message: "Project path mappings must use unambiguous absolute paths for each platform.",
+  },
   T2O_OPENCODE_TRANSFER_TOO_LARGE: {
     exitCode: 5,
     message: "The OpenCode transfer exceeds the supported size limit.",
