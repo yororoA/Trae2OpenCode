@@ -127,3 +127,10 @@ export {
   type TraeReasoningPlanIssueCode,
   type TraeReasoningPlanReport,
 } from "./reasoning-plan.js";
+export {
+  parseTraeToolCalls,
+  type TraeToolCall,
+  type TraeToolIssue,
+  type TraeToolIssueCode,
+  type TraeToolReport,
+} from "./tool-calls.js";

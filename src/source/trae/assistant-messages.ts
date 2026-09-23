@@ -11,6 +11,7 @@ import {
   type TraeReasoningBlock,
   type TraeReasoningPlanIssueCode,
 } from "./reasoning-plan.js";
+import { parseTraeToolCalls, type TraeToolCall, type TraeToolIssueCode } from "./tool-calls.js";
 import type { TraeQueryCacheEntry } from "./user-messages.js";
 
 export const VERIFIED_TRAE_ASSISTANT_MESSAGE_VERSION = "3.3.104";
@@ -28,6 +29,7 @@ export type TraeAssistantMessageSourceKind =
 
 export type TraeAssistantMessageIssueCode =
   | TraeReasoningPlanIssueCode
+  | TraeToolIssueCode
   | "T2O_TRAE_ASSISTANT_MESSAGE_CONTAINER_INVALID"
   | "T2O_TRAE_ASSISTANT_MESSAGE_RECORD_INVALID"
   | "T2O_TRAE_ASSISTANT_MESSAGE_CONTENT_INVALID"
@@ -78,6 +80,7 @@ export interface TraeAssistantMessage {
   textBlocks: TraeAssistantText[];
   reasoningBlocks: TraeReasoningBlock[];
   planItems: TraePlanItem[];
+  toolCalls: TraeToolCall[];
   sources: TraeAssistantMessageSource[];
 }
 
@@ -172,7 +175,7 @@ const QUERY_LONG_TEXT_PATH_FIELDS = new Set([
 ]);
 
 const ISSUE_MESSAGES: Record<
-  Exclude<TraeAssistantMessageIssueCode, TraeReasoningPlanIssueCode>,
+  Exclude<TraeAssistantMessageIssueCode, TraeReasoningPlanIssueCode | TraeToolIssueCode>,
   string
 > = {
   T2O_TRAE_ASSISTANT_MESSAGE_CONTAINER_INVALID:
@@ -763,6 +766,8 @@ function parseRuntimeRecord(
     sourceMessageId,
     entryIndex,
   })));
+  const tools = parseTraeToolCalls(value.content, messageType, VERIFIED_TRAE_ASSISTANT_MESSAGE_VERSION);
+  issues.push(...tools.issues.map((issue) => ({ ...issue, sourceSessionId, sourceMessageId, entryIndex })));
 
   return {
     sourceMessageId,
@@ -778,6 +783,7 @@ function parseRuntimeRecord(
     textBlocks: content.textBlocks,
     reasoningBlocks: reasoningPlan.reasoningBlocks,
     planItems: reasoningPlan.planItems,
+    toolCalls: tools.toolCalls,
     sources: [
       {
         kind: "runtime-assistant-message",
