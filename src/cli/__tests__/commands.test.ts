@@ -8,6 +8,20 @@ import { executeReadCommand, loadCommandBundle } from "../commands.js";
 const input = "fixtures/ir/v1/valid-trae-assembled.json";
 
 describe("read commands", () => {
+  it("plans dry-run from offline IR and rejects flags on unrelated commands", async () => {
+    const report = await executeReadCommand("migrate", {
+      input, dryRun: true, fallbackDirectory: process.cwd(),
+    }) as { ready: number; dryRun: boolean; target: unknown };
+    assert.equal(report.ready, 1);
+    assert.equal(report.dryRun, true);
+    assert.deepEqual(report.target, { probed: false });
+    assert.doesNotMatch(JSON.stringify(report), /Read this file|First persisted/);
+    await assert.rejects(executeReadCommand("scan", { input, dryRun: true }),
+      { code: "T2O_CLI_INVALID_ARGUMENTS" });
+    await assert.rejects(executeReadCommand("migrate", { input, dryRun: true, output: "unused" }),
+      { code: "T2O_CLI_INVALID_ARGUMENTS" });
+  });
+
   it("scans and previews offline bundles without requiring a target", async () => {
     for (const command of ["scan", "preview"]) {
       const result = await executeReadCommand(command, { input }) as { sessions: unknown[] };

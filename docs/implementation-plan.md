@@ -1,6 +1,6 @@
 # Trae2OpenCode 实现规划
 
-> 状态：M0 至 M4 已合入 `main`；M5-1 只读 CLI 已实现，位于 `m5/migration-orchestration`
+> 状态：M0 至 M4 已合入 `main`；M5-1、M5-2 已实现，位于 `m5/migration-orchestration`
 > 核验日期：2026-09-24
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
@@ -553,7 +553,7 @@ M4 已通过 PR #15 合入 `main`，合并提交为 `e80d744`；里程碑 CI 通
 | ID | 任务 | 依赖 | 验收 |
 | --- | --- | --- | --- |
 | M5-1 | `doctor/scan/preview/export` | M2, M3 | 已实现并通过本机只读验收；CDP 真实正文端到端验证待完成 |
-| M5-2 | `migrate --dry-run` | M4 | 计划与实际映射使用同一代码路径 |
+| M5-2 | `migrate --dry-run` | M4 | 已实现：共享 transfer 计划、目录策略、恢复筛选与脱敏统计 |
 | M5-3 | manifest、checkpoint、resume | M4 | 中断后从最后成功会话继续 |
 | M5-4 | 冲突与幂等策略 | M5-3 | 默认 skip，显式 replace 才覆盖本工具产物 |
 | M5-5 | rollback | M5-3 | 只删除 manifest 记录的新会话 |
@@ -561,6 +561,9 @@ M4 已通过 PR #15 合入 `main`，合并提交为 `e80d744`；里程碑 CI 通
 
 M5-1 累计 265 项测试通过，CLI 实机发现 62 个会话、25 个项目；无 runtime 时
 明确标记 metadata-only。接口与验证边界见 [M5-1 只读 CLI](./m5-1-readonly-cli.md)。
+
+M5-2 累计 275 项测试通过；实机 dry-run 排除全部 62 个 metadata-only 会话，
+未误报可导入。详见 [M5-2 dry-run](./m5-2-dry-run.md)。
 
 ### M6：资源迁移，4-7 天，可独立发布
 

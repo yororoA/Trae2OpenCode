@@ -25,6 +25,21 @@ function captureIO(): {
 }
 
 describe("runCli", () => {
+  it("accepts dry-run flags and repeated project maps", async () => {
+    const output = captureIO();
+    assert.equal(await runCli([
+      "migrate", "--dry-run", "--input", "fixtures/ir/v1/valid-trae-assembled.json",
+      "--fallback-directory", process.cwd(), "--recovery", "complete,partial",
+      "--path-map", `/synthetic=${process.cwd()}`, "--path-map", `/elsewhere=${process.cwd()}`,
+      "--namespace", "test-cli", "--json",
+    ], output.io, "9.8.7"), 0);
+    const result = JSON.parse(output.stdout());
+    assert.equal(result.ready, 1);
+    assert.equal(result.dryRun, true);
+    assert.equal(output.stderr(), "");
+    assert.ok(!output.stdout().includes(process.cwd()));
+  });
+
   it("prints help when no command is provided", async () => {
     const output = captureIO();
 

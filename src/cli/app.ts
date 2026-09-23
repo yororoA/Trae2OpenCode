@@ -81,6 +81,15 @@ Options:
       --server <url> Check a local OpenCode server
       --binary <path>
                       OpenCode executable (default: opencode)
+      --dry-run       Plan migration without target writes
+      --recovery <complete,partial>
+                      Select recovery grades (default: complete,partial)
+      --namespace <name>
+                      Stable identity namespace (default: trae-cn)
+      --path-map <from=to>
+                      Map source project roots; may be repeated
+      --fallback-directory <path>
+                      Existing directory for unavailable project paths
 `;
 }
 
@@ -160,6 +169,11 @@ export async function runCli(
         project: { type: "string" },
         server: { type: "string" },
         binary: { type: "string" },
+        "dry-run": { type: "boolean" },
+        recovery: { type: "string" },
+        namespace: { type: "string" },
+        "path-map": { type: "string", multiple: true },
+        "fallback-directory": { type: "string" },
       },
     });
   } catch (cause) {
@@ -245,6 +259,10 @@ export async function runCli(
         input: stringOption("input"), output: stringOption("output"),
         session: stringOption("session"), project: stringOption("project"),
         server: stringOption("server"), binary: stringOption("binary"),
+        dryRun: parsed.values["dry-run"] === true,
+        recovery: stringOption("recovery"), namespace: stringOption("namespace"),
+        pathMaps: parsed.values["path-map"] as string[] | undefined,
+        fallbackDirectory: stringOption("fallback-directory"),
       });
       io.stdout(`${JSON.stringify(result, null, useJson ? undefined : 2)}\n`);
       return 0;

@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import { exportBundleFile, readBundleFile, summarizeBundle } from "../migration/bundle-file.js";
+import { buildMigrationPlan, parsePathMaps, parseRecovery, summarizeMigrationPlan } from "../migration/plan.js";
 import { collectTraeBundle, detectTraeVersion, selectBundle } from "../source/trae/collect.js";
 import { probeTraeCapabilities } from "../source/trae/capability-probe.js";
 import { requireTraeRoot } from "../source/trae/path-discovery.js";
@@ -19,6 +20,11 @@ export interface CommandOptions {
   project?: string;
   server?: string;
   binary?: string;
+  dryRun?: boolean;
+  namespace?: string;
+  recovery?: string;
+  pathMaps?: string[];
+  fallbackDirectory?: string;
 }
 
 export async function loadCommandBundle(options: CommandOptions) {
@@ -37,6 +43,24 @@ export async function loadCommandBundle(options: CommandOptions) {
 }
 
 export async function executeReadCommand(command: string, options: CommandOptions): Promise<unknown> {
+  const planningOption = options.dryRun || options.namespace !== undefined ||
+    options.recovery !== undefined || options.pathMaps !== undefined || options.fallbackDirectory !== undefined;
+  if (command !== "migrate" && planningOption) throw new Trae2OpenCodeError("T2O_CLI_INVALID_ARGUMENTS");
+  if (command === "migrate") {
+    if (!options.dryRun) throw new Trae2OpenCodeError("T2O_CLI_COMMAND_NOT_IMPLEMENTED");
+    if (options.output) throw new Trae2OpenCodeError("T2O_CLI_INVALID_ARGUMENTS");
+    const recovery = parseRecovery(options.recovery);
+    const pathMaps = parsePathMaps(options.pathMaps);
+    const bundle = await loadCommandBundle(options);
+    const plan = await buildMigrationPlan(bundle, {
+      recovery, pathMaps, namespace: options.namespace, fallbackDirectory: options.fallbackDirectory,
+    });
+    const target = options.server ? await probeOpenCodeCapabilities(createOpenCodeTransport({
+      serverUrl: options.server, binary: options.binary,
+      password: process.env.OPENCODE_SERVER_PASSWORD, username: process.env.OPENCODE_SERVER_USERNAME,
+    })) : { probed: false };
+    return { command, dryRun: true, target, ...summarizeMigrationPlan(plan) };
+  }
   if (command === "doctor") {
     const report: Record<string, unknown> = { command, reportVersion: 1 };
     try {
