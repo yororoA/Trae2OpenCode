@@ -15,6 +15,14 @@ export const ERROR_DEFINITIONS = {
     exitCode: 3,
     message: "Migration bundle failed schema validation.",
   },
+  T2O_TRAE_ROOT_NOT_FOUND: {
+    exitCode: 4,
+    message: "No readable TRAE data root was found.",
+  },
+  T2O_TRAE_PLATFORM_UNSUPPORTED: {
+    exitCode: 4,
+    message: "TRAE scanning is not supported on this platform.",
+  },
   T2O_INTERNAL_UNEXPECTED: {
     exitCode: 1,
     message: "An unexpected internal error occurred.",

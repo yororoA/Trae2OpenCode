@@ -1,6 +1,6 @@
 # Trae2OpenCode 实现规划
 
-> 状态：M0 已合入 `main`；M1-1 至 M1-3 已合入 M1 里程碑分支；M1-4 已完成，待任务分支 PR
+> 状态：M0、M1 已合入 `main`；M2-1 已完成，待任务分支 PR
 > 核验日期：2026-09-23
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
@@ -31,11 +31,9 @@ M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP
 | --- | --- | --- |
 | M0 格式勘探 | 已完成 | M0-1 至 M0-5 的证据、策略和测试均已完成 |
 | M0 分支交付 | 已集成 | PR #5 已合入 `m0/format-exploration`，PR #6 已合入 `main` |
-| M1 工程骨架 | M1-1 已集成 | PR #7 已合入 `m1/engineering-skeleton` |
-| M1 IR/schema | M1-2 已集成 | PR #8 已合入 `m1/engineering-skeleton` |
-| M1 错误与诊断 | M1-3 已集成 | PR #9 已合入 `m1/engineering-skeleton` |
-| M1 golden fixture | M1-4 已完成 | 已建立规范化、Schema/bundle hash、显式更新和 CI 漂移检测 |
-| M2/M3 TRAE 读取 | 未开始 | M0 collector/probe 只用于勘探；生产 scanner、runtime reader 和 recovery grading 尚未实现 |
+| M1 工程骨架与 IR | 已集成 | PR #7 至 #10 已合入里程碑分支，PR #11 已合入 `main` |
+| M2 路径发现 | M2-1 已完成 | 已实现 macOS/Windows 默认路径、显式根目录和稳定错误码 |
+| M2 扫描后续/M3 读取 | 未开始 | workspace 解析、快照、能力探测、runtime reader 和 recovery grading 尚未实现 |
 | M4 OpenCode adapter | 契约验证完成，实现未开始 | 2.0.12 隔离 import/export 已验证，尚无生产 capability probe 与 import adapter |
 | M5-M7 | 未开始 | 编排、安全、资源迁移、兼容与发布能力均未实现 |
 
@@ -273,7 +271,7 @@ trae2opencode rollback --manifest <path>
 - 开发执行通道曾发生 transport 故障，原因、备用方案与复现方法见
   [开发环境故障排查](./development-troubleshooting.md)。
 
-#### M1 后续工作
+#### M1 完成与 M2 启动
 
 1. M1-1 已通过 PR #7 合入里程碑分支；可执行 CLI、lint、CI 和统一质量门禁
    已建立。
@@ -281,10 +279,14 @@ trae2opencode rollback --manifest <path>
    和 fixture 校验已建立。
 3. M1-3 已通过 PR #9 合入里程碑分支；错误码、退出码、diagnostic 和脱敏
    结构化日志已统一。
-4. M1-4 已完成：golden fixture 只读检查、显式更新、Schema hash 和 bundle
-   hash 已建立，单元测试增至 51 项。
-5. 将 M0 renderer 探针替换为生产 runtime adapter；探针、日志和数据库解密均
-   不得成为生产数据源。
+4. M1-4 已通过 PR #10 合入里程碑分支：golden fixture 只读检查、显式更新、
+   Schema hash 和 bundle hash 已建立。
+5. M1 已通过 PR #11 合入 `main`。
+6. M2-1 已完成生产路径发现器：支持 macOS/Windows 默认路径与显式
+   `--trae-root`，详细契约见
+   [M2-1 路径发现](./m2-1-path-discovery.md)。
+7. 后续将 M0 renderer 探针替换为生产 runtime adapter；探针、日志和数据库解密
+   均不得成为生产数据源。
 
 ### M1：工程骨架与 IR，2-3 天
 
@@ -297,13 +299,13 @@ trae2opencode rollback --manifest <path>
 
 ### M2：TRAE 扫描与恢复等级，3-5 天
 
-| ID | 任务 | 依赖 | 验收 |
-| --- | --- | --- | --- |
-| M2-1 | macOS/Windows 路径发现器 | M1-1 | 支持默认路径和 `--trae-root` |
-| M2-2 | workspace 与项目路径解析 | M2-1 | folder/workspace URI 均可规范化 |
-| M2-3 | SQLite 一致性只读快照 | M2-1 | TRAE 运行时扫描也不写源库 |
-| M2-4 | 数据源能力探测器 | M2-2, M2-3 | 输出 storage profile 和字段覆盖率 |
-| M2-5 | 会话级 recovery grading | M2-4 | 每个会话都有等级和缺失原因 |
+| ID | 任务 | 依赖 | 验收 | 状态 |
+| --- | --- | --- | --- | --- |
+| M2-1 | macOS/Windows 路径发现器 | M1-1 | 支持默认路径和 `--trae-root` | 已完成 |
+| M2-2 | workspace 与项目路径解析 | M2-1 | folder/workspace URI 均可规范化 | 未开始 |
+| M2-3 | SQLite 一致性只读快照 | M2-1 | TRAE 运行时扫描也不写源库 | 未开始 |
+| M2-4 | 数据源能力探测器 | M2-2, M2-3 | 输出 storage profile 和字段覆盖率 | 未开始 |
+| M2-5 | 会话级 recovery grading | M2-4 | 每个会话都有等级和缺失原因 | 未开始 |
 
 ### M3：TRAE Parser 与 IR 标准化，6-10 天
 
@@ -431,9 +433,9 @@ OpenCode import 是实验性能力。M4-6 必须验证实际导入结果，不�
 
 ## 10. 推荐执行顺序
 
-1. M0 分支集成、M1-1 CLI/lint/CI 骨架和 M1-2 IR/schema 已完成。
-2. M1-4 golden fixture 框架已完成；合入后 M1 里程碑达到退出条件。
-3. 进入 M2，实现 scanner、runtime capability probe 和 recovery grading。
+1. M0、M1 已完成并合入 `main`。
+2. M2-1 路径发现器已完成；合入后进入 M2-2 workspace 与项目路径解析。
+3. 完成只读快照、runtime capability probe 和 recovery grading。
 4. 生成可审计 IR，并打通真实来源到 OpenCode 的 import/export 对账。
 5. 增加批量迁移、manifest、resume 和 rollback。
 6. 最后处理附件、Skill、MCP；SQLite Writer 保持为可选项。

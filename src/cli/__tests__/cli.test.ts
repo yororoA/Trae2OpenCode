@@ -69,6 +69,21 @@ describe("runCli", () => {
     );
   });
 
+  it("parses a TRAE root override without exposing the path", () => {
+    const output = captureIO();
+    const privateRoot = "/Users/private/Library/Application Support/Trae CN";
+
+    const exitCode = runCli(
+      ["scan", "--trae-root", privateRoot],
+      output.io,
+      "9.8.7",
+    );
+
+    assert.equal(exitCode, 2);
+    assert.match(output.stderr(), /T2O_CLI_COMMAND_NOT_IMPLEMENTED/);
+    assert.doesNotMatch(output.stderr(), new RegExp(privateRoot));
+  });
+
   it("emits structured errors without echoing unknown command text", () => {
     const output = captureIO();
     const privateCommand = "private conversation body";
