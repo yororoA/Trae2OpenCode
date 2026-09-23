@@ -19,6 +19,38 @@ export const ERROR_DEFINITIONS = {
     exitCode: 4,
     message: "TRAE bundle inputs have inconsistent versions, identities, or counts.",
   },
+  T2O_TRAE_VERSION_UNAVAILABLE: {
+    exitCode: 4,
+    message: "TRAE CN product version could not be read; provide --product-file.",
+  },
+  T2O_TRAE_RUNTIME_ENDPOINT_INVALID: {
+    exitCode: 4,
+    message: "TRAE runtime requires an explicit loopback HTTP debugging endpoint.",
+  },
+  T2O_TRAE_RUNTIME_UNAVAILABLE: {
+    exitCode: 4,
+    message: "TRAE runtime is unavailable or ambiguous; open TRAE with a debugging port and select --cdp-target if needed.",
+  },
+  T2O_TRAE_RUNTIME_READ_INVALID: {
+    exitCode: 4,
+    message: "TRAE runtime returned invalid, conflicting, or incomplete pages.",
+  },
+  T2O_TRAE_RUNTIME_LIMIT: {
+    exitCode: 4,
+    message: "TRAE data exceeds the supported read limit; select fewer sessions.",
+  },
+  T2O_MIGRATION_SELECTION_EMPTY: {
+    exitCode: 4,
+    message: "No sessions match the requested selection.",
+  },
+  T2O_MIGRATION_BUNDLE_READ_FAILED: {
+    exitCode: 4,
+    message: "The migration bundle could not be read within the supported size limit.",
+  },
+  T2O_MIGRATION_EXPORT_FAILED: {
+    exitCode: 4,
+    message: "Export failed; choose a new output directory with an existing writable parent.",
+  },
   T2O_TRAE_ROOT_NOT_FOUND: {
     exitCode: 4,
     message: "No readable TRAE data root was found.",

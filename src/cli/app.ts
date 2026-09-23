@@ -3,6 +3,7 @@ import { parseArgs } from "node:util";
 import { getDiagnosticLocation } from "../shared/diagnostics.js";
 import { Trae2OpenCodeError, normalizeError } from "../shared/errors.js";
 import { type Clock, JsonLogger } from "../shared/logger.js";
+import { executeReadCommand } from "./commands.js";
 
 export interface CliIO {
   stdout(message: string): void;
@@ -66,6 +67,20 @@ Options:
       --json          Emit machine-readable output and errors
       --trae-root <path>
                       Override the TRAE data root
+      --product-file <path>
+                      Installed TRAE CN product.json
+      --cdp <http://127.0.0.1:port>
+                      Read local history through the TRAE renderer
+      --cdp-target <id>
+                      Select a workbench when several windows are open
+      --input <path>  Read a previously exported IR bundle
+      --output <dir>  Create a private export directory
+      --session <id>  Select one source session
+      --project <path>
+                      Select sessions by source project
+      --server <url> Check a local OpenCode server
+      --binary <path>
+                      OpenCode executable (default: opencode)
 `;
 }
 
@@ -107,12 +122,12 @@ function writeError(
   return normalized.exitCode;
 }
 
-export function runCli(
+export async function runCli(
   args: readonly string[],
   io: CliIO = defaultIO,
   version?: string,
   runtime: CliRuntime = {},
-): number {
+): Promise<number> {
   let parsed: ReturnType<typeof parseArgs>;
   const jsonRequested = args.includes("--json");
 
@@ -136,6 +151,15 @@ export function runCli(
         "trae-root": {
           type: "string",
         },
+        "product-file": { type: "string" },
+        cdp: { type: "string" },
+        "cdp-target": { type: "string" },
+        input: { type: "string" },
+        output: { type: "string" },
+        session: { type: "string" },
+        project: { type: "string" },
+        server: { type: "string" },
+        binary: { type: "string" },
       },
     });
   } catch (cause) {
@@ -212,17 +236,21 @@ export function runCli(
 
   const isPlannedCommand = PLANNED_COMMANDS.some(([name]) => name === command);
   if (isPlannedCommand) {
-    return writeError(
-      io,
-      new Trae2OpenCodeError("T2O_CLI_COMMAND_NOT_IMPLEMENTED"),
-      {
-        json: useJson,
-        clock: runtime.clock,
-        context: {
-          command,
-        },
-      },
-    );
+    try {
+      const stringOption = (key: string) => typeof parsed.values[key] === "string"
+        ? parsed.values[key] as string : undefined;
+      const result = await executeReadCommand(command, {
+        traeRoot: stringOption("trae-root"), productFile: stringOption("product-file"),
+        cdp: stringOption("cdp"), cdpTarget: stringOption("cdp-target"),
+        input: stringOption("input"), output: stringOption("output"),
+        session: stringOption("session"), project: stringOption("project"),
+        server: stringOption("server"), binary: stringOption("binary"),
+      });
+      io.stdout(`${JSON.stringify(result, null, useJson ? undefined : 2)}\n`);
+      return 0;
+    } catch (error) {
+      return writeError(io, error, { json: useJson, clock: runtime.clock, context: { command } });
+    }
   }
 
   return writeError(

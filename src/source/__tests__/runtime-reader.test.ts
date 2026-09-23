@@ -1,0 +1,73 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { createTraeRuntimeReader, type TraeRuntimeTransport } from "../trae/runtime-reader.js";
+
+const sessionId = "session-runtime";
+const message = (id: string) => ({ chat_session_id: sessionId, message_id: id, content: "正文" });
+const page = (items: unknown[], next_page_token?: unknown) => ({ code: 0, data: { items, next_page_token } });
+function setup(pages: unknown[]) {
+  const requests: Record<string, unknown>[] = [];
+  const transport: TraeRuntimeTransport = {
+    productVersion: "3.3.104",
+    async invoke(_method, params) { requests.push(params); return pages.shift(); },
+    close() {},
+  };
+  return { transport, requests, reader: createTraeRuntimeReader(transport) };
+}
+
+describe("createTraeRuntimeReader", () => {
+  it("uses local pagination, deduplicates overlap, and counts the complete read", async () => {
+    const { reader, requests } = setup([page([message("b"), message("c")], "older"), page([message("a"), message("b")])]);
+    const result = await reader.readMessages(sessionId);
+    assert.equal(result.expectedMessageCount, 3);
+    assert.deepEqual(result.value, [message("b"), message("c"), message("a")]);
+    assert.deepEqual(requests, [
+      { chat_session_id: sessionId, env: "local", page_size: 20 },
+      { chat_session_id: sessionId, env: "local", page_size: 20, page_token: "older" },
+    ]);
+  });
+
+  it("rejects API failure, foreign IDs, conflicting overlap, and invalid pages", async () => {
+    for (const pages of [
+      [{ code: 1, data: { items: [] } }],
+      [page([{ ...message("a"), chat_session_id: "foreign-session" }])],
+      [page([message("a")], "older"), page([{ ...message("a"), content: "changed" }])],
+      [{ code: 0, data: { items: null } }],
+      [page([message("a")], 12)],
+      [{ code: 0, data: { items: [], has_more: true } }],
+    ]) {
+      await assert.rejects(setup(pages).reader.readMessages(sessionId), { code: "T2O_TRAE_RUNTIME_READ_INVALID" });
+    }
+  });
+
+  it("rejects looping or empty continuation pages without returning partial content", async () => {
+    for (const pages of [
+      [page([message("a")], "loop"), page([message("a")], "loop")],
+      [page([], "more")],
+    ]) {
+      await assert.rejects(setup(pages).reader.readMessages(sessionId), { code: "T2O_TRAE_RUNTIME_READ_INVALID" });
+    }
+  });
+
+  it("enforces byte and page limits", async () => {
+    const first = setup([page([message("a")], "more")]);
+    await assert.rejects(createTraeRuntimeReader(first.transport, { maxPages: 1 }).readMessages(sessionId),
+      { code: "T2O_TRAE_RUNTIME_LIMIT" });
+    const second = setup([page([message("a")])]);
+    await assert.rejects(createTraeRuntimeReader(second.transport, { maxBytes: 1 }).readMessages(sessionId),
+      { code: "T2O_TRAE_RUNTIME_LIMIT" });
+  });
+
+  it("validates version, session identifiers, metadata identity and closes transport", async () => {
+    const { transport, reader } = setup([{ code: 0, data: { chat_session_id: sessionId, title: "Title" } }]);
+    assert.deepEqual(await reader.readMetadata([sessionId]), [{ chat_session_id: sessionId, title: "Title" }]);
+    await assert.rejects(reader.readMessages("../bad"), { code: "T2O_TRAE_RUNTIME_READ_INVALID" });
+    await assert.rejects(setup([{ code: 0, data: { chat_session_id: "foreign-session" } }]).reader.readMetadata([sessionId]),
+      { code: "T2O_TRAE_RUNTIME_READ_INVALID" });
+    assert.throws(() => createTraeRuntimeReader({ ...transport, productVersion: "3.3.105" }),
+      { code: "T2O_TRAE_PROFILE_VERSION_UNSUPPORTED" });
+    let closed = false;
+    createTraeRuntimeReader({ ...transport, close() { closed = true; } }).close();
+    assert.equal(closed, true);
+  });
+});

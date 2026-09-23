@@ -25,10 +25,10 @@ function captureIO(): {
 }
 
 describe("runCli", () => {
-  it("prints help when no command is provided", () => {
+  it("prints help when no command is provided", async () => {
     const output = captureIO();
 
-    const exitCode = runCli([], output.io, "9.8.7");
+    const exitCode = await runCli([], output.io, "9.8.7");
 
     assert.equal(exitCode, 0);
     assert.match(output.stdout(), /Trae2OpenCode 9\.8\.7/);
@@ -36,30 +36,30 @@ describe("runCli", () => {
     assert.equal(output.stderr(), "");
   });
 
-  it("prints the package version", () => {
+  it("prints the package version", async () => {
     const output = captureIO();
 
-    const exitCode = runCli(["--version"], output.io, "9.8.7");
+    const exitCode = await runCli(["--version"], output.io, "9.8.7");
 
     assert.equal(exitCode, 0);
     assert.equal(output.stdout(), "9.8.7\n");
     assert.equal(output.stderr(), "");
   });
 
-  it("rejects unknown options without exposing a stack trace", () => {
+  it("rejects unknown options without exposing a stack trace", async () => {
     const output = captureIO();
 
-    const exitCode = runCli(["--unknown"], output.io, "9.8.7");
+    const exitCode = await runCli(["--unknown"], output.io, "9.8.7");
 
     assert.equal(exitCode, 2);
     assert.match(output.stderr(), /T2O_CLI_INVALID_ARGUMENTS/);
     assert.doesNotMatch(output.stderr(), /\n\s+at /);
   });
 
-  it("keeps planned migration commands disabled", () => {
+  it("keeps planned migration commands disabled", async () => {
     const output = captureIO();
 
-    const exitCode = runCli(["migrate"], output.io, "9.8.7");
+    const exitCode = await runCli(["migrate"], output.io, "9.8.7");
 
     assert.equal(exitCode, 2);
     assert.equal(
@@ -69,26 +69,26 @@ describe("runCli", () => {
     );
   });
 
-  it("parses a TRAE root override without exposing the path", () => {
+  it("parses a TRAE root override without exposing the path", async () => {
     const output = captureIO();
     const privateRoot = "/Users/private/Library/Application Support/Trae CN";
 
-    const exitCode = runCli(
+    const exitCode = await runCli(
       ["scan", "--trae-root", privateRoot],
       output.io,
       "9.8.7",
     );
 
-    assert.equal(exitCode, 2);
-    assert.match(output.stderr(), /T2O_CLI_COMMAND_NOT_IMPLEMENTED/);
+    assert.equal(exitCode, 4);
+    assert.match(output.stderr(), /T2O_TRAE_(ROOT_NOT_FOUND|PLATFORM_UNSUPPORTED|VERSION_UNAVAILABLE)/);
     assert.doesNotMatch(output.stderr(), new RegExp(privateRoot));
   });
 
-  it("emits structured errors without echoing unknown command text", () => {
+  it("emits structured errors without echoing unknown command text", async () => {
     const output = captureIO();
     const privateCommand = "private conversation body";
 
-    const exitCode = runCli(
+    const exitCode = await runCli(
       ["--json", privateCommand],
       output.io,
       "9.8.7",
@@ -113,10 +113,10 @@ describe("runCli", () => {
     });
   });
 
-  it("emits a machine-readable version", () => {
+  it("emits a machine-readable version", async () => {
     const output = captureIO();
 
-    const exitCode = runCli(
+    const exitCode = await runCli(
       ["--json", "--version"],
       output.io,
       "9.8.7",
@@ -125,5 +125,16 @@ describe("runCli", () => {
     assert.equal(exitCode, 0);
     assert.equal(output.stdout(), '{"version":"9.8.7"}\n');
     assert.equal(output.stderr(), "");
+  });
+
+  it("prints an offline preview as one JSON record and rejects empty selection", async () => {
+    const output = captureIO();
+    const args = ["preview", "--input", "fixtures/ir/v1/valid-trae-assembled.json", "--json"];
+    assert.equal(await runCli(args, output.io, "9.8.7"), 0);
+    assert.equal(JSON.parse(output.stdout()).sessions[0].messageCount, 2);
+    assert.equal(output.stdout().trim().split("\n").length, 1);
+    const missing = captureIO();
+    assert.equal(await runCli([...args, "--session", "absent-session"], missing.io, "9.8.7"), 4);
+    assert.equal(JSON.parse(missing.stderr()).code, "T2O_MIGRATION_SELECTION_EMPTY");
   });
 });
