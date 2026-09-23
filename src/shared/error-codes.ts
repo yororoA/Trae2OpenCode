@@ -171,6 +171,34 @@ export const ERROR_DEFINITIONS = {
     exitCode: 5,
     message: "Source identifiers or parent dependencies cannot form a unique OpenCode import plan.",
   },
+  T2O_OPENCODE_READBACK_INVALID: {
+    exitCode: 5,
+    message: "OpenCode did not return the expected session transfer.",
+  },
+  T2O_OPENCODE_DIRECTORY_INVALID: {
+    exitCode: 5,
+    message: "The target project directory must be an existing absolute local directory.",
+  },
+  T2O_OPENCODE_TRANSFER_TOO_LARGE: {
+    exitCode: 5,
+    message: "The OpenCode transfer exceeds the supported size limit.",
+  },
+  T2O_OPENCODE_SESSION_CONFLICT: {
+    exitCode: 5,
+    message: "The target session already exists and was not overwritten.",
+  },
+  T2O_OPENCODE_PARENT_MISSING: {
+    exitCode: 5,
+    message: "The target parent session has not been imported.",
+  },
+  T2O_OPENCODE_IMPORT_FAILED: {
+    exitCode: 5,
+    message: "The native OpenCode import could not complete.",
+  },
+  T2O_OPENCODE_TEMP_CLEANUP_FAILED: {
+    exitCode: 5,
+    message: "The private import temporary directory could not be removed.",
+  },
   T2O_INTERNAL_UNEXPECTED: {
     exitCode: 1,
     message: "An unexpected internal error occurred.",
