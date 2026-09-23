@@ -3,11 +3,11 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import Database from "better-sqlite3";
 import { ERROR_DEFINITIONS } from "../../shared/error-codes.js";
-import { Trae2OpenCodeError } from "../../shared/errors.js";
 import type { DiscoveredTraeRoot } from "./path-discovery.js";
+import { assertTraeParserCapability, RUNTIME_PROFILE, VERIFIED_TRAE_PRODUCT_VERSION, WORKSPACE_PROFILE } from "./profile-definitions.js";
 import { withReadonlySqliteSnapshot } from "./sqlite-snapshot.js";
 
-export const VERIFIED_TRAE_SESSION_METADATA_VERSION = "3.3.104";
+export const VERIFIED_TRAE_SESSION_METADATA_VERSION = VERIFIED_TRAE_PRODUCT_VERSION;
 
 export type TraeSessionMetadataStatus =
   | "complete"
@@ -181,11 +181,7 @@ function createIssue(
 }
 
 function assertSupportedVersion(productVersion: string): void {
-  if (productVersion !== VERIFIED_TRAE_SESSION_METADATA_VERSION) {
-    throw new Trae2OpenCodeError(
-      "T2O_TRAE_SESSION_INDEX_VERSION_UNSUPPORTED",
-    );
-  }
+  assertTraeParserCapability(productVersion, WORKSPACE_PROFILE, "session-metadata", "T2O_TRAE_SESSION_INDEX_VERSION_UNSUPPORTED");
 }
 
 function parseSessionId(value: unknown): string | undefined {
@@ -623,7 +619,7 @@ export function parseTraeRuntimeSessionMetadata(
   value: unknown,
   productVersion: string,
 ): Pick<TraeSessionMetadataReport, "sessions" | "issues"> {
-  assertSupportedVersion(productVersion);
+  assertTraeParserCapability(productVersion, RUNTIME_PROFILE, "runtime-metadata", "T2O_TRAE_SESSION_INDEX_VERSION_UNSUPPORTED");
   const collection = normalizeRuntimeCandidates(value);
   return {
     sessions: buildSessions(

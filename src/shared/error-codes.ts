@@ -107,6 +107,26 @@ export const ERROR_DEFINITIONS = {
     exitCode: 4,
     message: "The TRAE resource parser version is unsupported.",
   },
+  T2O_TRAE_PROFILE_VERSION_UNSUPPORTED: {
+    exitCode: 4,
+    message: "The TRAE product version has no verified parser registration.",
+  },
+  T2O_TRAE_PROFILE_UNKNOWN: {
+    exitCode: 4,
+    message: "The TRAE parser profile is unknown.",
+  },
+  T2O_TRAE_PROFILE_REVISION_UNSUPPORTED: {
+    exitCode: 4,
+    message: "The TRAE parser profile revision is unsupported.",
+  },
+  T2O_TRAE_PROFILE_UNVERIFIED: {
+    exitCode: 4,
+    message: "The TRAE parser profile has not been verified.",
+  },
+  T2O_TRAE_PROFILE_CAPABILITY_UNSUPPORTED: {
+    exitCode: 4,
+    message: "The TRAE parser profile does not support this capability.",
+  },
   T2O_INTERNAL_UNEXPECTED: {
     exitCode: 1,
     message: "An unexpected internal error occurred.",

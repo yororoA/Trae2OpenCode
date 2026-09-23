@@ -4,11 +4,11 @@ import * as path from "node:path";
 import Database from "better-sqlite3";
 import type { JsonObject, JsonValue } from "../../ir/types.js";
 import { ERROR_DEFINITIONS } from "../../shared/error-codes.js";
-import { Trae2OpenCodeError } from "../../shared/errors.js";
 import type { DiscoveredTraeRoot } from "./path-discovery.js";
+import { assertTraeParserCapability, RUNTIME_PROFILE, VERIFIED_TRAE_PRODUCT_VERSION, WORKSPACE_PROFILE } from "./profile-definitions.js";
 import { withReadonlySqliteSnapshot } from "./sqlite-snapshot.js";
 
-export const VERIFIED_TRAE_USER_MESSAGE_VERSION = "3.3.104";
+export const VERIFIED_TRAE_USER_MESSAGE_VERSION = VERIFIED_TRAE_PRODUCT_VERSION;
 
 export type TraeUserMessageSourceKind =
   | "runtime-user-message"
@@ -233,11 +233,7 @@ function createIssue(
 }
 
 function assertSupportedVersion(productVersion: string): void {
-  if (productVersion !== VERIFIED_TRAE_USER_MESSAGE_VERSION) {
-    throw new Trae2OpenCodeError(
-      "T2O_TRAE_USER_MESSAGE_VERSION_UNSUPPORTED",
-    );
-  }
+  assertTraeParserCapability(productVersion, RUNTIME_PROFILE, "user-messages", "T2O_TRAE_USER_MESSAGE_VERSION_UNSUPPORTED");
 }
 
 function parseIdentifier(
@@ -899,7 +895,7 @@ export function parseTraeQueryCache(
   workspaceStorageId: string,
   productVersion: string,
 ): Pick<TraeUserMessageReport, "queryCacheEntries" | "issues"> {
-  assertSupportedVersion(productVersion);
+  assertTraeParserCapability(productVersion, WORKSPACE_PROFILE, "query-cache", "T2O_TRAE_USER_MESSAGE_VERSION_UNSUPPORTED");
   if (!Array.isArray(value)) {
     return {
       queryCacheEntries: [],

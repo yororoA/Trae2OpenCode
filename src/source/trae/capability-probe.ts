@@ -4,6 +4,11 @@ import Database from "better-sqlite3";
 import { ERROR_DEFINITIONS } from "../../shared/error-codes.js";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
 import type { DiscoveredTraeRoot } from "./path-discovery.js";
+import {
+  hasVerifiedTraeRuntimeProfile,
+  identifyTraeWorkspaceProfile,
+  VERIFIED_TRAE_PRODUCT_VERSION,
+} from "./profile-definitions.js";
 import { withReadonlySqliteSnapshot } from "./sqlite-snapshot.js";
 import {
   resolveTraeWorkspaces,
@@ -11,7 +16,7 @@ import {
   type WorkspaceResolutionIssue,
 } from "./workspace-resolution.js";
 
-export const VERIFIED_TRAE_CAPABILITY_VERSION = "3.3.104";
+export const VERIFIED_TRAE_CAPABILITY_VERSION = VERIFIED_TRAE_PRODUCT_VERSION;
 
 export type TraeStorageProfileId =
   | "trae-cn-workspace-v3"
@@ -353,41 +358,6 @@ async function inspectWorkspaceState(
   }
 }
 
-function identifyProfile(
-  productVersion: string | null,
-  hasItemTable: boolean,
-  hasMementoStorage: boolean,
-): WorkspaceStorageProfile {
-  if (productVersion !== VERIFIED_TRAE_CAPABILITY_VERSION) {
-    return {
-      id: "unknown",
-      verification: "unsupported",
-    };
-  }
-  if (hasItemTable && hasMementoStorage) {
-    return {
-      id: "trae-cn-hybrid",
-      verification: "unverified",
-    };
-  }
-  if (hasMementoStorage) {
-    return {
-      id: "trae-cn-memento-v1",
-      verification: "unverified",
-    };
-  }
-  if (hasItemTable) {
-    return {
-      id: "trae-cn-workspace-v3",
-      verification: "verified",
-    };
-  }
-  return {
-    id: "unknown",
-    verification: "unsupported",
-  };
-}
-
 function applyProfileGate(
   status: ObservedStatus,
   profile: WorkspaceStorageProfile,
@@ -486,8 +456,7 @@ async function probeRuntimeCapability(
   capability: RuntimeCapability;
   issue?: CapabilityProbeIssue;
 }> {
-  const isVerifiedVersion =
-    productVersion === VERIFIED_TRAE_CAPABILITY_VERSION;
+  const isVerifiedVersion = hasVerifiedTraeRuntimeProfile(productVersion);
   if (!isVerifiedVersion) {
     return {
       capability: {
@@ -608,7 +577,7 @@ export async function probeTraeCapabilities(
         "icube-ai-agent-storage",
       ),
     );
-    const profile = identifyProfile(
+    const profile = identifyTraeWorkspaceProfile(
       options.productVersion,
       state.hasItemTable,
       hasMementoStorage,

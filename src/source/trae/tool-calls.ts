@@ -1,5 +1,5 @@
 import type { JsonValue, ToolStatus } from "../../ir/types.js";
-import { Trae2OpenCodeError } from "../../shared/errors.js";
+import { assertTraeParserCapability, RUNTIME_PROFILE } from "./profile-definitions.js";
 import {
   isRuntimeObject,
   parseRuntimeObject,
@@ -89,9 +89,7 @@ export function parseTraeToolCalls(
   messageType: "general" | "task",
   productVersion: string,
 ): TraeToolReport {
-  if (productVersion !== "3.3.104") {
-    throw new Trae2OpenCodeError("T2O_TRAE_ASSISTANT_MESSAGE_VERSION_UNSUPPORTED");
-  }
+  assertTraeParserCapability(productVersion, RUNTIME_PROFILE, "tool-calls", "T2O_TRAE_ASSISTANT_MESSAGE_VERSION_UNSUPPORTED");
   const report: TraeToolReport = { toolCalls: [], issues: [] };
   if (messageType === "general") return report;
   const issue = (

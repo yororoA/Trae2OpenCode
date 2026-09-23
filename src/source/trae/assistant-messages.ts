@@ -3,8 +3,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ERROR_DEFINITIONS } from "../../shared/error-codes.js";
-import { Trae2OpenCodeError } from "../../shared/errors.js";
 import type { DiscoveredTraeRoot } from "./path-discovery.js";
+import { assertTraeParserCapability, RUNTIME_PROFILE, VERIFIED_TRAE_PRODUCT_VERSION, WORKSPACE_PROFILE } from "./profile-definitions.js";
 import { assertResourcePath, inspectResourceFile } from "./resource-file.js";
 import {
   parseTraeReasoningPlan,
@@ -15,7 +15,7 @@ import {
 import { parseTraeToolCalls, type TraeToolCall, type TraeToolIssueCode } from "./tool-calls.js";
 import type { TraeQueryCacheEntry } from "./user-messages.js";
 
-export const VERIFIED_TRAE_ASSISTANT_MESSAGE_VERSION = "3.3.104";
+export const VERIFIED_TRAE_ASSISTANT_MESSAGE_VERSION = VERIFIED_TRAE_PRODUCT_VERSION;
 
 export type TraeAssistantMessageStatus =
   | "completed"
@@ -262,11 +262,7 @@ function createIssue(
 }
 
 function assertSupportedVersion(productVersion: string): void {
-  if (productVersion !== VERIFIED_TRAE_ASSISTANT_MESSAGE_VERSION) {
-    throw new Trae2OpenCodeError(
-      "T2O_TRAE_ASSISTANT_MESSAGE_VERSION_UNSUPPORTED",
-    );
-  }
+  assertTraeParserCapability(productVersion, RUNTIME_PROFILE, "assistant-messages", "T2O_TRAE_ASSISTANT_MESSAGE_VERSION_UNSUPPORTED");
 }
 
 function parseIdentifier(
@@ -1256,7 +1252,7 @@ export function scanTraeLongTextResources(
   queryCacheEntries: readonly TraeQueryCacheEntry[] = [],
   explicitReferences: readonly TraeLongTextReference[] = [],
 ): Pick<TraeAssistantMessageReport, "longTextResources" | "issues"> {
-  assertSupportedVersion(productVersion);
+  assertTraeParserCapability(productVersion, WORKSPACE_PROFILE, "resources", "T2O_TRAE_ASSISTANT_MESSAGE_VERSION_UNSUPPORTED");
   const issues: TraeAssistantMessageIssue[] = [];
   const resources = scanLongTextCandidates(root, issues);
   const references = [

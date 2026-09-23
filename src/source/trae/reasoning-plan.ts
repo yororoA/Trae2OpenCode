@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { Trae2OpenCodeError } from "../../shared/errors.js";
+import { assertTraeParserCapability, RUNTIME_PROFILE } from "./profile-definitions.js";
 
 export interface TraeContentSource {
   locator: string;
@@ -93,9 +93,7 @@ export function parseTraeReasoningPlan(
   productVersion: string,
   mappedTextLocators: readonly string[] = [],
 ): TraeReasoningPlanReport {
-  if (productVersion !== "3.3.104") {
-    throw new Trae2OpenCodeError("T2O_TRAE_ASSISTANT_MESSAGE_VERSION_UNSUPPORTED");
-  }
+  assertTraeParserCapability(productVersion, RUNTIME_PROFILE, "reasoning-plan", "T2O_TRAE_ASSISTANT_MESSAGE_VERSION_UNSUPPORTED");
   const report: TraeReasoningPlanReport = {
     reasoningBlocks: [],
     planItems: [],

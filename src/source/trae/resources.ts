@@ -2,12 +2,12 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ResourceRef } from "../../ir/types.js";
-import { Trae2OpenCodeError } from "../../shared/errors.js";
 import {
   scanTraeLongTextResources,
   type TraeAssistantMessageIssue,
 } from "./assistant-messages.js";
 import type { DiscoveredTraeRoot } from "./path-discovery.js";
+import { assertTraeParserCapability, WORKSPACE_PROFILE } from "./profile-definitions.js";
 import { isRuntimeObject, runtimeHash } from "./reasoning-plan.js";
 import { assertResourcePath, inspectResourceFile } from "./resource-file.js";
 import type { TraeQueryCacheEntry } from "./user-messages.js";
@@ -163,9 +163,7 @@ export function scanTraeResources(
   queryCacheEntries: readonly TraeQueryCacheEntry[] = [],
   explicitReferences: readonly TraeResourceReference[] = [],
 ): TraeResourceReport {
-  if (productVersion !== "3.3.104") {
-    throw new Trae2OpenCodeError("T2O_TRAE_RESOURCE_VERSION_UNSUPPORTED");
-  }
+  assertTraeParserCapability(productVersion, WORKSPACE_PROFILE, "resources", "T2O_TRAE_RESOURCE_VERSION_UNSUPPORTED");
   const report: TraeResourceReport = { resources: [], issues: [] };
   const resources = new Map<string, TraeResource>();
   const unreadable = new Set<string>();
