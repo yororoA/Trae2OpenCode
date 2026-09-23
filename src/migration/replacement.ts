@@ -5,6 +5,7 @@ import { isOwnedByRun, jsonHash } from "./ownership.js";
 import type { MigrationTarget } from "./target.js";
 
 export function authorizeReplacements(manifest: MigrationManifest, previous: MigrationManifest): void {
+  if (previous.rollbackState) throw new Trae2OpenCodeError("T2O_MIGRATION_ROLLBACK_STARTED");
   if (jsonHash(manifest.target) !== jsonHash(previous.target)) {
     throw new Trae2OpenCodeError("T2O_MIGRATION_TARGET_CHANGED");
   }

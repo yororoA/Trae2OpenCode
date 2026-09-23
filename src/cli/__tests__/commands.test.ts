@@ -56,4 +56,16 @@ describe("read commands", () => {
     await assert.rejects(executeReadCommand("migrate", { server: "invalid", output: "new", replace: "old.json" }),
       { code: "T2O_MIGRATION_EXCLUSIVE_REQUIRED" });
   });
+
+  it("validates rollback and confirmation arguments before opening source or target", async () => {
+    for (const command of ["scan", "verify", "migrate"]) {
+      await assert.rejects(executeReadCommand(command, { confirm: "run" }), { code: "T2O_CLI_INVALID_ARGUMENTS" });
+    }
+    for (const options of [{}, { manifest: "run.json" }, { server: "invalid" },
+      { server: "invalid", manifest: "run.json", input }, { server: "invalid", manifest: "run.json", dryRun: true }]) {
+      await assert.rejects(executeReadCommand("rollback", options), { code: "T2O_CLI_INVALID_ARGUMENTS" });
+    }
+    await assert.rejects(executeReadCommand("rollback", { server: "invalid", manifest: "run.json", confirm: "run" }),
+      { code: "T2O_MIGRATION_EXCLUSIVE_REQUIRED" });
+  });
 });

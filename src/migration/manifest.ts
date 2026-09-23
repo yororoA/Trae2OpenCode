@@ -10,7 +10,8 @@ import { Trae2OpenCodeError } from "../shared/errors.js";
 import type { OpenCodeReconciliation } from "../target/opencode/reconciliation.js";
 import type { MigrationTargetDescriptor } from "./target.js";
 
-export type SessionState = "pending" | "importing" | "verified" | "failed" | "skipped" | "excluded" | "blocked";
+export type SessionState = "pending" | "importing" | "verified" | "failed" | "skipped" | "excluded" | "blocked" |
+  "deleting" | "rolled-back";
 export type ReconciliationSnapshot = OpenCodeReconciliation["expected"];
 export interface ManifestSession {
   sourceId: string;
@@ -39,6 +40,7 @@ export interface MigrationManifest {
   planHash: string;
   target: MigrationTargetDescriptor;
   revision: number;
+  rollbackState?: "in-progress" | "completed";
   sessions: ManifestSession[];
   checksum: string;
 }
@@ -65,6 +67,7 @@ const validate = new Ajv().compile({
   properties: {
     manifestVersion: { const: 1 }, runId: { type: "string", pattern: "^[a-f0-9-]{36}$" },
     sourceFingerprint: hash, irHash: hash, planHash: hash, revision: counter, checksum: hash,
+    rollbackState: { enum: ["in-progress", "completed"] },
     target: {
       type: "object", additionalProperties: false,
       required: ["endpointHash", "binaryVersion", "serverVersion", "schemaHash", "fingerprint"],
@@ -81,7 +84,7 @@ const validate = new Ajv().compile({
           sourceId: { type: "string", minLength: 1, maxLength: 4096 },
           targetId: { type: "string", pattern: "^ses_[a-zA-Z0-9_-]+$" },
           parentId: { type: "string", pattern: "^ses_[a-zA-Z0-9_-]+$" },
-          state: { enum: ["pending", "importing", "verified", "failed", "skipped", "excluded", "blocked"] },
+          state: { enum: ["pending", "importing", "verified", "failed", "skipped", "excluded", "blocked", "deleting", "rolled-back"] },
           created: { type: "boolean" }, attempts: counter,
           codes: { type: "array", items: { type: "string", pattern: "^T2O_[A-Z0-9_]+$" } },
           transferHash: hash, expected: snapshot, actual: snapshot, deletionHash: hash,
@@ -113,6 +116,9 @@ export function assertManifest(value: unknown): asserts value is MigrationManife
     const invalidGraph = seen.has(session.targetId) || sourceIds.has(session.sourceId) ||
       (session.parentId !== undefined && !seen.has(session.parentId));
     const needsExpected = !["excluded", "blocked"].includes(session.state);
+    const rollbackSession = session.state === "deleting" || session.state === "rolled-back";
+    const invalidRollback = (rollbackSession && (!manifest.rollbackState || session.replacement || session.attempts === 0)) ||
+      (session.state === "deleting" && (!session.created || !session.deletionHash || manifest.rollbackState === "completed"));
     const invalidState = (needsExpected && (!session.expected || !session.transferHash)) ||
       (session.state === "verified" && (!session.created || !session.actual)) ||
       (session.created && session.attempts === 0) ||
@@ -120,7 +126,7 @@ export function assertManifest(value: unknown): asserts value is MigrationManife
       (session.replacement !== undefined && (!session.expected || !session.transferHash ||
         session.replacement.runId === manifest.runId ||
         (session.replacement.state !== "deleted" && session.attempts > 0)));
-    if (invalidGraph || invalidState) throw new Trae2OpenCodeError("T2O_MIGRATION_MANIFEST_INVALID");
+    if (invalidGraph || invalidState || invalidRollback) throw new Trae2OpenCodeError("T2O_MIGRATION_MANIFEST_INVALID");
     seen.add(session.targetId);
     sourceIds.add(session.sourceId);
   }

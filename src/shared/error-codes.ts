@@ -87,6 +87,18 @@ export const ERROR_DEFINITIONS = {
     exitCode: 5,
     message: "A child session is outside the deletion plan; no cascading deletion is allowed.",
   },
+  T2O_MIGRATION_CONFIRMATION_REQUIRED: {
+    exitCode: 2,
+    message: "Review rollback preview and provide --confirm with its exact migration run ID.",
+  },
+  T2O_MIGRATION_ROLLBACK_STARTED: {
+    exitCode: 5,
+    message: "Rollback has started for this manifest; migration resume and replacement are disabled.",
+  },
+  T2O_MIGRATION_ROLLBACK_EVIDENCE_MISSING: {
+    exitCode: 5,
+    message: "Rollback requires the original readback hash or a fully reconciled interrupted import.",
+  },
   T2O_OPENCODE_DELETE_FAILED: {
     exitCode: 5,
     message: "Session deletion did not complete; resume with the same manifest.",

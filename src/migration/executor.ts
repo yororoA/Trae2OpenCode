@@ -161,6 +161,7 @@ export async function migrate(
   return withManifestStore(filename, async (store) => {
     const manifest = options.resumeManifest ? await store.read() : createManifest(plan, descriptor);
     requireTarget(manifest, descriptor);
+    if (manifest.rollbackState) throw new Trae2OpenCodeError("T2O_MIGRATION_ROLLBACK_STARTED");
     if (options.replaceManifest) {
       await withManifestStore(options.replaceManifest, async (previousStore) =>
         authorizeReplacements(manifest, await previousStore.read()));
@@ -211,6 +212,14 @@ export async function verifyMigration(filename: string, target: MigrationTarget)
       }
       try {
         const actual = await target.readSession(item.targetId);
+        if (item.state === "deleting" || item.state === "rolled-back") {
+          const removed = item.state === "rolled-back" && !actual;
+          sessions.push({
+            targetId: item.targetId, state: removed ? "rolled-back" : "failed",
+            codes: removed ? [] : ["T2O_OPENCODE_RECONCILIATION_FAILED"],
+          });
+          continue;
+        }
         const observed = actual ? snapshot(actual) : undefined;
         const verified = actual && isOwnedByRun(actual, manifest, item) &&
           equalSnapshot(item.expected!, observed!);
@@ -225,7 +234,9 @@ export async function verifyMigration(filename: string, target: MigrationTarget)
     }
     return {
       command: "verify", runId: manifest.runId,
-      hasFailures: sessions.some((item) => ["failed", "pending", "importing", "blocked"].includes(item.state)),
+      ...(manifest.rollbackState ? { rollbackState: manifest.rollbackState } : {}),
+      hasFailures: manifest.rollbackState === "in-progress" ||
+        sessions.some((item) => ["failed", "pending", "importing", "blocked"].includes(item.state)),
       sessions,
     };
   });

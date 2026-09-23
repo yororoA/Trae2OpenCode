@@ -82,7 +82,9 @@ Options:
       --exclusive-target
                       Acknowledge all other target writers are stopped during deletion
       --manifest <path>
-                      Manifest to verify
+                      Manifest to verify or preview rollback
+      --confirm <run-id>
+                      Execute rollback of this run (requires --exclusive-target)
       --session <id>  Select one source session
       --project <path>
                       Select sessions by source project
@@ -185,6 +187,7 @@ export async function runCli(
         manifest: { type: "string" },
         resume: { type: "string" },
         replace: { type: "string" },
+        confirm: { type: "string" },
         "exclusive-target": { type: "boolean" },
       },
     });
@@ -277,6 +280,7 @@ export async function runCli(
         fallbackDirectory: stringOption("fallback-directory"),
         manifest: stringOption("manifest"), resume: stringOption("resume"),
         replace: stringOption("replace"), exclusiveTarget: parsed.values["exclusive-target"] === true,
+        confirm: stringOption("confirm"),
       });
       io.stdout(`${JSON.stringify(result, null, useJson ? undefined : 2)}\n`);
       const failed = typeof result === "object" && result !== null &&

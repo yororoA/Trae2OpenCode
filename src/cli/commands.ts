@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import { exportBundleFile, readBundleFile, summarizeBundle } from "../migration/bundle-file.js";
 import { buildMigrationPlan, parsePathMaps, parseRecovery, summarizeMigrationPlan } from "../migration/plan.js";
 import { migrate, verifyMigration } from "../migration/executor.js";
+import { rollbackMigration } from "../migration/rollback.js";
 import { createMigrationTarget } from "../migration/target.js";
 import { collectTraeBundle, detectTraeVersion, selectBundle } from "../source/trae/collect.js";
 import { probeTraeCapabilities } from "../source/trae/capability-probe.js";
@@ -30,6 +31,7 @@ export interface CommandOptions {
   manifest?: string;
   resume?: string;
   replace?: string;
+  confirm?: string;
   exclusiveTarget?: boolean;
 }
 
@@ -53,19 +55,31 @@ export async function executeReadCommand(command: string, options: CommandOption
     options.recovery !== undefined || options.pathMaps !== undefined || options.fallbackDirectory !== undefined;
   if (command !== "migrate" && planningOption) throw new Trae2OpenCodeError("T2O_CLI_INVALID_ARGUMENTS");
   if (command !== "migrate" && options.resume) throw new Trae2OpenCodeError("T2O_CLI_INVALID_ARGUMENTS");
-  if (command !== "migrate" && (options.replace || options.exclusiveTarget)) {
+  if (command !== "migrate" && options.replace) {
     throw new Trae2OpenCodeError("T2O_CLI_INVALID_ARGUMENTS");
   }
-  if (command !== "verify" && options.manifest) throw new Trae2OpenCodeError("T2O_CLI_INVALID_ARGUMENTS");
+  const deletionCommand = command === "migrate" || command === "rollback";
+  if (!deletionCommand && options.exclusiveTarget) throw new Trae2OpenCodeError("T2O_CLI_INVALID_ARGUMENTS");
+  if (command !== "rollback" && options.confirm !== undefined) throw new Trae2OpenCodeError("T2O_CLI_INVALID_ARGUMENTS");
+  const manifestCommand = command === "verify" || command === "rollback";
+  if (!manifestCommand && options.manifest) throw new Trae2OpenCodeError("T2O_CLI_INVALID_ARGUMENTS");
   const targetOptions = {
     serverUrl: options.server ?? "", binary: options.binary,
     password: process.env.OPENCODE_SERVER_PASSWORD, username: process.env.OPENCODE_SERVER_USERNAME,
   };
-  if (command === "verify") {
+  if (manifestCommand) {
     const sourceOptions = options.input || options.cdp || options.traeRoot || options.productFile ||
       options.cdpTarget || options.session || options.project || options.output;
     if (!options.server || !options.manifest || sourceOptions) {
       throw new Trae2OpenCodeError("T2O_CLI_INVALID_ARGUMENTS");
+    }
+    if (command === "rollback") {
+      if (options.confirm !== undefined && !options.exclusiveTarget) {
+        throw new Trae2OpenCodeError("T2O_MIGRATION_EXCLUSIVE_REQUIRED");
+      }
+      return rollbackMigration(options.manifest, createMigrationTarget(targetOptions), {
+        confirm: options.confirm, exclusiveTarget: options.exclusiveTarget,
+      });
     }
     return verifyMigration(options.manifest, createMigrationTarget(targetOptions));
   }
