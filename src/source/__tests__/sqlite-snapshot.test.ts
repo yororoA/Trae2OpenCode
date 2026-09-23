@@ -86,14 +86,11 @@ describe("createReadonlySqliteSnapshot", () => {
         path.dirname(snapshot.directoryPath),
         snapshotRoot,
       );
-      assert.equal(
-        fs.statSync(snapshot.directoryPath).mode & 0o777,
-        0o700,
-      );
-      assert.equal(
-        fs.statSync(snapshot.databasePath).mode & 0o777,
-        0o600,
-      );
+      // Windows exposes synthetic mode bits; POSIX permissions are not ACLs.
+      if (process.platform !== "win32") {
+        assert.equal(fs.statSync(snapshot.directoryPath).mode & 0o777, 0o700);
+        assert.equal(fs.statSync(snapshot.databasePath).mode & 0o777, 0o600);
+      }
       assert.equal(fs.existsSync(`${snapshot.databasePath}-wal`), false);
       assert.equal(fs.existsSync(`${snapshot.databasePath}-shm`), false);
 

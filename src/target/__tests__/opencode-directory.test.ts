@@ -95,11 +95,12 @@ describe("OpenCode project directory policy", () => {
   it("checks the filesystem read-only and does not create a missing project", async () => {
     await fs.mkdir("tmp", { recursive: true });
     const root = await fs.mkdtemp(path.resolve("tmp", "directory-test-"));
+    const sourcePlatform = process.platform === "win32" ? "win32" : "darwin";
     try {
-      const result = await resolveOpenCodeDirectory({ sourcePath: root, sourcePlatform: "darwin" });
+      const result = await resolveOpenCodeDirectory({ sourcePath: root, sourcePlatform });
       assert.equal(result.writable, true);
       const missing = await resolveOpenCodeDirectory({
-        sourcePath: path.join(root, "missing"), sourcePlatform: "darwin",
+        sourcePath: path.join(root, "missing"), sourcePlatform,
       });
       assert.equal(missing.strategy, "preserved");
       assert.equal(missing.writable, false);
