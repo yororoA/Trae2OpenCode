@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true
+  },
+  "include": [
+    "scripts/verify-platform.ts",
+    "scripts/verify-version-contract.ts",
+    "scripts/verify-resilience.ts"
+  ]
+}

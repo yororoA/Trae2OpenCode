@@ -90,11 +90,12 @@ try {
     const duplicate = await migrate(plan, target, { outputDirectory: path.join(server.directory, "duplicate") });
     assert.equal(duplicate.created, 0);
     assert.equal(duplicate.skipped, 1);
+    const sessionReport = verified.sessions[0];
     const report = {
       platform, node: process.version, version: "2.0.12",
       source: "synthetic-runtime-fixture", sourceChecks,
       nativeImport: true, verified: verified.sessions.length, duplicateSkipped: duplicate.skipped,
-      counts: verified.sessions[0].actual?.counts, status: "verified",
+      counts: "actual" in sessionReport ? sessionReport.actual?.counts : undefined, status: "verified",
     };
     await fs.writeFile("tmp/m7-1-platform-report.json", JSON.stringify(report, null, 2) + "\n");
     console.log(JSON.stringify(report));

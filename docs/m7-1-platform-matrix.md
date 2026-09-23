@@ -51,4 +51,9 @@ Windows 两个版本有 17 个历史测试失败：fixture 路径工具没有遵
 第二轮修复保留 golden 逐字节断言，通过 `.gitattributes` 固定 LF；修正 fixture
 工具的显式平台选择；真实文件系统测试使用宿主平台且隔离 Windows env。
 补充 Windows/Linux 纯路径用例。按 Step1–6 重新执行，逐文件 15、14、12、5 项
-通过，本机完整质量门禁为 340 项通过。Windows 修复结果等待下一轮 CI。
+通过，本机完整质量门禁为 340 项通过。
+
+第二轮 CI [35930386323](https://github.com/yororoA/Trae2OpenCode/actions/runs/35930386323)
+**六个任务全部成功**（commit `bd90132`）：三系统 Node 18.20.8/22 的质量门禁、
+三系统 Node 22 的默认路径/原生导入及 2.0.12/2.0.11 版本契约检查均通过，
+三个平台报告已上传。M7-1/2 的跨平台退出条件满足。

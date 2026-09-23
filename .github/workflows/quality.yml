@@ -54,6 +54,12 @@ jobs:
         env:
           T2O_TEST_OPENCODE_BINARY: tmp/opencode/node_modules/@opencode/cli/bin/opencode.exe
 
+      - name: Verify bounded heap and process interruption recovery
+        if: matrix.node == '22'
+        run: npm run verify:resilience
+        env:
+          T2O_TEST_OPENCODE_BINARY: tmp/opencode/node_modules/@opencode/cli/bin/opencode.exe
+
       - name: Upload integration evidence
         if: always() && matrix.node == '22'
         uses: actions/upload-artifact@v4
@@ -62,4 +68,5 @@ jobs:
           path: |
             tmp/m7-1-platform-report.json
             tmp/m7-2-version-report.json
+            tmp/m7-3-resilience-report.json
           if-no-files-found: warn

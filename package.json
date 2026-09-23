@@ -24,8 +24,9 @@
     "verify:opencode": "tsx scripts/verify-opencode-roundtrip.ts",
     "verify:platform": "tsx scripts/verify-platform.ts",
     "verify:versions": "tsx scripts/verify-version-contract.ts",
+    "verify:resilience": "node --max-old-space-size=512 --import tsx scripts/verify-resilience.ts",
     "build": "tsc",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.integration.json",
     "smoke": "node dist/cli/index.js --version",
     "check": "npm run lint && npm test && npm run typecheck && npm run build && npm run smoke"
   },
