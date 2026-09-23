@@ -163,6 +163,10 @@ export const ERROR_DEFINITIONS = {
     exitCode: 5,
     message: "The transfer data does not satisfy the OpenCode schema.",
   },
+  T2O_OPENCODE_MAPPING_REJECTED: {
+    exitCode: 5,
+    message: "The source session cannot be mapped to OpenCode without unverified or missing data.",
+  },
   T2O_INTERNAL_UNEXPECTED: {
     exitCode: 1,
     message: "An unexpected internal error occurred.",

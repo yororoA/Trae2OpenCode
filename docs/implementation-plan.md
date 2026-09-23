@@ -1,6 +1,6 @@
 # Trae2OpenCode 实现规划
 
-> 状态：M0 至 M3 已合入 `main`；M4-1 已完成，位于 `m4/opencode-import`
+> 状态：M0 至 M3 已合入 `main`；M4-1、M4-2 已完成，位于 `m4/opencode-import`
 > 核验日期：2026-09-24
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
@@ -38,7 +38,7 @@ M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP
 | M2 能力探测 | 已集成 | 已输出 storage profile、字段覆盖率和 runtime adapter 状态 |
 | M2 recovery grading | 已集成 | 已实现逐会话四级分级、稳定缺失原因和 metadata session discovery |
 | M3 TRAE 读取 | 已集成，PR #14 | 已实现各类 parser、profile 注册、IR 组装与完整性/golden 校验；production runtime bridge 尚未接入 |
-| M4 OpenCode adapter | M4-1 已完成 | 已实现双端版本、原生能力、schema 探测与隔离服务；映射和 import adapter 继续推进 |
+| M4 OpenCode adapter | M4-1、M4-2 已完成 | 已实现双端能力探测、IR 映射与隔离回读验证；稳定 ID 和 import adapter 继续推进 |
 | M5-M7 | 未开始 | 编排、安全、资源迁移、兼容与发布能力均未实现 |
 
 当前结论不能表述为“迁移工具已可用”。准确状态是：M0 已解除源数据可恢复性
@@ -513,7 +513,7 @@ M2 最终累计 98 项单元测试、lint、TypeScript typecheck、build、CLI s
 | ID | 任务 | 依赖 | 验收 |
 | --- | --- | --- | --- |
 | M4-1 | 版本与 OpenAPI capability probe | M1-1 | 已完成：双端版本、import/export 封装及可达 schema 严格校验 |
-| M4-2 | IR -> `SessionTransfer.Data` 映射 | M1-2, M0-4 | 所有目标联合类型通过 schema |
+| M4-2 | IR -> `SessionTransfer.Data` 映射 | M1-2, M0-4 | 已完成：可映射联合类型通过 schema，未验证 error/unknown 拒写 |
 | M4-3 | 稳定 ID 与父子依赖排序 | M4-2 | 重跑可识别同一会话 |
 | M4-4 | 原生 CLI import adapter | M4-1..3 | Windows/macOS 均可导入 |
 | M4-5 | 项目目录与不存在路径策略 | M4-2 | 保留原路径或应用显式 path map |
@@ -525,6 +525,11 @@ OpenCode import 是实验性能力。M4-6 必须验证实际导入结果，不�
 M4-1 已通过 macOS OpenCode 2.0.12 实机验证，新增 21 项测试，累计 207 项。
 探测不创建会话，未知版本/schema 继续 fail closed。详细契约和验证见
 [M4-1 能力探测](./m4-1-opencode-capability.md)。
+
+M4-2 已实现有来源门禁的纯映射，新增 13 项测试，累计 220 项。实机隔离
+import/export 的 2 条消息、5 个内容块及 metadata 均完整回读；工具 JSON 输出
+保留编码/hash，缺少完成时间和未验证错误继续拒写。详见
+[M4-2 映射验证](./m4-2-opencode-mapping.md)。
 
 ### M5：迁移编排与安全性，3-5 天
 
