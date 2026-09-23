@@ -1,0 +1,13 @@
+{
+  "cases": [
+    {
+      "golden": "fixtures/ir/v1/golden/valid-complete.json",
+      "name": "valid-complete",
+      "sha256": "sha256:49fdcbd07879121514feff9824dabeea962033c62d33e81e22413992f1160296",
+      "source": "fixtures/ir/v1/valid-complete.json"
+    }
+  ],
+  "goldenVersion": 1,
+  "schemaSha256": "sha256:9a88ece7780cb6a0ade93ce0660a05de5d732d77d016788210a982d817f040a4",
+  "schemaVersion": 1
+}

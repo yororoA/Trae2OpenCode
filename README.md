@@ -7,11 +7,20 @@ payload、关系和时间字段。生产 reader 与完整迁移流程尚未实�
 ## 开发与验证
 
 ```sh
-npm install
-npm test
-npm run typecheck
-npm run build
+npm ci
+npm run check
 ```
+
+`check` 会依次执行 lint、单元测试、类型检查、构建和 CLI 冒烟检查。构建后可查看
+当前命令入口：
+
+```sh
+npm run build
+node dist/cli/index.js --help
+```
+
+M1-1 仅建立 CLI 骨架；`doctor`、`scan`、`preview`、`export`、`migrate`、
+`verify` 和 `rollback` 会在对应里程碑实现前明确返回“尚未实现”，不会执行迁移。
 
 真实 runtime 探针只能提交脱敏后的 canonical evidence：
 
@@ -33,6 +42,9 @@ npm run verify:opencode
 ## 文档
 
 - [实现规划与当前验收状态](docs/implementation-plan.md)
+- [Migration Bundle IR v1](docs/ir-schema-v1.md)
+- [IR Golden Fixture 工作流](docs/golden-fixtures.md)
+- [错误、诊断与结构化日志](docs/error-diagnostics.md)
 - [TRAE 消息来源定位](docs/m0-3-source-location.md)
 - [OpenCode 导入验证与限制](docs/m0-4-import-roundtrip.md)
 - [M0-5 字段映射与降级矩阵](docs/m0-5-mapping-matrix.md)
