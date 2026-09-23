@@ -30,8 +30,8 @@
 | 创建时间 | `created_at`，epoch 秒，规范化为毫秒 |
 
 provider 可返回数组、`messages`、`items`、`data.messages`、
-`data.items`，以及对应的双层 `data` envelope。assistant 记录留给 M3-3 至
-M3-5，不会被误报为非法 user 消息。
+`data.items`，以及对应的双层 `data` envelope。assistant 正文已由 M3-3 处理，
+reasoning/tool 留给 M3-4、M3-5；这些记录不会被误报为非法 user 消息。
 
 正文按以下优先级处理：
 

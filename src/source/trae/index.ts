@@ -98,3 +98,23 @@ export {
   type TraeUserMessageSource,
   type TraeUserMessageSourceKind,
 } from "./user-messages.js";
+export {
+  parseTraeRuntimeAssistantMessages,
+  readTraeAssistantMessages,
+  scanTraeLongTextResources,
+  VERIFIED_TRAE_ASSISTANT_MESSAGE_VERSION,
+  type ReadTraeAssistantMessagesOptions,
+  type TraeAssistantMessage,
+  type TraeAssistantMessageIssue,
+  type TraeAssistantMessageIssueCode,
+  type TraeAssistantMessageReport,
+  type TraeAssistantMessageSource,
+  type TraeAssistantMessageSourceKind,
+  type TraeAssistantMessageStatus,
+  type TraeAssistantText,
+  type TraeAssistantTextSource,
+  type TraeLongTextReference,
+  type TraeLongTextResource,
+  type TraeRuntimeAssistantMessageProvider,
+  type TraeRuntimeAssistantMessageRequest,
+} from "./assistant-messages.js";

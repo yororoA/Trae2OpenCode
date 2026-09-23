@@ -1,7 +1,7 @@
 # Trae2OpenCode 实现规划
 
-> 状态：M0、M1、M2 已合入 `main`；M3-1、M3-2 已完成，位于 `m3/trae-parser`
-> 核验日期：2026-09-23
+> 状态：M0、M1、M2 已合入 `main`；M3-1 至 M3-3 已完成，位于 `m3/trae-parser`
+> 核验日期：2026-09-24
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
 ## 1. 结论
@@ -37,7 +37,7 @@ M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP
 | M2 SQLite 快照 | 已集成 | 已实现 Online Backup、WAL 一致性、完整性校验和自动清理 |
 | M2 能力探测 | 已集成 | 已输出 storage profile、字段覆盖率和 runtime adapter 状态 |
 | M2 recovery grading | 已集成 | 已实现逐会话四级分级、稳定缺失原因和 metadata session discovery |
-| M3 TRAE 读取 | M3-1、M3-2 已完成 | 已实现会话 metadata、runtime user 解析和 query cache 去重；production runtime bridge 尚未接入 |
+| M3 TRAE 读取 | M3-1 至 M3-3 已完成 | 已实现会话 metadata、runtime user/assistant 正文解析、query cache 去重和精确 long-text 关联；production runtime bridge 尚未接入 |
 | M4 OpenCode adapter | 契约验证完成，实现未开始 | 2.0.12 隔离 import/export 已验证，尚无生产 capability probe 与 import adapter |
 | M5-M7 | 未开始 | 编排、安全、资源迁移、兼容与发布能力均未实现 |
 
@@ -447,8 +447,17 @@ M2 最终累计 98 项单元测试、lint、TypeScript typecheck、build、CLI s
    workspace 原记录 hash，不将无 session ID/时间的缓存关联到会话。
 8. 实机 10 个 workspace 的 511 个 cache occurrence 全部通过严格解析，去重为
    477 条，保留 511 个来源引用，未产生解析诊断。
-9. M3-2 不等于 production runtime bridge 已完成。M3-3 至 M3-5 仍需实现
-   assistant、reasoning 和 tool 解析；当前累计 115 项单元测试。
+9. M3-3 已实现 `parseTraeRuntimeAssistantMessages`，严格校验 assistant 身份、
+   turn/reply、顺序、状态与真实时间，并按已验证的 general、proposal 和 chat
+   summary 语义投影正文；reasoning 与普通 plan thought 留给 M3-4。
+10. M3-3 已实现 `scanTraeLongTextResources`，只接受严格三级 UTF-8 `.txt`
+    布局；query cache 关联必须精确命中同一 workspace 的 long-text 路径，不按
+    basename、scope、entry ID 或内容 hash 猜测归属。
+11. 当前实机只读扫描 22 个 long-text 资源和 479 条去重 cache entry，7 个精确
+    引用落到 3 个资源；其余 19 个资源保留 metadata 并产生 unassociated warning，
+    非孤立资源诊断与绝对路径泄漏均为 0。
+12. M3-3 不等于 production runtime bridge 已完成。M3-4、M3-5 仍需实现
+    reasoning/plan 与 tool 状态机；当前累计 127 项单元测试。
 
 ### M1：工程骨架与 IR，2-3 天
 
@@ -475,7 +484,7 @@ M2 最终累计 98 项单元测试、lint、TypeScript typecheck、build、CLI s
 | --- | --- | --- | --- | --- |
 | M3-1 | 会话索引、时间、标题解析 | M2-4 | 顺序稳定，缺失字段有诊断 | 已完成 |
 | M3-2 | 用户消息与查询缓存解析 | M3-1 | 去重且保留来源 hash | 已完成 |
-| M3-3 | assistant 文本与 long-text 关联 | M0-3, M3-1 | 不按文件名猜测错误归属 | 未开始 |
+| M3-3 | assistant 文本与 long-text 关联 | M0-3, M3-1 | 不按文件名猜测错误归属 | 已完成 |
 | M3-4 | reasoning/plan 解析 | M0-3, M3-1 | 仅映射实际持久化内容 | 未开始 |
 | M3-5 | tool call/result 状态机归并 | M0-3, M3-1 | call/result 一一关联，孤儿项有告警 | 未开始 |
 | M3-6 | 图片、文件和长文本附件解析 | M3-2 | 缺失文件、mime、hash 均有记录 | 未开始 |
@@ -597,7 +606,7 @@ OpenCode import 是实验性能力。M4-6 必须验证实际导入结果，不�
 
 1. M0、M1 已完成并合入 `main`。
 2. M2-1 至 M2-5 已完成，并通过 PR #13 合入 `main`。
-3. M3-1、M3-2 已完成；进入 M3-3，实现 assistant 文本与 long-text 关联。
+3. M3-1 至 M3-3 已完成；进入 M3-4，实现 reasoning/plan 解析。
 4. 完成 M3 其余解析器，生成可审计 IR，并打通真实来源到 OpenCode 的
    import/export 对账。
 5. 增加批量迁移、manifest、resume 和 rollback。
