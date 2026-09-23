@@ -336,6 +336,78 @@ M1 里程碑分支最终通过 PR #11 合入 `main`，合并提交为 `4a9219d`�
 M1 只完成工程骨架与数据契约，不表示生产 scanner、runtime reader 或真实迁移
 已经可用。
 
+#### M2 完成明细
+
+| 任务 | 交付提交 | 集成状态 | 核心结果 | 完成时测试数 |
+| --- | --- | --- | --- | ---: |
+| M2-1 | `47549eb` | PR #12 已合入 | macOS/Windows 路径发现、`--trae-root` 覆盖和稳定错误码 | 66 |
+| M2-2 | `969facb` | 直接提交 `m2/trae-scanner` | folder/workspace URI、JSONC multi-root、跨平台路径规范化和逐记录诊断 | 78 |
+| M2-3 | `31a569e` | 直接提交 `m2/trae-scanner` | SQLite Online Backup、WAL 一致性、`quick_check`、快照权限和自动清理 | 83 |
+| M2-4 | `5571a67` | 直接提交 `m2/trae-scanner` | storage profile、字段覆盖率和 runtime adapter 能力探测 | 89 |
+| M2-5 | `74a2bc4` | 直接提交 `m2/trae-scanner` | metadata session discovery、四级 recovery grading 和稳定缺失原因 | 98 |
+
+M2-1 建立了独立于 M0 fixture collector 的生产路径发现器：
+
+- 默认支持 macOS `~/Library/Application Support/Trae CN/User` 和 fallback
+  `Trae/User`。
+- Windows 支持 `%APPDATA%`、`%LOCALAPPDATA%` 及缺省推导目录。
+- 显式 `--trae-root` 支持产品目录、`User` 目录和 `~` 展开，指定后不回退默认
+  路径。
+- 发现阶段只检查目录和能力位，不读取数据库正文；未知平台和缺失根目录使用
+  `T2O_*` 错误码。
+
+M2-2 固化了 workspace 到项目路径的解析契约：
+
+- `workspace.json` 的 `folder` 直接映射单项目，`workspace` 指向 JSONC
+  `.code-workspace` 配置。
+- 支持 macOS file URI、Windows drive URI、Windows UNC URI、百分号解码和相对
+  folder path。
+- multi-root 项目按平台语义去重；损坏 metadata、失效配置和远程 URI 隔离为
+  稳定诊断，不猜测路径。
+- 实机解析到 14 个 workspace、11 个 folder、3 个 multi-root 和 25 个项目路径；
+  2 个失效配置、1 个缺失 metadata 被保留为诊断。
+
+M2-3 建立了运行中 TRAE SQLite 的一致性只读快照：
+
+- 源库使用只读连接和 connection-local `query_only`，通过 Online Backup 生成
+  独立快照，不复制主库/WAL 文件、不执行 checkpoint。
+- 临时快照固定为 `0700` 目录、`0600` 数据库，转换为 standalone `DELETE`
+  journal，`quick_check` 失败则 fail closed。
+- callback 成功、失败和重复 cleanup 均有覆盖；缺失/损坏源和快照失败使用稳定
+  `T2O_*` 错误码。
+- 真实 TRAE 快照为 2,248,704 bytes、549 页、`quick_check=ok`；源主库与 WAL
+  SHA-256 均未变化。
+
+M2-4 将存储结构能力与消息运行能力分开探测：
+
+- 3.3.104 且 `ItemTable(key,value)` 有效时标记 `trae-cn-workspace-v3` 为
+  `verified`；旧 memento、hybrid 和未知版本保持 `unverified`/`unsupported`。
+- 只检查 key 存在和 JSON 容器形状，不把 session ID、输入历史、Agent map 或
+  其他数据库值写入报告。
+- runtime profile `trae-cn-runtime-v2` 可以保持 evidence `verified`，但未接入
+  production runtime adapter 时字段必须是 `requires-runtime`。
+- 实机发现 16 个 workspace、解析 15 个，其中 15 个为 verified v3；session
+  index 14/15 可用，invalid 字段为 0，报告无绝对路径。
+
+M2-5 建立了逐会话恢复分级和可复用证据接口：
+
+- `complete` 要求 verified profile、消息数、user text、assistant content、
+  completion time 和 reply relation 全部覆盖。
+- `partial` 允许存在明确缺口，但必须有可用结构化消息源及部分 user/assistant
+  内容。
+- 只能恢复 session metadata 时标记 `metadata-only`；源损坏且无法恢复时标记
+  `unrecoverable`。
+- 从 `ai-chat-v2.lastActiveSessionId` 和
+  `chat.ChatSessionStore.index.entries` 发现并稳定排序 session ID；未来 M3
+  runtime reader 通过 provider 注入逐会话消息证据。
+- 实机发现 10 个 session；在 production runtime adapter 尚未接入时，10 个均为
+  `metadata-only`，没有误报为 `partial` 或 `complete`。
+
+M2 最终累计 98 项单元测试、lint、TypeScript typecheck、build、CLI smoke 和
+实机脱敏验证均通过。M2 只读 scanner 已具备可审计的路径、workspace、SQLite、
+能力和恢复等级基础，但 production runtime reader、正文标准化和真实迁移仍未
+实现。
+
 #### M2 当前进展
 
 1. M2-1 已通过 PR #12 合入里程碑分支：支持 macOS/Windows 默认路径与显式
