@@ -131,6 +131,82 @@ export const ERROR_DEFINITIONS = {
     exitCode: 4,
     message: "The TRAE parser profile does not support this capability.",
   },
+  T2O_OPENCODE_VERSION_UNSUPPORTED: {
+    exitCode: 5,
+    message: "The OpenCode version has no verified import contract.",
+  },
+  T2O_OPENCODE_SERVER_INVALID: {
+    exitCode: 5,
+    message: "OpenCode requires a local HTTP server URL without credentials or a path.",
+  },
+  T2O_OPENCODE_SERVER_START_FAILED: {
+    exitCode: 5,
+    message: "The isolated OpenCode server could not start.",
+  },
+  T2O_OPENCODE_COMMAND_FAILED: {
+    exitCode: 5,
+    message: "The OpenCode command failed or exceeded its time or output limit.",
+  },
+  T2O_OPENCODE_REQUEST_FAILED: {
+    exitCode: 5,
+    message: "The OpenCode request failed or exceeded its time or response limit.",
+  },
+  T2O_OPENCODE_CAPABILITY_UNAVAILABLE: {
+    exitCode: 5,
+    message: "OpenCode does not expose the required native import/export capabilities.",
+  },
+  T2O_OPENCODE_SCHEMA_UNSUPPORTED: {
+    exitCode: 5,
+    message: "The OpenCode transfer schema differs from the verified contract.",
+  },
+  T2O_OPENCODE_TRANSFER_INVALID: {
+    exitCode: 5,
+    message: "The transfer data does not satisfy the OpenCode schema.",
+  },
+  T2O_OPENCODE_MAPPING_REJECTED: {
+    exitCode: 5,
+    message: "The source session cannot be mapped to OpenCode without unverified or missing data.",
+  },
+  T2O_OPENCODE_IDENTITY_INVALID: {
+    exitCode: 5,
+    message: "Source identifiers or parent dependencies cannot form a unique OpenCode import plan.",
+  },
+  T2O_OPENCODE_READBACK_INVALID: {
+    exitCode: 5,
+    message: "OpenCode did not return the expected session transfer.",
+  },
+  T2O_OPENCODE_DIRECTORY_INVALID: {
+    exitCode: 5,
+    message: "The target project directory must be an existing absolute local directory.",
+  },
+  T2O_OPENCODE_PATH_MAP_INVALID: {
+    exitCode: 5,
+    message: "Project path mappings must use unambiguous absolute paths for each platform.",
+  },
+  T2O_OPENCODE_TRANSFER_TOO_LARGE: {
+    exitCode: 5,
+    message: "The OpenCode transfer exceeds the supported size limit.",
+  },
+  T2O_OPENCODE_SESSION_CONFLICT: {
+    exitCode: 5,
+    message: "The target session already exists and was not overwritten.",
+  },
+  T2O_OPENCODE_PARENT_MISSING: {
+    exitCode: 5,
+    message: "The target parent session has not been imported.",
+  },
+  T2O_OPENCODE_IMPORT_FAILED: {
+    exitCode: 5,
+    message: "The native OpenCode import could not complete.",
+  },
+  T2O_OPENCODE_TEMP_CLEANUP_FAILED: {
+    exitCode: 5,
+    message: "The private import temporary directory could not be removed.",
+  },
+  T2O_OPENCODE_RECONCILIATION_FAILED: {
+    exitCode: 5,
+    message: "The imported OpenCode transcript does not match the planned transfer.",
+  },
   T2O_INTERNAL_UNEXPECTED: {
     exitCode: 1,
     message: "An unexpected internal error occurred.",
