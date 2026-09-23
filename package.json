@@ -15,6 +15,7 @@
   "scripts": {
     "lint": "biome lint --error-on-warnings src scripts",
     "test": "node --import tsx --test src/**/__tests__/*.test.ts",
+    "schema:ir": "tsx scripts/write-ir-schema.ts",
     "collect-fixtures": "npx tsx scripts/collect-fixtures.ts",
     "collect:trae-runtime-evidence": "tsx scripts/collect-trae-runtime-evidence.ts",
     "collect:trae-structured-runtime-evidence": "tsx scripts/collect-trae-structured-runtime-evidence.ts",
@@ -31,11 +32,11 @@
     "@biomejs/biome": "^2.5.14",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.6.2",
-    "ajv": "^8.20.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   },
   "dependencies": {
+    "ajv": "^8.20.0",
     "better-sqlite3": "^11.10.0"
   }
 }
