@@ -1,6 +1,6 @@
 # Trae2OpenCode 实现规划
 
-> 状态：M0 至 M4 已合入 `main`；M5-1 至 M5-5 已实现，位于 `m5/migration-orchestration`
+> 状态：M0 至 M4 已合入 `main`；M5-1 至 M5-6 已实现，位于 `m5/migration-orchestration`，真实 runtime 端到端验收待完成
 > 核验日期：2026-09-24
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
@@ -39,7 +39,7 @@ M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP
 | M2 recovery grading | 已集成 | 已实现逐会话四级分级、稳定缺失原因和 metadata session discovery |
 | M3 TRAE 读取 | 已集成，PR #14 | 已实现各类 parser、profile 注册、IR 组装与完整性/golden 校验；production runtime bridge 尚未接入 |
 | M4 OpenCode adapter | 已集成，PR #15 | 能力探测、IR 映射、稳定 ID、CLI adapter、路径映射与完整对账；五组 macOS 隔离实机通过 |
-| M5 迁移编排 | M5-1 至 M5-5 已实现 | 只读 CLI、dry-run、manifest、resume、真实 import/verify、显式替换与 rollback；真实已登录 renderer 端到端待验收 |
+| M5 迁移编排 | M5-1 至 M5-6 已实现 | 只读 CLI、dry-run、manifest、resume、真实 import/verify、显式替换、rollback 与凭据过滤；真实已登录 renderer 端到端待验收 |
 | M6-M7 | 未开始 | 资源迁移、兼容与发布能力待实现 |
 
 当前结论不能表述为“迁移工具已可用”。准确状态是：M0 已解除源数据可恢复性
@@ -557,7 +557,7 @@ M4 已通过 PR #15 合入 `main`，合并提交为 `e80d744`；里程碑 CI 通
 | M5-3 | manifest、checkpoint、resume | M4 | 已实现：持久化先于写入、原子 checkpoint、失败隔离、恢复与 verify |
 | M5-4 | 冲突与幂等策略 | M5-3 | 已实现：默认 skip，旧 manifest + 完整 hash + 显式独占声明保护替换 |
 | M5-5 | rollback | M5-3 | 已实现：默认预览、本轮归属/hash/子会话保护、显式确认与中断恢复 |
-| M5-6 | 敏感信息过滤 | M1-3 | 日志、报告、fixture 不含凭据和默认正文 |
+| M5-6 | 敏感信息过滤 | M1-3 | 已实现：已识别凭据阻断 IR 导出/目标写入，日志/报告/fixture 输出前过滤 |
 
 M5-1 累计 265 项测试通过，CLI 实机发现 62 个会话、25 个项目；无 runtime 时
 明确标记 metadata-only。接口与验证边界见 [M5-1 只读 CLI](./m5-1-readonly-cli.md)。
@@ -576,6 +576,11 @@ M5-4 累计 310 项测试通过；隔离实机已验证父子图默认 skip、�
 M5-5 累计 325 项测试通过；隔离实机验证默认预览、外来子会话保护、原生删除
 响应丢失后的恢复与重复回滚。回滚开始后禁止原 manifest 再次用于迁移续跑；
 verify 校验已回滚 ID 不存在。详见 [M5-5 回滚](./m5-5-rollback.md)。
+
+M5-6 累计 339 项测试通过，已覆盖已识别凭据格式、结构化字段、嵌套编码、
+动态 key、日志与所有 JSON fixture。隔离实机确认凭据 transfer 未写入目标、
+凭据 export 未创建目录，正常正文完整导入并对账。未知编码/无标记密码不在
+检测保证内。详见 [M5-6 凭据边界](./m5-6-sensitive-content.md)。
 
 ### M6：资源迁移，4-7 天，可独立发布
 

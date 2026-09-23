@@ -51,6 +51,15 @@ async function setup(operation: (context: {
 }
 
 describe("migration executor", () => {
+  it("rejects modified plans containing credentials before reading target or creating output", () => setup(async ({ plan, fake, outputDirectory }) => {
+    plan.sessions[0].transfer!.messages[0].text = "Authorization: Bearer synthetic-token-value";
+    fake.api.describe = async () => assert.fail("No target calls allowed");
+    await assert.rejects(migrate(plan, fake.api, { outputDirectory }),
+      { code: "T2O_SENSITIVE_CONTENT_REQUIRES_REBINDING" });
+    await assert.rejects(fs.stat(outputDirectory), { code: "ENOENT" });
+    assert.equal(fake.imports.length, 0);
+  }));
+
   it("persists intent before import, verifies content, and resumes without a second import", () => setup(async (ctx) => {
     const { plan, fake, filename, outputDirectory } = ctx;
     const nativeImport = fake.api.importSession;

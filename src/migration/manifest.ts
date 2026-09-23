@@ -7,6 +7,7 @@ import Database from "better-sqlite3";
 import { hashCanonicalJson } from "../ir/canonical.js";
 import type { JsonValue } from "../ir/types.js";
 import { Trae2OpenCodeError } from "../shared/errors.js";
+import { assertNoCredentials } from "../shared/sensitive.js";
 import type { OpenCodeReconciliation } from "../target/opencode/reconciliation.js";
 import type { MigrationTargetDescriptor } from "./target.js";
 
@@ -108,6 +109,7 @@ function checksum(manifest: MigrationManifest): string {
 }
 
 export function assertManifest(value: unknown): asserts value is MigrationManifest {
+  assertNoCredentials(value);
   if (!validate(value)) throw new Trae2OpenCodeError("T2O_MIGRATION_MANIFEST_INVALID");
   const manifest = value as MigrationManifest;
   const seen = new Set<string>();

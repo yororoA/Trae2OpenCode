@@ -4,6 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, it } from "node:test";
 import { exportBundleFile, readBundleFile, summarizeBundle } from "../bundle-file.js";
+import type { AssistantEventIR, ToolContentIR, UserEventIR } from "../../ir/types.js";
 
 describe("bundle files", () => {
   it("exports a private, complete bundle and refuses an existing directory", async () => {
@@ -28,7 +29,7 @@ describe("bundle files", () => {
     bundle.sessions[0].title = "private-title";
     bundle.sessions[0].projectPath = "/Users/private/project";
     bundle.diagnostics.push({ id: "private-diagnostic", severity: "warning", code: "T2O_EXAMPLE",
-      message: "private-message", context: { token: "private-token" }, sourceRefs: [] });
+      message: "private-message", context: { opaque: "private-value" }, sourceRefs: [] });
     const summary = summarizeBundle(bundle);
     assert.equal(summary.sessions[0].messageCount, 2);
     assert.deepEqual(summary.diagnosticCodes, ["T2O_EXAMPLE"]);
@@ -38,5 +39,44 @@ describe("bundle files", () => {
   it("rejects malformed files without exposing input or filesystem errors", async () => {
     await assert.rejects(readBundleFile("/private-missing-bundle"), { code: "T2O_MIGRATION_BUNDLE_READ_FAILED" });
     await assert.rejects(readBundleFile("fixtures/ir/v1/invalid-unknown-field.json"), { code: "T2O_IR_SCHEMA_INVALID" });
+  });
+
+  it("rejects credentials anywhere in a bundle before export or summary without mutating source data", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "t2o-private-export-"));
+    try {
+      for (const location of ["title", "user", "reasoning", "tool", "diagnostic", "locator", "id"]) {
+        const bundle = await readBundleFile("fixtures/ir/v1/valid-trae-assembled.json");
+        const synthetic = `ghp_${"A".repeat(36)}`;
+        const session = bundle.sessions[0];
+        if (location === "title") session.title = synthetic;
+        if (location === "id") session.sourceId = synthetic;
+        if (location === "user") (session.events[0] as UserEventIR).text = synthetic;
+        if (location === "reasoning") (session.events[1] as AssistantEventIR).content[0] = {
+          type: "reasoning", text: synthetic, sourceRefs: session.sourceRefs,
+        };
+        if (location === "tool") ((session.events[1] as AssistantEventIR).content[3] as ToolContentIR).output =
+          JSON.stringify({ apiKey: "synthetic-tool-key" });
+        if (location === "locator") session.sourceRefs[0].locator.value = synthetic;
+        if (location === "diagnostic") bundle.diagnostics.push({
+          id: "synthetic", severity: "warning", code: "T2O_EXAMPLE", message: "Needs rebinding",
+          context: { token: synthetic }, sourceRefs: [],
+        });
+        const before = JSON.stringify(bundle);
+        const expected = { code: "T2O_SENSITIVE_CONTENT_REQUIRES_REBINDING" };
+        await assert.rejects(exportBundleFile(bundle, path.join(root, location)), expected);
+        assert.throws(() => summarizeBundle(bundle), expected);
+        assert.equal(JSON.stringify(bundle), before);
+      }
+      assert.deepEqual(await fs.readdir(root), []);
+    } finally { await fs.rm(root, { recursive: true, force: true }); }
+  });
+
+  it("inspects offline data before schema diagnostics can echo a sensitive object key", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "t2o-sensitive-input-"));
+    try {
+      const file = path.join(root, "input.json");
+      await fs.writeFile(file, JSON.stringify({ [`ghp_${"A".repeat(36)}`]: {} }));
+      await assert.rejects(readBundleFile(file), { code: "T2O_SENSITIVE_CONTENT_REQUIRES_REBINDING" });
+    } finally { await fs.rm(root, { recursive: true, force: true }); }
   });
 });

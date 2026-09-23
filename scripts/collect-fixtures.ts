@@ -9,6 +9,7 @@
  */
 
 import { collectToFile } from "../src/fixture-collector/index";
+import { normalizeError } from "../src/shared/errors.js";
 
 function parseArgs(): {
   traeRoot?: string;
@@ -58,12 +59,12 @@ console.log("[FixtureCollector] 开始采集 TRAE 数据目录结构...");
 console.log("[FixtureCollector] 注意: 只记录结构、类型和 hash，不记录原始内容。");
 
 try {
-  const outputPath = collectToFile(opts);
-  console.log(`[FixtureCollector] 报告已生成: ${outputPath}`);
+  collectToFile(opts);
+  console.log("[FixtureCollector] 报告已生成。");
 } catch (err) {
   console.error(
     "[FixtureCollector] 采集失败:",
-    err instanceof Error ? err.message : err,
+    normalizeError(err).code,
   );
   process.exit(1);
 }

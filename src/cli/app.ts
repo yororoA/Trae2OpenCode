@@ -3,6 +3,7 @@ import { parseArgs } from "node:util";
 import { getDiagnosticLocation } from "../shared/diagnostics.js";
 import { Trae2OpenCodeError, normalizeError } from "../shared/errors.js";
 import { type Clock, JsonLogger } from "../shared/logger.js";
+import { assertNoCredentials, redactSensitiveText } from "../shared/sensitive.js";
 import { executeReadCommand } from "./commands.js";
 
 export interface CliIO {
@@ -127,7 +128,7 @@ function writeError(
     const location = getDiagnosticLocation(diagnostic);
     const locationPrefix = location ? `${location}: ` : "";
     io.stderr(
-      `  - [${diagnostic.code}] ${locationPrefix}${diagnostic.message}\n`,
+      `  - [${redactSensitiveText(diagnostic.code)}] ${redactSensitiveText(locationPrefix)}${redactSensitiveText(diagnostic.message)}\n`,
     );
   }
 
@@ -282,6 +283,7 @@ export async function runCli(
         replace: stringOption("replace"), exclusiveTarget: parsed.values["exclusive-target"] === true,
         confirm: stringOption("confirm"),
       });
+      assertNoCredentials(result);
       io.stdout(`${JSON.stringify(result, null, useJson ? undefined : 2)}\n`);
       const failed = typeof result === "object" && result !== null &&
         "hasFailures" in result && result.hasFailures === true;

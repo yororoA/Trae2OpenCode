@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { MigrationBundle } from "../../ir/types.js";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
+import { assertNoCredentials } from "../../shared/sensitive.js";
 import { assembleTraeMigrationBundle, type TraeSessionMessageRead } from "./assemble-bundle.js";
 import { requireTraeRoot, type TraeRootDiscoveryOptions } from "./path-discovery.js";
 import { VERIFIED_TRAE_PRODUCT_VERSION } from "./profile-definitions.js";
@@ -100,5 +101,7 @@ export async function collectTraeBundle(options: CollectTraeOptions): Promise<Mi
       message: issue.message, subject: { type: "bundle" }, sourceRefs: [],
     });
   }
-  return selectBundle(bundle, options);
+  const selected = selectBundle(bundle, options);
+  assertNoCredentials(selected);
+  return selected;
 }

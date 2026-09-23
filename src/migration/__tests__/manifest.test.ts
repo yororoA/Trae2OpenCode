@@ -97,6 +97,9 @@ describe("migration manifest persistence", () => {
     const source = path.join(outputDirectory, result.manifest);
     await withManifestStore(source, async (store) => {
       const original = await store.read();
+      const secretId = structuredClone(original);
+      secretId.sessions[0].sourceId = `ghp_${"A".repeat(36)}`;
+      await assert.rejects(store.save(secretId), { code: "T2O_MIGRATION_CHECKPOINT_FAILED" });
       const invalidHash = structuredClone(original);
       invalidHash.sessions[0].deletionHash = hash;
       await assert.rejects(store.save(invalidHash), { code: "T2O_MIGRATION_CHECKPOINT_FAILED" });

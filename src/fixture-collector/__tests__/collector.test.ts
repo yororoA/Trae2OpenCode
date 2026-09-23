@@ -5,6 +5,8 @@ import assert from "node:assert/strict";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import * as os from "node:os";
+import { collectToFile } from "../index.js";
+import { assertNoCredentials } from "../../shared/sensitive.js";
 import {
   analyzeJsonStructure,
   hashFileSha256,
@@ -134,6 +136,33 @@ describe("identifyStorageProfile", () => {
 });
 
 describe("Trae CN 3.3.104 fixture", () => {
+  it("refuses a fixture report containing a credential in a dynamic JSON key", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "t2o-fixture-sensitive-"));
+    try {
+      const workspace = path.join(root, "User/workspaceStorage/synthetic");
+      fs.mkdirSync(workspace, { recursive: true });
+      fs.mkdirSync(path.join(root, "User/globalStorage"), { recursive: true });
+      fs.writeFileSync(path.join(workspace, "workspace.json"), JSON.stringify({ [`ghp_${"A".repeat(36)}`]: true }));
+      const output = path.join(root, "report.json");
+      assert.throws(() => collectToFile({ traeRoot: path.join(root, "User"), output }),
+        { code: "T2O_SENSITIVE_CONTENT_REQUIRES_REBINDING" });
+      assert.equal(fs.existsSync(output), false);
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  });
+
+  it("checks all committed JSON fixtures for recognized credential values", () => {
+    const walk = (directory: string): void => {
+      for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+        const filename = path.join(directory, entry.name);
+        if (entry.isDirectory()) walk(filename);
+        else if (entry.isFile() && entry.name.endsWith(".json")) {
+          assert.doesNotThrow(() => assertNoCredentials(JSON.parse(fs.readFileSync(filename, "utf8"))), filename);
+        }
+      }
+    };
+    walk("fixtures");
+  });
+
   it("只包含脱敏后的结构信息", () => {
     const fixturePath = path.join(
       process.cwd(),

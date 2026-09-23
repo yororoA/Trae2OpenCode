@@ -3,6 +3,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { JsonObject } from "../ir/types.js";
 import { normalizeError, Trae2OpenCodeError } from "../shared/errors.js";
+import { assertNoCredentials } from "../shared/sensitive.js";
 import type { OpenCodeTransfer } from "../target/opencode/mapping.js";
 import { reconcileOpenCodeTransfer } from "../target/opencode/reconciliation.js";
 import {
@@ -142,6 +143,7 @@ export async function migrate(
   inputPlan: MigrationPlan, target: MigrationTarget,
   options: { outputDirectory?: string; resumeManifest?: string; replaceManifest?: string; exclusiveTarget?: boolean },
 ) {
+  assertNoCredentials(inputPlan);
   const plan = structuredClone(inputPlan);
   const validMode = Boolean(options.outputDirectory) !== Boolean(options.resumeManifest);
   if (!validMode) throw new Trae2OpenCodeError("T2O_CLI_INVALID_ARGUMENTS");

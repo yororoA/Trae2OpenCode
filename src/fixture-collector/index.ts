@@ -3,6 +3,7 @@
 import * as path from "node:path";
 import * as fs from "node:fs";
 import * as crypto from "node:crypto";
+import { assertNoCredentials } from "../shared/sensitive.js";
 import {
   discoverTraeRoots,
   listWorkspaceDirs,
@@ -201,6 +202,7 @@ export function collect(options: CollectorOptions = {}): FixtureReport {
 
 export function collectToFile(options: CollectorOptions = {}): string {
   const report = collect(options);
+  assertNoCredentials(report);
   const outputPath =
     options.output || path.join(process.cwd(), "fixtures", "fixture-report.json");
   const dir = path.dirname(outputPath);

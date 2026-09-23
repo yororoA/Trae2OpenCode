@@ -13,6 +13,14 @@ const renamed = (bundle: MigrationBundle, id: string) =>
   JSON.parse(JSON.stringify(bundle.sessions[0]).replaceAll("session-synthetic", id));
 
 describe("migration plan", () => {
+  it("refuses credential-bearing content and options before producing transfers", async () => {
+    const bundle = await fixture();
+    bundle.sessions[0].title = "password=synthetic";
+    await assert.rejects(buildMigrationPlan(bundle, options), { code: "T2O_SENSITIVE_CONTENT_REQUIRES_REBINDING" });
+    await assert.rejects(buildMigrationPlan(await fixture(), { ...options, namespace: `ghp_${"A".repeat(36)}` }),
+      { code: "T2O_SENSITIVE_CONTENT_REQUIRES_REBINDING" });
+  });
+
   it("uses exactly the stable-ID mapping intended for import", async () => {
     const bundle = await fixture();
     const before = structuredClone(bundle);

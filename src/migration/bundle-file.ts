@@ -4,6 +4,7 @@ import { canonicalizeMigrationBundle, hashMigrationBundle } from "../ir/canonica
 import { assertMigrationBundle } from "../ir/validation.js";
 import type { MigrationBundle } from "../ir/types.js";
 import { Trae2OpenCodeError } from "../shared/errors.js";
+import { assertNoCredentials } from "../shared/sensitive.js";
 
 const MAX_BUNDLE_BYTES = 128 * 1024 * 1024;
 
@@ -21,7 +22,9 @@ export async function readBundleFile(filename: string): Promise<MigrationBundle>
       offset += read.bytesRead;
     }
     if (offset !== stat.size) throw new Error("File changed");
-    return assertMigrationBundle(JSON.parse(bytes.subarray(0, offset).toString("utf8")));
+    const value: unknown = JSON.parse(bytes.subarray(0, offset).toString("utf8"));
+    assertNoCredentials(value);
+    return assertMigrationBundle(value);
   } catch (error) {
     if (error instanceof Trae2OpenCodeError) throw error;
     throw new Trae2OpenCodeError("T2O_MIGRATION_BUNDLE_READ_FAILED");
@@ -30,6 +33,7 @@ export async function readBundleFile(filename: string): Promise<MigrationBundle>
 
 /** Exclusive directory ownership prevents overwrites and symlink traversal at the leaf. */
 export async function exportBundleFile(bundle: MigrationBundle, outputDirectory: string) {
+  assertNoCredentials(bundle);
   const content = canonicalizeMigrationBundle(bundle);
   if (Buffer.byteLength(content, "utf8") > MAX_BUNDLE_BYTES) {
     throw new Trae2OpenCodeError("T2O_TRAE_RUNTIME_LIMIT");
@@ -53,6 +57,7 @@ export async function exportBundleFile(bundle: MigrationBundle, outputDirectory:
 
 /** Allowlist only: titles, transcript, tool payloads and paths never reach previews. */
 export function summarizeBundle(bundle: MigrationBundle) {
+  assertNoCredentials(bundle);
   return {
     schemaVersion: bundle.schemaVersion,
     sourceVersion: bundle.source.product.version,

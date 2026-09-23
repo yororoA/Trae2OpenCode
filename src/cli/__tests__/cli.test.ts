@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import * as fs from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
 import { type CliIO, runCli } from "../app.js";
 
 function captureIO(): {
@@ -25,6 +28,26 @@ function captureIO(): {
 }
 
 describe("runCli", () => {
+  it("contains credential failures in both human and JSON output without creating exports", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "t2o-sensitive-cli-"));
+    try {
+      const input = path.join(root, "input.json");
+      const synthetic = `ghp_${"A".repeat(36)}`;
+      await fs.writeFile(input, JSON.stringify({ [synthetic]: true }));
+      for (const json of [false, true]) {
+        const output = captureIO();
+        const args = ["export", "--input", input, "--output", path.join(root, "export")];
+        if (json) args.push("--json");
+        assert.equal(await runCli(args, output.io, "9.8.7"), 4);
+        assert.equal(output.stdout(), "");
+        assert.match(output.stderr(), /T2O_SENSITIVE_CONTENT_REQUIRES_REBINDING/);
+        assert.ok(!output.stderr().includes(synthetic));
+        assert.ok(!output.stderr().includes(root));
+      }
+      assert.deepEqual(await fs.readdir(root), ["input.json"]);
+    } finally { await fs.rm(root, { recursive: true, force: true }); }
+  });
+
   it("accepts dry-run flags and repeated project maps", async () => {
     const output = captureIO();
     assert.equal(await runCli([

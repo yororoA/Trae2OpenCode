@@ -2,6 +2,7 @@ import { hashCanonicalJson, hashMigrationBundle } from "../ir/canonical.js";
 import type { JsonValue, MigrationBundle, RecoveryGrade } from "../ir/types.js";
 import { assertMigrationBundle } from "../ir/validation.js";
 import { normalizeError, Trae2OpenCodeError } from "../shared/errors.js";
+import { assertNoCredentials } from "../shared/sensitive.js";
 import { createOpenCodeIdentityMap } from "../target/opencode/identity.js";
 import { mapOpenCodeSession, type OpenCodeTransfer } from "../target/opencode/mapping.js";
 import {
@@ -63,6 +64,8 @@ export function parsePathMaps(values: readonly string[] = []): ProjectPathMap[] 
 export async function buildMigrationPlan(
   value: MigrationBundle, inputOptions: MigrationPlanOptions = {},
 ): Promise<MigrationPlan> {
+  assertNoCredentials(value);
+  assertNoCredentials(inputOptions);
   const bundle = structuredClone(assertMigrationBundle(value));
   const options = structuredClone(inputOptions);
   const recovery = options.recovery ?? parseRecovery();

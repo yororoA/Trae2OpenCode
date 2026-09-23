@@ -15,6 +15,14 @@ export const ERROR_DEFINITIONS = {
     exitCode: 3,
     message: "Migration bundle failed schema validation.",
   },
+  T2O_SENSITIVE_CONTENT_REQUIRES_REBINDING: {
+    exitCode: 4,
+    message: "Credential-like content was detected. Remove credential values from the selected data and rebind credentials separately.",
+  },
+  T2O_SENSITIVE_SCAN_LIMIT: {
+    exitCode: 4,
+    message: "Data exceeds the sensitive-content inspection limit; select a smaller bundle.",
+  },
   T2O_TRAE_BUNDLE_INPUT_INVALID: {
     exitCode: 4,
     message: "TRAE bundle inputs have inconsistent versions, identities, or counts.",
