@@ -63,6 +63,10 @@ export const ERROR_DEFINITIONS = {
     exitCode: 4,
     message: "TRAE SQLite snapshot failed integrity validation.",
   },
+  T2O_TRAE_RUNTIME_PROBE_FAILED: {
+    exitCode: 4,
+    message: "TRAE runtime capability probe failed.",
+  },
   T2O_INTERNAL_UNEXPECTED: {
     exitCode: 1,
     message: "An unexpected internal error occurred.",

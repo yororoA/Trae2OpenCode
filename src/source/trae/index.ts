@@ -30,3 +30,21 @@ export {
   type ReadonlySqliteSnapshot,
   type SqliteSnapshotOptions,
 } from "./sqlite-snapshot.js";
+export {
+  probeTraeCapabilities,
+  VERIFIED_TRAE_CAPABILITY_VERSION,
+  type CapabilityCount,
+  type CapabilityEvidence,
+  type CapabilityField,
+  type CapabilityProbeIssue,
+  type CapabilityStatus,
+  type CapabilityVerification,
+  type RuntimeCapability,
+  type RuntimeCapabilityFieldId,
+  type TraeCapabilityProbeOptions,
+  type TraeCapabilityReport,
+  type TraeStorageProfileId,
+  type WorkspaceCapability,
+  type WorkspaceCapabilityFieldId,
+  type WorkspaceStorageProfile,
+} from "./capability-probe.js";
