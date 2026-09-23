@@ -1,5 +1,7 @@
 /** Fixture 采集器类型定义 */
 
+import type { MessageSourceProbe } from "./source-locations";
+
 export interface TraeDataRoots {
   os: "darwin" | "win32" | "linux";
   userDataPath: string;
@@ -68,10 +70,15 @@ export interface FixtureReport {
   collectorVersion: string;
   collectedAt: string;
   os: string;
+  sourceProduct: {
+    name: "trae-cn";
+    version: string | null;
+  };
   traeRoots: TraeDataRoots;
   globalStorage: {
     stateVscdb: SqliteSnapshot | null;
   };
+  messageSources: MessageSourceProbe;
   workspaces: WorkspaceSnapshot[];
   summary: {
     totalWorkspaces: number;
@@ -79,11 +86,17 @@ export interface FixtureReport {
     totalJsonFiles: number;
     totalFileEntriesInDirs: number;
     profileCounts: Record<string, number>;
+    profileVerification: Record<
+      string,
+      "verified" | "unverified" | "unsupported"
+    >;
   };
 }
 
 export interface CollectorOptions {
   traeRoot?: string;
+  /** TRAE 客户端版本，用于区分存储 profile */
+  productVersion?: string;
   /** 限制最多处理的 workspace 数 */
   maxWorkspaces?: number;
   /** 输出路径 */

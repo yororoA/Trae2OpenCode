@@ -1,0 +1,1576 @@
+{
+  "collectorVersion": "0.1.2",
+  "collectedAt": "2026-09-22T11:36:15.826Z",
+  "os": "darwin",
+  "sourceProduct": {
+    "name": "trae-cn",
+    "version": "3.3.104"
+  },
+  "traeRoots": {
+    "os": "darwin",
+    "userDataPath": "<trae-user-data>",
+    "globalStoragePath": "globalStorage",
+    "workspaceStoragePath": "workspaceStorage"
+  },
+  "globalStorage": {
+    "stateVscdb": {
+      "relativePath": "globalStorage/state.vscdb",
+      "sha256": "1f9738325b742a2aead51a1d2b365b347f33b0150bfdcbbcc538063341304c29",
+      "tables": [
+        {
+          "name": "ItemTable",
+          "columns": [
+            {
+              "cid": 0,
+              "name": "key",
+              "type": "TEXT",
+              "notnull": 0,
+              "pk": 0
+            },
+            {
+              "cid": 1,
+              "name": "value",
+              "type": "BLOB",
+              "notnull": 0,
+              "pk": 0
+            }
+          ],
+          "rowCount": 260
+        }
+      ]
+    }
+  },
+  "workspaces": [
+    {
+      "workspaceId": "0c19d87625e25c54a2c69fe88284815d",
+      "jsonFiles": [
+        {
+          "relativePath": "0c19d87625e25c54a2c69fe88284815d/workspace.json",
+          "sha256": "4dada52fe997533fec3fcfaa965f5f7be58286af00d52f2fb15fc09f7a9c9eaa",
+          "sizeBytes": 41,
+          "structure": {
+            "path": "$",
+            "keys": [
+              "folder"
+            ],
+            "nestedKeys": {
+              "$": [
+                "folder"
+              ]
+            },
+            "arrayItemSampleKeys": [],
+            "maxDepth": 1
+          }
+        }
+      ],
+      "sqliteFiles": [
+        {
+          "relativePath": "0c19d87625e25c54a2c69fe88284815d/state.vscdb",
+          "sha256": "d2f303d012df6d70f02f68c14406178d0938d68a7f78b4331851ed94f37289e7",
+          "tables": [
+            {
+              "name": "ItemTable",
+              "columns": [
+                {
+                  "cid": 0,
+                  "name": "key",
+                  "type": "TEXT",
+                  "notnull": 0,
+                  "pk": 0
+                },
+                {
+                  "cid": 1,
+                  "name": "value",
+                  "type": "BLOB",
+                  "notnull": 0,
+                  "pk": 0
+                }
+              ],
+              "rowCount": 70
+            }
+          ]
+        }
+      ],
+      "directories": [],
+      "profileFeatures": {
+        "hasMementoStorage": false,
+        "hasLongText": false,
+        "hasPasteFiles": false,
+        "keyTables": [
+          "ItemTable"
+        ],
+        "workspaceJsonKeys": [
+          "folder"
+        ]
+      }
+    },
+    {
+      "workspaceId": "158fdd0385c5883f91b9ef17fa9c3aa3",
+      "jsonFiles": [
+        {
+          "relativePath": "158fdd0385c5883f91b9ef17fa9c3aa3/workspace.json",
+          "sha256": "e00a1c396968a06c2d0500a9b322e44a461e026f5f1d395078fb0b1dc20983f3",
+          "sizeBytes": 56,
+          "structure": {
+            "path": "$",
+            "keys": [
+              "folder"
+            ],
+            "nestedKeys": {
+              "$": [
+                "folder"
+              ]
+            },
+            "arrayItemSampleKeys": [],
+            "maxDepth": 1
+          }
+        }
+      ],
+      "sqliteFiles": [
+        {
+          "relativePath": "158fdd0385c5883f91b9ef17fa9c3aa3/state.vscdb",
+          "sha256": "8a0c9cd70e24174de244fa21942bd04499900fd983351555db22c30eff63e725",
+          "tables": [
+            {
+              "name": "ItemTable",
+              "columns": [
+                {
+                  "cid": 0,
+                  "name": "key",
+                  "type": "TEXT",
+                  "notnull": 0,
+                  "pk": 0
+                },
+                {
+                  "cid": 1,
+                  "name": "value",
+                  "type": "BLOB",
+                  "notnull": 0,
+                  "pk": 0
+                }
+              ],
+              "rowCount": 100
+            }
+          ]
+        }
+      ],
+      "directories": [],
+      "profileFeatures": {
+        "hasMementoStorage": false,
+        "hasLongText": false,
+        "hasPasteFiles": false,
+        "keyTables": [
+          "ItemTable"
+        ],
+        "workspaceJsonKeys": [
+          "folder"
+        ]
+      }
+    },
+    {
+      "workspaceId": "24b1d8d52f2a439712b012562143a196",
+      "jsonFiles": [
+        {
+          "relativePath": "24b1d8d52f2a439712b012562143a196/workspace.json",
+          "sha256": "5af5932851982284aa9b0fa2e36c2848eedeaa2e474694a5f4c0cdf18d306d10",
+          "sizeBytes": 67,
+          "structure": {
+            "path": "$",
+            "keys": [
+              "folder"
+            ],
+            "nestedKeys": {
+              "$": [
+                "folder"
+              ]
+            },
+            "arrayItemSampleKeys": [],
+            "maxDepth": 1
+          }
+        }
+      ],
+      "sqliteFiles": [
+        {
+          "relativePath": "24b1d8d52f2a439712b012562143a196/state.vscdb",
+          "sha256": "982bb1c845eb2fa77abaeb1541362aac8d41213c05bea03d981de98f45ce3612",
+          "tables": [
+            {
+              "name": "ItemTable",
+              "columns": [
+                {
+                  "cid": 0,
+                  "name": "key",
+                  "type": "TEXT",
+                  "notnull": 0,
+                  "pk": 0
+                },
+                {
+                  "cid": 1,
+                  "name": "value",
+                  "type": "BLOB",
+                  "notnull": 0,
+                  "pk": 0
+                }
+              ],
+              "rowCount": 111
+            }
+          ]
+        }
+      ],
+      "directories": [
+        {
+          "relativePath": "24b1d8d52f2a439712b012562143a196/long-text",
+          "entries": [
+            {
+              "relativePathHash": "28f25d912cf1b9ff18a5b73554b27f5b1a47426f05e6c33ecfe3449a2218a393",
+              "extension": ".txt",
+              "depth": 3,
+              "sizeBytes": 30353,
+              "sha256": "8af4667ba13f91a38193c380fc72ebb7cd8a4968b1f2148c1810f61a9152055e"
+            }
+          ]
+        }
+      ],
+      "profileFeatures": {
+        "hasMementoStorage": false,
+        "hasLongText": true,
+        "hasPasteFiles": false,
+        "keyTables": [
+          "ItemTable"
+        ],
+        "workspaceJsonKeys": [
+          "folder"
+        ]
+      }
+    },
+    {
+      "workspaceId": "36da8163998b27e196d4ec7c829ac82a",
+      "jsonFiles": [
+        {
+          "relativePath": "36da8163998b27e196d4ec7c829ac82a/workspace.json",
+          "sha256": "ebabca5882b2b82ffd0816bb9cd33daedc6e8005615f9e7359ba1347a072d89c",
+          "sizeBytes": 95,
+          "structure": {
+            "path": "$",
+            "keys": [
+              "workspace"
+            ],
+            "nestedKeys": {
+              "$": [
+                "workspace"
+              ]
+            },
+            "arrayItemSampleKeys": [],
+            "maxDepth": 1
+          }
+        }
+      ],
+      "sqliteFiles": [
+        {
+          "relativePath": "36da8163998b27e196d4ec7c829ac82a/state.vscdb",
+          "sha256": "82e96a0465b9ac84df2f6177c6728feccafd85f28b2d24542e0ce507222cf23a",
+          "tables": [
+            {
+              "name": "ItemTable",
+              "columns": [
+                {
+                  "cid": 0,
+                  "name": "key",
+                  "type": "TEXT",
+                  "notnull": 0,
+                  "pk": 0
+                },
+                {
+                  "cid": 1,
+                  "name": "value",
+                  "type": "BLOB",
+                  "notnull": 0,
+                  "pk": 0
+                }
+              ],
+              "rowCount": 62
+            }
+          ]
+        }
+      ],
+      "directories": [],
+      "profileFeatures": {
+        "hasMementoStorage": false,
+        "hasLongText": false,
+        "hasPasteFiles": false,
+        "keyTables": [
+          "ItemTable"
+        ],
+        "workspaceJsonKeys": [
+          "workspace"
+        ]
+      }
+    },
+    {
+      "workspaceId": "3f21f333c05829162d00b768469f91c1",
+      "jsonFiles": [
+        {
+          "relativePath": "3f21f333c05829162d00b768469f91c1/workspace.json",
+          "sha256": "ffe7fd59bd50c3e12246d17d8462889d43f082a55c88bd65c0bbf7761cbf5518",
+          "sizeBytes": 53,
+          "structure": {
+            "path": "$",
+            "keys": [
+              "folder"
+            ],
+            "nestedKeys": {
+              "$": [
+                "folder"
+              ]
+            },
+            "arrayItemSampleKeys": [],
+            "maxDepth": 1
+          }
+        }
+      ],
+      "sqliteFiles": [
+        {
+          "relativePath": "3f21f333c05829162d00b768469f91c1/state.vscdb",
+          "sha256": "1459c9c9b15bf887d76594783253d0a2cfe570cf4de72ef2dc047e3b53ba048d",
+          "tables": [
+            {
+              "name": "ItemTable",
+              "columns": [
+                {
+                  "cid": 0,
+                  "name": "key",
+                  "type": "TEXT",
+                  "notnull": 0,
+                  "pk": 0
+                },
+                {
+                  "cid": 1,
+                  "name": "value",
+                  "type": "BLOB",
+                  "notnull": 0,
+                  "pk": 0
+                }
+              ],
+              "rowCount": 141
+            }
+          ]
+        }
+      ],
+      "directories": [
+        {
+          "relativePath": "3f21f333c05829162d00b768469f91c1/long-text",
+          "entries": [
+            {
+              "relativePathHash": "f6ec72f0dc9e47efa99f4fbd0fcc9a25e321732121cb380377d98e0821809fe0",
+              "extension": ".txt",
+              "depth": 3,
+              "sizeBytes": 15646,
+              "sha256": "b15df477af756dbb968cf4ec18a8e06139091ca897e24dac0f5ae0ee4f5f8b25"
+            },
+            {
+              "relativePathHash": "392507b50d7e0c904dc71f6cd16c652200db702bd1765c56d29ed356f135610f",
+              "extension": ".txt",
+              "depth": 3,
+              "sizeBytes": 15845,
+              "sha256": "160861989924feb8ca4732288f4cb75c920e1947465301b7a2a6eb4577b32d6a"
+            },
+            {
+              "relativePathHash": "199a95d182431b0700275a8a2e83b8be708d8353013264cc0fe579c2f6a7de89",
+              "extension": ".txt",
+              "depth": 3,
+              "sizeBytes": 15686,
+              "sha256": "3056363568522f461ae06870e61d27b635f7ff2654b118946fc899cfc18fb8ff"
+            },
+            {
+              "relativePathHash": "7fb4865a9582f68467178752ee6dd32655cf9be386122d4fee9acfb07a60b939",
+              "extension": ".txt",
+              "depth": 3,
+              "sizeBytes": 386433,
+              "sha256": "876fa37ca708ae2982691ec121c75e3e35e1982f800a703a52af66c8be5bc075"
+            },
+            {
+              "relativePathHash": "402cda97f6e68dd3d222f64a998b18b058ca96a4ed2f6d16e84a740b2de30df1",
+              "extension": ".txt",
+              "depth": 3,
+              "sizeBytes": 64743,
+              "sha256": "f963df3d7720f15dc49253451b35fd73375e8b7e2e14bb78ca134f993a270657"
+            },
+            {
+              "relativePathHash": "317fc64d1d4c533eca8930f586fc22ab19d4f64f1316ffa3fb2f0c693a945d61",
+              "extension": ".txt",
+              "depth": 3,
+              "sizeBytes": 46799,
+              "sha256": "fdd3edb151ba8bb298eecac772299d3162a87dfd620077050aadc4c052b6c028"
+            },
+            {
+              "relativePathHash": "d1e89007cf49d21c18bcb2e8d007f2448e9b5f6e69a9ba1400681cb80a3e96b4",
+              "extension": ".txt",
+              "depth": 3,
+              "sizeBytes": 66330,
+              "sha256": "07d31dbef80b59e7314831804aced81d6ceacd5bcbe8cd53dc1a37206e0e6012"
+            },
+            {
+              "relativePathHash": "2c626a54c28c14cde43bc5369cf0a2939ae0bd44e9c4968d3647c2b452f24535",
+              "extension": ".txt",
+              "depth": 3,
+              "sizeBytes": 56905,
+              "sha256": "e314171ac0678077375dffe931f471a567d2544417ac285ee6d675831e20268b"
+            },
+            {
+              "relativePathHash": "1f279cebf17c10dd7a5cfa0fd9a1d08452953c8c397b7ba5fecbf3f708928116",
+              "extension": ".txt",
+              "depth": 3,
+              "sizeBytes": 24420,
+              "sha256": "7f33da1ff4de45b7de6f29ecfdbbd67116ff611162959a81c42bc702b314391c"
+            }
+          ]
+        },
+        {
+          "relativePath": "3f21f333c05829162d00b768469f91c1/paste-files",
+          "entries": [
+            {
+              "relativePathHash": "7319a14700f526877868c1e60067866aaa52028e37374d2071775e7b87a7db27",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 38004,
+              "sha256": "bebf56ed1b5cebf0eab96eb43cc49c54cf1999feb4061c99e7896f780346aa04"
+            },
+            {
+              "relativePathHash": "0f88dc879334486ab47c84bf60d71de4877722c648f6978dde4d921969635766",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 310398,
+              "sha256": "c1bd68bff48733c2fa45df77ac0f067110e41326786ab1cedfdce9abbec75dbb"
+            },
+            {
+              "relativePathHash": "a8f04d17dd64f5947e6d08cdcf013fdb71a92b2d0008d30f79a6c73d6d508be1",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 532161,
+              "sha256": "1845b5ac6f153706404c35ae180082a7ce1cb6ed02c892c9d15c126db82cc4fb"
+            },
+            {
+              "relativePathHash": "992f571ae6eee5314f94dc15127844142bf4513455062b76095d6e023a077c09",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 500819,
+              "sha256": "46f06d0e2d776486a33337838fe2e110311da785a34cfa46a20b2604016c8aa0"
+            },
+            {
+              "relativePathHash": "4186949a44594a1dffe4c90a8a737d282a86fd52a878012f944c4afe1f2865d7",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 35233,
+              "sha256": "821ff52bf2d3d623930b2f79346e2936be132d6fbc3fd3f669a633e4f6626a0c"
+            },
+            {
+              "relativePathHash": "c70a45bc0a76656b72132c1ade6bd42770ba092a8c001f237e9d8457ee2fe33a",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1418172,
+              "sha256": "ab7adade3f6be2b928d94313923e275baefb0268088e8c9a2056ad5f4c8d52fe"
+            },
+            {
+              "relativePathHash": "6a98f184c873410050facd8cf50bdf006141db1af4638775af641b7ef20127ef",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 12280,
+              "sha256": "9dec66b2f87428601e661a9d2d3a0b6d2a59490b0c5b9599f15bcb24370814f7"
+            },
+            {
+              "relativePathHash": "bf44d046011ee84b6699878c97f6f893849f610e1ae92cd29c5e65c9f16054f8",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 769517,
+              "sha256": "356354fc3239d7000def3658369aa8107bf3c983bcdb104995c14bd9f72e926a"
+            },
+            {
+              "relativePathHash": "f23cdc2c13dab8a1d04825a66f45dbc98af287cd4cca73e1f8fa6552001e6e0d",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 105609,
+              "sha256": "1d5e7728d0a7c5516db7816fb8ba1cf0fb63764390c0611e14420e77e9bf70c8"
+            },
+            {
+              "relativePathHash": "f6675eebf910b4d5627aa8ab4f8d4f77095b6bace64404c4a5e3bfc2153c4aef",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 827542,
+              "sha256": "7ccdbb7fb17720885a0649ae5be976e80a83da4c4465dffd7d95ca9eac9b4b66"
+            },
+            {
+              "relativePathHash": "50d4d86ba2501ad00e12a1c36f8e0b7b17767549530cb064857b681d90838a26",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 17046,
+              "sha256": "52eac1dbcba675bb751b5d1d0c00a7b80f9b85275f2964cbbcf54a20c1ace314"
+            },
+            {
+              "relativePathHash": "77b500c2503e25bf67f629ce8d9c0990c34ebb01776381296de344eeee138e5a",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 572080,
+              "sha256": "1aaffa4fac1315eb13041fa412d01db5bb53e1c07b1ec86322a0babcbe1148d5"
+            },
+            {
+              "relativePathHash": "7a21e59983ca5072b6b63d772de34b3fe536fe00b1b84f874f72a92b5c4c5bf7",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 744027,
+              "sha256": "3c55d7d9ec351063086bbc9653b63495ed1513a8e5fa153a8734ccb4ec11ee1d"
+            },
+            {
+              "relativePathHash": "8eab95ddcbb9a88e3accf2ac74eb8ec7d44f343417127ed7d73dd796e76f5fe1",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1554033,
+              "sha256": "c3d7d707fca00ff0f6778a4e5df67289c88690f2e0e8ff5eef7ea3d1006b206d"
+            },
+            {
+              "relativePathHash": "cee6f1ad76c8d44d3b611bf82abbcc94369f1fcd5ca9b307bf8fe290fad10daa",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 218712,
+              "sha256": "baf699c04667542db513613dea3e5f349198f7c8e8b8bb12435460264e9e8dcd"
+            },
+            {
+              "relativePathHash": "d22101d7df7ff561443cdaeffb17306d8273878115e1f609b4dfc3aedf30342a",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 462287,
+              "sha256": "58c3244b373e5ab8f9ed671f0b2aeb42df87a17abcd38d442aa7adbb0394d155"
+            },
+            {
+              "relativePathHash": "b625cf72f88433213d714a097d12995f39860ac3e7f76d8a57c700230e659cfa",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 349417,
+              "sha256": "67576adf9b6c58bed69d79e68e6aef097cb50176baf73757a742366e0b4b0681"
+            },
+            {
+              "relativePathHash": "e6c88f195941af38537682a9ad3c014d44e8a04a5fcb8a815aa57f469dfb7636",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 14341,
+              "sha256": "de2f175f4ff073785534cf5fc77820851c5034f9dad2859a247aeb3832fee452"
+            },
+            {
+              "relativePathHash": "2d11e72c540f1c19c19ce0c266f4efe4cdc6cd404fd68a8cce753cbf6005e29c",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 154363,
+              "sha256": "bf6fa3ad1429eeaab7700b091b186f1b12e3ba3d53e388656c2ab70e4a7b8399"
+            },
+            {
+              "relativePathHash": "705f4fcea60c2551933331f7c7667470774cc98d62de1cb3dec796fa24852e93",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 638388,
+              "sha256": "d49b6e3b42a70e094091932e7c8a0c986c44bc59de7263a544c3baea2fe71226"
+            },
+            {
+              "relativePathHash": "dfb89f2b9a53fc8c1c31c53dee6d6dcf576a2e4248ce231249229cdd49da48a0",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1056454,
+              "sha256": "149d1e3f68653ea8cc1881b8c459c691dafd2c2c0e3a771c42dba4bbe82dc35b"
+            },
+            {
+              "relativePathHash": "874f632f4b795e081de52e9d35582c747406248189095c445b0c0192c8ea8434",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1145932,
+              "sha256": "d935b0995006d5c49e861573450d3e6a1aacf3fbc15e8544998372d06e0376e1"
+            },
+            {
+              "relativePathHash": "84820ab22ad12b45ae8f9c8afbf1b8b406db944485e008a9b99486358f87871b",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 205498,
+              "sha256": "48716046a03ff28c8b145562e53095961b31b290c41cacb3d92deb161a8263cc"
+            },
+            {
+              "relativePathHash": "e499d2f48cc012fabaa99f03c901bd889269e9d5a5f6d7e41618f29937b0c5c3",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 17161,
+              "sha256": "8af9f3a80d67e74c100b4c7c7e564f18e50ad1ccfc4d20cf4933cbf1ef4ea448"
+            },
+            {
+              "relativePathHash": "77861805a0d4d5539e81ce10e75ae027e3497bd1f5ec53305ca5573f8e719a4c",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 44153,
+              "sha256": "2d781c28f79cfcda8ce773ca458cf19605bbc579766289f5735cd00d508a8547"
+            },
+            {
+              "relativePathHash": "1e99d468282838608cf469b80f8441d926a6b7e0a8ca3ca0f62d979ba4bda69c",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1058772,
+              "sha256": "8aaa0ef744546f2f54e97177a9e40f1012a32d502e9eaff1352f16adcfdff8aa"
+            },
+            {
+              "relativePathHash": "6528186b73c44a370f7ee6bbbb9a34bbc99bd5113806d4f6424e65f04645aa1a",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 300511,
+              "sha256": "31fc3b34b4bd496806be3d5d8ab2a57de271d54b98512efa08e67558ab7fbbc2"
+            },
+            {
+              "relativePathHash": "dc121c86226e176d6fbaf6aaec7aa775b97148ab26585cf744820603fce7dc18",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 258461,
+              "sha256": "0b471982a803fdaa0618dd7895eb2556890f2a1bfdfcb646d9429a9de5bf06ac"
+            },
+            {
+              "relativePathHash": "6de49dc4abe1716baa4fce06533e39a96f5fe88cf783504ecf58fe55757f642f",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 827542,
+              "sha256": "7ccdbb7fb17720885a0649ae5be976e80a83da4c4465dffd7d95ca9eac9b4b66"
+            },
+            {
+              "relativePathHash": "523fc54209ab4f7958ad86ebb96c9d0f13cb8a101cfb5a2cab2652c9b6064d25",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 963831,
+              "sha256": "9aa540e05e99668199d6c5c725f3421b67ffedb7e80f37933c198cb2ccbba6a1"
+            },
+            {
+              "relativePathHash": "9dc4eabf5df66d0fd74148c91439d668e842dfac23c006a162e5f734b67a8930",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 513972,
+              "sha256": "19efa473c1c056189bb0ae516db488dabb83a138c7e3c16f08258cbca4241aa0"
+            },
+            {
+              "relativePathHash": "feb97d75b8fb385d89e4875453443f9a62676564e05718fefb7ed8833174a524",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 522003,
+              "sha256": "38130d45787c58a26bdebc91edd65c17f344be13beabca9e25eaa10d0591ebd7"
+            },
+            {
+              "relativePathHash": "4f45f9e0d5bb28a849b8653cae35546aac960ea60e8b622a72ccb41bee3c88ef",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 35233,
+              "sha256": "821ff52bf2d3d623930b2f79346e2936be132d6fbc3fd3f669a633e4f6626a0c"
+            },
+            {
+              "relativePathHash": "d4d039b0561cada35ff117110734cd1dafee5f7530f7e8596fb43c790e5395b9",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 360407,
+              "sha256": "96afbb956c4f10e7b5731bb37a173302ea27642b76b9a42d8bdc21b9a468cad3"
+            },
+            {
+              "relativePathHash": "1d68ef2911c043ed960e4829a1ad870a46e4796ab07db2e4fcce03d8db981f5a",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 464602,
+              "sha256": "2c308d381408aaf23d2115917fc58d300d4ecabce6d49a449e5ccafcefff6db4"
+            }
+          ]
+        }
+      ],
+      "profileFeatures": {
+        "hasMementoStorage": false,
+        "hasLongText": true,
+        "hasPasteFiles": true,
+        "keyTables": [
+          "ItemTable"
+        ],
+        "workspaceJsonKeys": [
+          "folder"
+        ]
+      }
+    },
+    {
+      "workspaceId": "61adfa9de242b6d68bddf2d5ec903539",
+      "jsonFiles": [
+        {
+          "relativePath": "61adfa9de242b6d68bddf2d5ec903539/workspace.json",
+          "sha256": "d9884c175c81c23de80799f09d5797029dfab58bae0fe045a504f23049e5d9c9",
+          "sizeBytes": 47,
+          "structure": {
+            "path": "$",
+            "keys": [
+              "folder"
+            ],
+            "nestedKeys": {
+              "$": [
+                "folder"
+              ]
+            },
+            "arrayItemSampleKeys": [],
+            "maxDepth": 1
+          }
+        }
+      ],
+      "sqliteFiles": [
+        {
+          "relativePath": "61adfa9de242b6d68bddf2d5ec903539/state.vscdb",
+          "sha256": "a688a0946dc740133a20e2f1580cc0b06d8d7b847902c7f0770c3904833d9939",
+          "tables": [
+            {
+              "name": "ItemTable",
+              "columns": [
+                {
+                  "cid": 0,
+                  "name": "key",
+                  "type": "TEXT",
+                  "notnull": 0,
+                  "pk": 0
+                },
+                {
+                  "cid": 1,
+                  "name": "value",
+                  "type": "BLOB",
+                  "notnull": 0,
+                  "pk": 0
+                }
+              ],
+              "rowCount": 84
+            }
+          ]
+        }
+      ],
+      "directories": [],
+      "profileFeatures": {
+        "hasMementoStorage": false,
+        "hasLongText": false,
+        "hasPasteFiles": false,
+        "keyTables": [
+          "ItemTable"
+        ],
+        "workspaceJsonKeys": [
+          "folder"
+        ]
+      }
+    },
+    {
+      "workspaceId": "776ef4bdda7ced5a5f9adb4ec0372aa1",
+      "jsonFiles": [
+        {
+          "relativePath": "776ef4bdda7ced5a5f9adb4ec0372aa1/workspace.json",
+          "sha256": "e54979c957409c8853625aea98abee31927f80a9c6aebac7dbffaf87160502a8",
+          "sizeBytes": 63,
+          "structure": {
+            "path": "$",
+            "keys": [
+              "folder"
+            ],
+            "nestedKeys": {
+              "$": [
+                "folder"
+              ]
+            },
+            "arrayItemSampleKeys": [],
+            "maxDepth": 1
+          }
+        }
+      ],
+      "sqliteFiles": [
+        {
+          "relativePath": "776ef4bdda7ced5a5f9adb4ec0372aa1/state.vscdb",
+          "sha256": "bb746e2eedb9a781df2f5685ff28663d70e3864f2d64cd334efb35a1c1f8fef5",
+          "tables": [
+            {
+              "name": "ItemTable",
+              "columns": [
+                {
+                  "cid": 0,
+                  "name": "key",
+                  "type": "TEXT",
+                  "notnull": 0,
+                  "pk": 0
+                },
+                {
+                  "cid": 1,
+                  "name": "value",
+                  "type": "BLOB",
+                  "notnull": 0,
+                  "pk": 0
+                }
+              ],
+              "rowCount": 67
+            }
+          ]
+        }
+      ],
+      "directories": [],
+      "profileFeatures": {
+        "hasMementoStorage": false,
+        "hasLongText": false,
+        "hasPasteFiles": false,
+        "keyTables": [
+          "ItemTable"
+        ],
+        "workspaceJsonKeys": [
+          "folder"
+        ]
+      }
+    },
+    {
+      "workspaceId": "96f7554fadefd6686092aeaa5b94fc91",
+      "jsonFiles": [
+        {
+          "relativePath": "96f7554fadefd6686092aeaa5b94fc91/workspace.json",
+          "sha256": "4b45272f48eba7dfd6fa2a376a808789c0f08df4b5ce367321d79f0d88040cfc",
+          "sizeBytes": 50,
+          "structure": {
+            "path": "$",
+            "keys": [
+              "folder"
+            ],
+            "nestedKeys": {
+              "$": [
+                "folder"
+              ]
+            },
+            "arrayItemSampleKeys": [],
+            "maxDepth": 1
+          }
+        }
+      ],
+      "sqliteFiles": [
+        {
+          "relativePath": "96f7554fadefd6686092aeaa5b94fc91/state.vscdb",
+          "sha256": "486e1ecdb33a7f975632b95024ec20b2b6c1190215df66940650365b5a97ae1e",
+          "tables": [
+            {
+              "name": "ItemTable",
+              "columns": [
+                {
+                  "cid": 0,
+                  "name": "key",
+                  "type": "TEXT",
+                  "notnull": 0,
+                  "pk": 0
+                },
+                {
+                  "cid": 1,
+                  "name": "value",
+                  "type": "BLOB",
+                  "notnull": 0,
+                  "pk": 0
+                }
+              ],
+              "rowCount": 87
+            }
+          ]
+        }
+      ],
+      "directories": [],
+      "profileFeatures": {
+        "hasMementoStorage": false,
+        "hasLongText": false,
+        "hasPasteFiles": false,
+        "keyTables": [
+          "ItemTable"
+        ],
+        "workspaceJsonKeys": [
+          "folder"
+        ]
+      }
+    },
+    {
+      "workspaceId": "a93589c33f19ba282d9c80cc0b85cd23",
+      "jsonFiles": [
+        {
+          "relativePath": "a93589c33f19ba282d9c80cc0b85cd23/workspace.json",
+          "sha256": "3105c027e0343ee2317614753a17a589bdedc735054443526fe6239ed516d5dd",
+          "sizeBytes": 59,
+          "structure": {
+            "path": "$",
+            "keys": [
+              "folder"
+            ],
+            "nestedKeys": {
+              "$": [
+                "folder"
+              ]
+            },
+            "arrayItemSampleKeys": [],
+            "maxDepth": 1
+          }
+        }
+      ],
+      "sqliteFiles": [
+        {
+          "relativePath": "a93589c33f19ba282d9c80cc0b85cd23/state.vscdb",
+          "sha256": "8d74da32d22d274ce377147945feeb2d8a3a2e1bf7fbe7799986cf88adc40a3f",
+          "tables": [
+            {
+              "name": "ItemTable",
+              "columns": [
+                {
+                  "cid": 0,
+                  "name": "key",
+                  "type": "TEXT",
+                  "notnull": 0,
+                  "pk": 0
+                },
+                {
+                  "cid": 1,
+                  "name": "value",
+                  "type": "BLOB",
+                  "notnull": 0,
+                  "pk": 0
+                }
+              ],
+              "rowCount": 111
+            }
+          ]
+        }
+      ],
+      "directories": [
+        {
+          "relativePath": "a93589c33f19ba282d9c80cc0b85cd23/paste-files",
+          "entries": [
+            {
+              "relativePathHash": "6639046ca1e05e42942826c64c18bdf27018cd4dce62833ee3bafdf64d4c7fd5",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1560557,
+              "sha256": "3b8e8b4137c28b232e0f813d6f4cc3ea09b9d99858134ba21ad51889118b7b51"
+            },
+            {
+              "relativePathHash": "a4c2113f1074f13c6bf7d6cc9c754b411d9211dbce6383dd5633f538ef99eaa4",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1583159,
+              "sha256": "2cb7950feaf153d8688ab8ed6f55dbbe79abc5b09ef738c01f971e9ce7ef075a"
+            },
+            {
+              "relativePathHash": "6a3a1f9443d2d644bf7e50964b7273f4ea6869f5dc2fb969b13345e683f5a9b7",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1032102,
+              "sha256": "43407ddfb1f69e188310fe5dd6b5b279a7a82fa92a3b24294edc4cd4db521b12"
+            },
+            {
+              "relativePathHash": "bf993048b29b605503eaa04016532981a42a703a0e19d2c4621c492f46de8110",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 14420,
+              "sha256": "56bebf76ccb7976cd8234fa4935d99933d85799738f5013a8a34ea021f6eef35"
+            },
+            {
+              "relativePathHash": "a7150e38d1be4f9cd147a5ba1374f8f23145c2e6fa8d307197209eaa44d17eb3",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 581370,
+              "sha256": "d2eca0f2745984a2299af3a55398792641b19ebfa182e2fcd89ebfc683785788"
+            },
+            {
+              "relativePathHash": "c9192d4579678f9d36fd53c26e000ee557f5d1d9a77479c65ad3e41301947722",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 6373,
+              "sha256": "fd60e993e7daaa9fc976c03f3ca3361e47b5c73480072b9c05087a8b9c189b3d"
+            },
+            {
+              "relativePathHash": "2c765c3015c4f0ce5daa40543e2d462bbacc62b5aaff8f7178991f78ed0ba887",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 979591,
+              "sha256": "d858ade4b0e4a896f186db0ffef2b977a2338799873c6b6dafdf1fa690465543"
+            },
+            {
+              "relativePathHash": "dcba98fa5f405e6370e7846fb4648375eb2688fa6e1b72d9ca9cbba4a801ee2f",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 362166,
+              "sha256": "b139c7e38b93093d18214bf74ec8704d853acf79b8f8c8c1bad5e617d8cc52d2"
+            },
+            {
+              "relativePathHash": "726efd259c867c297d874f7eb95a38023027d18523428c1588caac8f9249a7a8",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 878513,
+              "sha256": "829d155f3524975dac4ba8fab72e6fbb443841749747d56a2025ad4184cec283"
+            },
+            {
+              "relativePathHash": "55b208ac1f43ada47c07af77b54a21bdba2819c8c2eb361baae9f8ba292082dd",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1133636,
+              "sha256": "64a8639ff2133ecf83d138cf79546c057c069eebe140eeeedd1563c9e16ae367"
+            },
+            {
+              "relativePathHash": "0bc09fe287e96ccfc0c75081300bef7f24cb9dee6cadfbfc083f1b1aa0100d14",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1046249,
+              "sha256": "c6e98fba1c7f0cee0cf618234318420514ef955a2202f12fc2e14102a8ae84bb"
+            },
+            {
+              "relativePathHash": "b8ccd2773c9fc0ddf6ea0b7869ef46497d43bd43c4ecb080a0caec5efe273b74",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1046249,
+              "sha256": "c6e98fba1c7f0cee0cf618234318420514ef955a2202f12fc2e14102a8ae84bb"
+            },
+            {
+              "relativePathHash": "468196ec7655b50b22e7122b99d8a0bdffa06a5a2a1d8e246fdffa2a1bdc29e3",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 157273,
+              "sha256": "20a7601f7b36bcf12a3dab845982443a1196d2450f8a752b25ff72ff1c700866"
+            },
+            {
+              "relativePathHash": "7ac1f0254c9f83345cf6834bcb62e2b08a2d00a3361b77fa93eee21c69f12643",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 598165,
+              "sha256": "e52fb6648a278ca6e7edcfd3e3d6f593e503d21981027355caf6b4b4a2fb1445"
+            },
+            {
+              "relativePathHash": "a83b149ea4ff479677af31d34cadafbc616b4ce2bc637ddc5f49e48da72fc560",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 17157,
+              "sha256": "1caf5df3c5731413718bb6a2dd8258bcb23bd9fb8d8956ff0943ce659d978ac1"
+            },
+            {
+              "relativePathHash": "69b5eb1e8ec8d9b4504e49249655cdb80fb11906a644b4f5cbf2abca19b34c0b",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 968758,
+              "sha256": "6e89f3bf8a3f43b904651e0c2658431921544dccf0947a1e7198f921bcfef654"
+            },
+            {
+              "relativePathHash": "2c6b73f8e5f12cda45de30f2dd73bcfbc5f68e6ffd375100f90fbf87959e9cba",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 188142,
+              "sha256": "1fe736ef47cc779b263751d331cd807b221bb58764cee89bd9c2400d45ab7f1d"
+            },
+            {
+              "relativePathHash": "1e1e5ee32aafecae267a32cc1ad1eeb4421f8bc50c838fea39e05bd227078338",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1046249,
+              "sha256": "c6e98fba1c7f0cee0cf618234318420514ef955a2202f12fc2e14102a8ae84bb"
+            },
+            {
+              "relativePathHash": "c5ad34cf8ba00b5773370922a15faa8da7d77ee4490e1a0db27b7acd7f7b7425",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 11392,
+              "sha256": "65532aa301c5c5a250806c71ba5da4e0436035202f4f7b5968165b29356d76ea"
+            },
+            {
+              "relativePathHash": "71e5503e673c639ce894cfe3e9058e4cdcdd733f769ca04db41642b6707b2a13",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 93033,
+              "sha256": "e507a7594376456865c43daae6b14076aa179736f74cfa641137534647ac8da5"
+            },
+            {
+              "relativePathHash": "c6250b5e209b396c93f1b8c7846fc4077f6bfd910608c34b22c16aae30a2587b",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1197850,
+              "sha256": "c2fbb1aedf4b4c37f11d9a84ba3822de78266b82b928f004d60b822b783e0137"
+            },
+            {
+              "relativePathHash": "f4df74d5f345fac829b10c8feb28c38788fcacf8b1751898bdd60ca9774b623e",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 203340,
+              "sha256": "35cf3994717a1516f7ece74e40849f828f385927aa25d0467ebaefb7be0eed9c"
+            },
+            {
+              "relativePathHash": "92c367dd3d1bb0653036c85115f66450d6432bf8aba99577fc588908410bacc1",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1047489,
+              "sha256": "5ef2feaae1a9426bd816c04b3cedf5a9a0bf378f281153993bc3778a8a2c6ac9"
+            },
+            {
+              "relativePathHash": "3f3f8f43a5834feff2959ae894ec9a040d28a3e6de155a5bda5177599f5992b1",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1191332,
+              "sha256": "a4027c276f56481ba048c1de0b8b05f38f382f2a28bd1fcc59ad9a289f275ece"
+            },
+            {
+              "relativePathHash": "694817895ec2d36f8fa365b330418165cc06af954b9436f5c3b88d7749fef4fe",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 227164,
+              "sha256": "0e6d400f9eb9636456e4e9df6cd1d2a2f7999300a54e1601a8004a3fbbbb0773"
+            },
+            {
+              "relativePathHash": "2392ee8c6b1b3f8c1902c722b0cc0b9c1633db49f94d40707eaaf2f2dbd54a38",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1054913,
+              "sha256": "a78a1885c952045e80c13a805ad93c75b6babd5b3f7f7c89d81f77d68645246c"
+            },
+            {
+              "relativePathHash": "ae3539d9fbbffa1afc567879ca18888cb666f0017f4a474015b3f9093f2dff4c",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1032102,
+              "sha256": "43407ddfb1f69e188310fe5dd6b5b279a7a82fa92a3b24294edc4cd4db521b12"
+            },
+            {
+              "relativePathHash": "d02406a2598e893c46280129ae8eca70cf8d60bbb6bd1bb38249cbebf78b2116",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1127183,
+              "sha256": "732249d56574c43092c65376c8bb8bd274e2178baf88ed5950e24baab56a01d1"
+            },
+            {
+              "relativePathHash": "705bdb7612e6ceef30444a3cae42fb2b7ba3ae42a06b5a89e9a17ec692d2ae25",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1046249,
+              "sha256": "c6e98fba1c7f0cee0cf618234318420514ef955a2202f12fc2e14102a8ae84bb"
+            },
+            {
+              "relativePathHash": "33a80f2db8fb4ea07ca3a39cec96255af831627bbee2aa2bf55138c60a4ec777",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1176656,
+              "sha256": "13d95c2b26904e25b1bf32c246fb0e3ba7e5ec19a257c4839c35c5600d24e76d"
+            },
+            {
+              "relativePathHash": "9d47706697e64557a3ddb8dd3ce63fcf6b6f116607bdc17c7cb847aea0a062e1",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 211645,
+              "sha256": "5fca2745dfd5e4b506f004e600a66d10af093120097757f2d2fd39218cb1d357"
+            },
+            {
+              "relativePathHash": "568cce5b1ec03cea4d2d2ab708d6e21a85291b13ef6b63ae490ec6a616fc9dba",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 17046,
+              "sha256": "52eac1dbcba675bb751b5d1d0c00a7b80f9b85275f2964cbbcf54a20c1ace314"
+            },
+            {
+              "relativePathHash": "a3d1a94f85d5b876c569d57c3bc2d799f6154893bffbf4c3b6c753f341de466b",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1047489,
+              "sha256": "5ef2feaae1a9426bd816c04b3cedf5a9a0bf378f281153993bc3778a8a2c6ac9"
+            },
+            {
+              "relativePathHash": "700a43b2cabce618f8ed729d15fdf57fce4359f9066c6bbba192e8f7e33fc0a6",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 581370,
+              "sha256": "d2eca0f2745984a2299af3a55398792641b19ebfa182e2fcd89ebfc683785788"
+            },
+            {
+              "relativePathHash": "5716ba899b5fdc118953bb8bc1aa62aa07474d0bc9830d7409f1cb40838f74ed",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 214392,
+              "sha256": "c8352b5a782866eced83fa494d037ffcb5f85c5ce17c158c9b062e6c64b3353f"
+            },
+            {
+              "relativePathHash": "ec75bbe2874cb1b4b0e36031e43e11b7b40aeb8a871731a61ac7128e4454b67a",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1197850,
+              "sha256": "c2fbb1aedf4b4c37f11d9a84ba3822de78266b82b928f004d60b822b783e0137"
+            },
+            {
+              "relativePathHash": "bf3412cfd4830e9ed23239165413e7a017a29a87314eea4735af0f004bb5c20c",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 96012,
+              "sha256": "431b90ba48df40b0bf09542b87cfe0d2eed8afdd0b3bafaa7c8e8d1dee54abab"
+            },
+            {
+              "relativePathHash": "f04ce74d51a35ad402efe0442f9a1547b1ddffd5fddcdf53304b6c8ec53afc74",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1188546,
+              "sha256": "f8d2d9c58d015fa8c470d8ae4d0c739f2d9211c5ada0ff2b159e404ec6757f85"
+            },
+            {
+              "relativePathHash": "08c72890c395f0b4f867904a900bf7d9e13a8cfc056a28f4fbc446fdbd900bc7",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1310741,
+              "sha256": "e7b71906bdbdf4b91eeba554b08c569dc780d24638d709a523a6b1ece0e7208f"
+            }
+          ]
+        }
+      ],
+      "profileFeatures": {
+        "hasMementoStorage": false,
+        "hasLongText": false,
+        "hasPasteFiles": true,
+        "keyTables": [
+          "ItemTable"
+        ],
+        "workspaceJsonKeys": [
+          "folder"
+        ]
+      }
+    },
+    {
+      "workspaceId": "b47d050517d48aa61f26b8671273f28f",
+      "jsonFiles": [
+        {
+          "relativePath": "b47d050517d48aa61f26b8671273f28f/workspace.json",
+          "sha256": "9e0754905f0e2a8414163b322b78e1c1fd3ae288409cfcc83f6a09a68054f6d9",
+          "sizeBytes": 45,
+          "structure": {
+            "path": "$",
+            "keys": [
+              "folder"
+            ],
+            "nestedKeys": {
+              "$": [
+                "folder"
+              ]
+            },
+            "arrayItemSampleKeys": [],
+            "maxDepth": 1
+          }
+        }
+      ],
+      "sqliteFiles": [
+        {
+          "relativePath": "b47d050517d48aa61f26b8671273f28f/state.vscdb",
+          "sha256": "8f24aa76f9ca5b29d8aa9c566da1a44523ef9960e88541008d2fd55907a63bad",
+          "tables": [
+            {
+              "name": "ItemTable",
+              "columns": [
+                {
+                  "cid": 0,
+                  "name": "key",
+                  "type": "TEXT",
+                  "notnull": 0,
+                  "pk": 0
+                },
+                {
+                  "cid": 1,
+                  "name": "value",
+                  "type": "BLOB",
+                  "notnull": 0,
+                  "pk": 0
+                }
+              ],
+              "rowCount": 95
+            }
+          ]
+        }
+      ],
+      "directories": [
+        {
+          "relativePath": "b47d050517d48aa61f26b8671273f28f/paste-files",
+          "entries": [
+            {
+              "relativePathHash": "d952e04c774e25798578a875da8c5592674cf3d3935c2e0603ffcc41a713fb92",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 3077727,
+              "sha256": "f6513bc9f2d32d742aa0848d24c3c4fdec047bb4a6fb7ae099ba826a857bb998"
+            },
+            {
+              "relativePathHash": "91eff54891c271ad9215812247ad0e2f80170495fc6287fb4eee3a4aba5ce764",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 515513,
+              "sha256": "d1b9abfb0764016d0d0bb5bb01460a11fcbf1c7b5d1899e8f177808d19afb184"
+            },
+            {
+              "relativePathHash": "2b0c1fe08acdceddf7f1d9f843fc96003c64a0b1e673e6ff227e55f5d0a23c26",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 831215,
+              "sha256": "d5e98a7b27a2b33e75d5a5b909d314ba49016e3293ff5b6e67cdfbd673e8c8e1"
+            },
+            {
+              "relativePathHash": "ae8b0aedbae56bdb5fe8ef66eee7bea26f0e0a6fb33448296b5e56955961da4a",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 2041486,
+              "sha256": "c922051dd919c6131852dd181cdf5d20218feb2af7ab4f7fe6949e274977f65c"
+            },
+            {
+              "relativePathHash": "6c240721ec339ab0edc6d1b01ffbc4b1daac31b9b2955a18ff5a911cd2f84ff1",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 58943,
+              "sha256": "736a3c8578cfa759735097aa1583614ab682d9df8254e91824eaad42f10153b8"
+            },
+            {
+              "relativePathHash": "36af7cc789ef377a2dc1dc36c61343b48264cd0a85ca45a5e3d2b44a0c2835c0",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 374026,
+              "sha256": "9653618d5b0520b8d7a6272124835aa4f60d9e912dee9f880b19154a300c4eb6"
+            },
+            {
+              "relativePathHash": "b996ebb9e523305d77adbdd91ae87588c04f3cbf6ef3b6542722782c24640e0f",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 426381,
+              "sha256": "a8a08f641289316e6a2a6d81e829fc130eecd4aa275289fb69e493699ee2f272"
+            },
+            {
+              "relativePathHash": "e203f5e0587cf74b93914331c6f37cbe946fa51048a88476b0ad9ad0c764a3a3",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 2254711,
+              "sha256": "ed386e934d0b1b9a0d557714ab4c5aaa0cdf067cf6300633ad3afb077ad655c3"
+            },
+            {
+              "relativePathHash": "dd2470faa34cb70b674f06230165c2ef1f657c0d996003e92f8a25ce53517bd9",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 2154464,
+              "sha256": "6b6f3a911f4634f3c93fc9ce3a959db1a37569b2fb88f2dfec8ab234e7dcbc1a"
+            },
+            {
+              "relativePathHash": "a0016f39373952e8bf535ec2a3e0b382041b5f35b59c4c50fc2f1b3efa5410d6",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 428905,
+              "sha256": "e3779b7f5b2e17af24c4d58f6962802bed0108d3de74fdf4d5f0e9c933666549"
+            },
+            {
+              "relativePathHash": "9d116f21798d41b0b5577c9a69571b33a11fcb16608e58e1da0db5bbc6b3accd",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1939730,
+              "sha256": "cc198345e0050d71e309b949791a39914be0dcb59740653b7edeb9bb31a3a7c6"
+            },
+            {
+              "relativePathHash": "a4c134c00aa89daf11b10b755f9ead5dc7fa2fc1faeb68dc4b9247d52a333bc1",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 479629,
+              "sha256": "aec8fedc42717f02187cdd6db9846721df628904b0d78143c0dc19c0752f0426"
+            },
+            {
+              "relativePathHash": "e6a25c0b22260e4167e9ba16c602c8095d3ce541b39bc0adc84d2a17d8791e81",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 252393,
+              "sha256": "8ab4bb474c3b38cdf4c44d3c5351c6b202e518cf095b697d07b231773b7f65f5"
+            },
+            {
+              "relativePathHash": "7c9e0a147a84dfa9403ac230d559cc597d39ddf1ee2706f4eb15ef6b7eb77b7a",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 312397,
+              "sha256": "74823a02d6b24cc7e651af3bda56a403ab0a2950bcd379df5beac4289262f91a"
+            },
+            {
+              "relativePathHash": "9bd5bee390ba2b6a801654156284bbcc48ee95453c8586aef5c60f0212c4322e",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1093352,
+              "sha256": "98e929fbab3c33331d1983a9a159ff78430eff84af1cf457aa53202ff0e9a563"
+            },
+            {
+              "relativePathHash": "494bdfdb49be7f8579f94b53e8c65ce9202c99e14d2d950933b557653fb6bd66",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 569561,
+              "sha256": "6be1ab06196655cf3858b948900a13c299abda7ea022dddd6a8b4c1d73fc4a4c"
+            },
+            {
+              "relativePathHash": "42172d8b0299b4b5fe881d6afe06ba7d592e24f00bff9972531a2b6de9ff1f2b",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 274643,
+              "sha256": "fd287612aac5398c0a6070c983a279859239940b0d90aed13c488d2077f4a290"
+            },
+            {
+              "relativePathHash": "dede7f7ae146f806c65f411a636971fd0b7cc318950cc27acb6a995a6d39b914",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 278318,
+              "sha256": "01f968e683ccdf52202aa44c3d1577ccb17bf88aa6e86ac0310ab8b83cad5c89"
+            },
+            {
+              "relativePathHash": "4332ea1bf9e9f460511976df3a88fddd9cf9f9f11678edfb22a9a2fef8e16087",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 3124760,
+              "sha256": "2574045cee1d443a47b60cdba6d531145d13a68b0cb81b4fd56f5dfeaaaad876"
+            },
+            {
+              "relativePathHash": "0835b3520de832e633d3591e4c841c39a04b633744651c0b2d43dee84b4f3a57",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 224513,
+              "sha256": "df8f6619d29c4cd7823e3609a04401780f368e86534c6c15a82faf233f4c0463"
+            },
+            {
+              "relativePathHash": "f5df8d9f724ff673ac590722a8fd48d364119a0779173baa236b2bc2af6aa202",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 783253,
+              "sha256": "eaf7ddfa0821ebcf20016e99c8af7a901af673155615eb56124108249a777639"
+            },
+            {
+              "relativePathHash": "6b056d7bee747fb1926c3700d7e4ee5b4a690b8f93cda7071fdd8a8164289d5d",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1981825,
+              "sha256": "a63ec1b89157a5636331912ed51fe66e60837acee189d3ce7c5f03bec3188109"
+            },
+            {
+              "relativePathHash": "f5b67c27cc60fa319096f861027fe8b15bbf7987290bddccc40f1e2c2f17b450",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1974518,
+              "sha256": "49078c24099a5227a88162aca0bb988ae51fddee5b44f7493c50afbf1789d07f"
+            },
+            {
+              "relativePathHash": "db26f601d7854cc7cac9ea1a7c38bc5a9abfea82f002a53fb6375bb585a18538",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 46924,
+              "sha256": "6f005647627bddf487a3b80f94b1dd37042ebea8e74ff57f5141611f9d1bde9e"
+            },
+            {
+              "relativePathHash": "589294379f2ce1cb9c0d0d74d800dc75456bb9c6b7639aa4715080004532ca67",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 796029,
+              "sha256": "f1ad05d6f6e1423de2c782e17d405f01a3e6f67913c6688d118bd42cbbc01784"
+            },
+            {
+              "relativePathHash": "f8507e8dfcf6a82c1344a4d8c3ad7d026d678e185560e14d8532ada8edf3b7fd",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 227931,
+              "sha256": "69e5b44415aa48e2a11b0e01c8b6a9dcb8a70aa526febeb17f2ef17a99282c6a"
+            },
+            {
+              "relativePathHash": "307cb9b02f1743c30c32fe258cce3f9ee7959049bed0f0088df9d837ccbb9eda",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 535155,
+              "sha256": "972d0780be4f0a77559901f2e1e5ea2314a9719d0dd723ef2a2d279ca0031134"
+            },
+            {
+              "relativePathHash": "84dd01ad9776012a9de53260818e9dab7444c9b67c7a1714df6ec336beb6c29e",
+              "extension": ".png",
+              "depth": 1,
+              "sizeBytes": 1076853,
+              "sha256": "42f86dba3ec0adbcb636932c5cfc9942f2a40d3e28b5965c0fca070b78c0a0e2"
+            }
+          ]
+        }
+      ],
+      "profileFeatures": {
+        "hasMementoStorage": false,
+        "hasLongText": false,
+        "hasPasteFiles": true,
+        "keyTables": [
+          "ItemTable"
+        ],
+        "workspaceJsonKeys": [
+          "folder"
+        ]
+      }
+    },
+    {
+      "workspaceId": "e4304a21628c7561dd64d3a663027fb3",
+      "jsonFiles": [
+        {
+          "relativePath": "e4304a21628c7561dd64d3a663027fb3/workspace.json",
+          "sha256": "ab00d939a170d7185a27dbd5c6b3c3115246a7292e12910adf22ee9e68e23296",
+          "sizeBytes": 55,
+          "structure": {
+            "path": "$",
+            "keys": [
+              "folder"
+            ],
+            "nestedKeys": {
+              "$": [
+                "folder"
+              ]
+            },
+            "arrayItemSampleKeys": [],
+            "maxDepth": 1
+          }
+        }
+      ],
+      "sqliteFiles": [
+        {
+          "relativePath": "e4304a21628c7561dd64d3a663027fb3/state.vscdb",
+          "sha256": "c6af16b3a510ef33e323c156b1ab6ebc7cbd5078954ef1368025829ebdf80c22",
+          "tables": [
+            {
+              "name": "ItemTable",
+              "columns": [
+                {
+                  "cid": 0,
+                  "name": "key",
+                  "type": "TEXT",
+                  "notnull": 0,
+                  "pk": 0
+                },
+                {
+                  "cid": 1,
+                  "name": "value",
+                  "type": "BLOB",
+                  "notnull": 0,
+                  "pk": 0
+                }
+              ],
+              "rowCount": 61
+            }
+          ]
+        }
+      ],
+      "directories": [
+        {
+          "relativePath": "e4304a21628c7561dd64d3a663027fb3/long-text",
+          "entries": [
+            {
+              "relativePathHash": "3ef45c5e9018d4db834eec764729a17358f23a69c6d2f3a1b94f139130c8ac50",
+              "extension": ".txt",
+              "depth": 3,
+              "sizeBytes": 18511,
+              "sha256": "bd393e99eb4dbc3e21d0f1b876e80e80ad2dc59735f4684fdf4dc5791540906a"
+            }
+          ]
+        }
+      ],
+      "profileFeatures": {
+        "hasMementoStorage": false,
+        "hasLongText": true,
+        "hasPasteFiles": false,
+        "keyTables": [
+          "ItemTable"
+        ],
+        "workspaceJsonKeys": [
+          "folder"
+        ]
+      }
+    }
+  ],
+  "summary": {
+    "totalWorkspaces": 11,
+    "totalSqliteFiles": 12,
+    "totalJsonFiles": 11,
+    "totalFileEntriesInDirs": 113,
+    "profileCounts": {
+      "trae-cn-workspace-v3": 11
+    },
+    "profileVerification": {
+      "trae-cn-workspace-v3": "verified"
+    }
+  }
+}

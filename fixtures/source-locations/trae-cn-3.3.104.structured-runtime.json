@@ -1,0 +1,1288 @@
+{
+  "evidenceVersion": 1,
+  "sourceProduct": {
+    "name": "trae-cn",
+    "version": "3.3.104"
+  },
+  "source": {
+    "kind": "renderer-trae-api",
+    "serviceMethod": "TraeApi.chat.getMessages",
+    "endpoint": "lite/get_messages",
+    "service": "chat",
+    "method": "getMessages",
+    "environment": "local"
+  },
+  "capture": {
+    "probeStatus": "completed-with-transport-failure",
+    "debugTransport": "debug-server-blocked-by-csp",
+    "sourceArtifactSha256": "sha256:987c8512e60ebb1d9fd575d24b204c746f6ad000536c57587da1882c4c4f6e3a"
+  },
+  "verification": {
+    "status": "verified",
+    "sessionHash": "sha256:1ff944d7f39f1728078c84af07d2fdee687164205fc5484ea8142d188ff31069",
+    "sessionSelectionSource": "v2-current-selection",
+    "loadedSessionCandidateCount": 3,
+    "pageCount": 2
+  },
+  "counts": {
+    "messages": 50,
+    "invalidMessageItems": 0,
+    "roles": {
+      "assistant": 25,
+      "user": 25
+    },
+    "statuses": {
+      "completed": 22,
+      "other": 28
+    },
+    "messageTypes": {
+      "general": 25,
+      "task": 25
+    },
+    "planItems": 1218,
+    "toolCalls": 1218
+  },
+  "relationship": {
+    "samples": 25,
+    "matches": 25,
+    "verified": true
+  },
+  "timingCoverage": {
+    "createdAt": 50,
+    "chatStartTime": 25,
+    "chatEndTime": 25
+  },
+  "schema": {
+    "messageKeys": [
+      "agent_id",
+      "agent_name",
+      "agent_process_support",
+      "agent_type",
+      "chat_end_time",
+      "chat_process_version",
+      "chat_session_id",
+      "chat_start_time",
+      "content",
+      "context_metadata",
+      "context_usage",
+      "created_at",
+      "doc_references",
+      "is_worktree",
+      "merged_commit",
+      "message_id",
+      "message_index",
+      "message_type",
+      "model_smart_selection_meta",
+      "query",
+      "references",
+      "reply_to_message_id",
+      "revertible",
+      "role",
+      "shallow_memento_type",
+      "status",
+      "token_usage",
+      "trace_id",
+      "turn_id",
+      "user_message_context",
+      "version_code"
+    ],
+    "assistantEnvelopeKeys": [
+      "messages",
+      "task_id",
+      "user_message_id"
+    ],
+    "assistantMessageKeys": [
+      "id",
+      "plan_item",
+      "type"
+    ],
+    "planItemKeys": [
+      "agent_display_name",
+      "agent_id",
+      "agent_run_id",
+      "agent_status",
+      "confirm_info",
+      "hide",
+      "id",
+      "plan_type",
+      "reasoning_content",
+      "render_mode",
+      "sub_agent_call_description",
+      "thought",
+      "timing",
+      "tool_call_info"
+    ],
+    "toolCallKeys": [
+      "already_emitted_generating_event",
+      "already_emitted_run_event",
+      "id",
+      "meta",
+      "name",
+      "params",
+      "result"
+    ],
+    "toolResultKeys": [
+      "data",
+      "error_message",
+      "error_variant",
+      "images",
+      "interrupt",
+      "is_truncated",
+      "render",
+      "status"
+    ]
+  },
+  "textEvidence": {
+    "user.query": {
+      "count": 25,
+      "nonEmpty": 25,
+      "totalChars": 4124,
+      "sampleHashes": [
+        "sha256:dbd46c035a79378d5a42c305a0cfadde16df7883ad2d6c2b009656d45cd08ea3",
+        "sha256:2fe2bad9b400fc05742c721a5d3ec04351b6e416431a9f383128b7048bfde1e2",
+        "sha256:f2c4db6f0916cb8931615cd9dea9ba4c4ba6eee69cd939c7723a65f26b07eae4",
+        "sha256:c11f91ac41153ef7475bfac60d00a201f68fbe64fa8606ce2970e0c478a4dbc1",
+        "sha256:f231f3960cab64df6de86feeca65cce50f0dadea78c9b25bfcd00209a7363550",
+        "sha256:dcc9ef2aa3ef7033c9a6d7079e5620b6fcfc5e27240afe8e69d0673e91e60085",
+        "sha256:2ffaf6aba4af9324b36ab15bdd906298f487bb9cb82f73084e754361cc189468",
+        "sha256:4bafbd3f42ebf642bc5f321d5f74e1c6832a0324cfdb74a74dd107426b3e244b"
+      ]
+    },
+    "user.content": {
+      "count": 25,
+      "nonEmpty": 25,
+      "totalChars": 2104,
+      "sampleHashes": [
+        "sha256:954c7e14559b25287be74fcc7a7a2cee5a0d2049f22c493502c5db73ec970b29",
+        "sha256:a1343d598ce8bdb8346d37da716e1baa9f7c9d5e6c90b0e5681ee3eb6ea11b01",
+        "sha256:aabec9fdf7cea096a3402478f4917a8ca2e88c374cc81e305394a4f9cd20b59a",
+        "sha256:769e0e54e12a2bb2fd09b183456f94c543f8ceb39e50f45a3f72f170d92a6e12",
+        "sha256:c9d3cabefe1b69ff93e054133be04e911f8f8bb92e51a8bc9f01f8855c3a66f8",
+        "sha256:e53e1fe5148dc3175731bc5a6f9b97a5002c9abc2a8802c17f282ca46d166d96",
+        "sha256:2bfdd8f3cd60472f3d79e5f07f20fded17b9cc613f84bc6bf5ac2f4e2f02c4ca",
+        "sha256:79de1fb2297739172c3c34970a19d1398c560318cb668e4d1b7da54b63036834"
+      ]
+    },
+    "planItem.thought": {
+      "count": 1218,
+      "nonEmpty": 146,
+      "totalChars": 15260,
+      "sampleHashes": [
+        "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sha256:b30f8c19fe0b9b5d5516b2e53e8834d05e419179aef7fcf0b80a14d675e66a42",
+        "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sha256:e3e960e9685ea31385b56bb38f8cd55f51064cd39b37eb41416b5200955b40b6",
+        "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sha256:db385d870eaf89105a1e10ef93e3002a88f6109dff0f78532d9b5c02b2a2b5e7"
+      ]
+    },
+    "planItem.reasoning_content": {
+      "count": 1218,
+      "nonEmpty": 270,
+      "totalChars": 143438,
+      "sampleHashes": [
+        "sha256:051b4b9fda4dffa23fa9b233e98e7c071a33eed101cec3fb8e2e4e5d36957417",
+        "sha256:8aab7a1c63ab781be796a5deb6b42f59d76723aaea3a4871d7166b5dcab4fb9b",
+        "sha256:9f80419e5d796e2f2db5c6fddc36aac8b73b5ae65d78471a378a1dedcac07c6f",
+        "sha256:1832d97bb4e6735433aa81952421aef37bb2f6078868817586a99252668a937a",
+        "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sha256:5c85d96915834e0d9ca66e5920f5fa98955bb5e4e8b2b4f369ef996ba5a49a89",
+        "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sha256:f44b7f86bcce78410806253c6a654ea7b21a1e6197e6b1beb0f17dcf84f33826"
+      ]
+    }
+  },
+  "messageSamples": [
+    {
+      "messageHash": "sha256:db0b72faca7fa752a1f761a53d086391ecd753b74d5102f27e5bcab27df0af1f",
+      "turnHash": null,
+      "replyHash": null,
+      "role": "user",
+      "status": "other",
+      "messageType": "general",
+      "messageIndex": 1,
+      "contentEvidence": {
+        "type": "string",
+        "chars": 116,
+        "sha256": "sha256:954c7e14559b25287be74fcc7a7a2cee5a0d2049f22c493502c5db73ec970b29",
+        "nonEmpty": true
+      },
+      "queryEvidence": {
+        "type": "string",
+        "chars": 234,
+        "sha256": "sha256:dbd46c035a79378d5a42c305a0cfadde16df7883ad2d6c2b009656d45cd08ea3",
+        "nonEmpty": true
+      }
+    },
+    {
+      "messageHash": "sha256:627b945934876809bb934220a88e13390ff773548bc487cbbbf2b2fdbb4708b8",
+      "turnHash": "sha256:707017efc01c8411fbf0bbe3c400ded9382bc532c20f470b938e3f1ff5154e14",
+      "replyHash": "sha256:db0b72faca7fa752a1f761a53d086391ecd753b74d5102f27e5bcab27df0af1f",
+      "role": "assistant",
+      "status": "other",
+      "messageType": "task",
+      "messageIndex": 2,
+      "contentEvidence": {
+        "type": "string",
+        "chars": 330771,
+        "sha256": "sha256:5c241836852cf6185a83eadc6e7b02cb488416573ef0ed1748fc754d835e29cd",
+        "nonEmpty": true
+      },
+      "queryEvidence": {
+        "type": "undefined",
+        "chars": 9,
+        "sha256": "sha256:eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+        "nonEmpty": true
+      }
+    },
+    {
+      "messageHash": "sha256:86e1802e87fd0a3dd7ea60a4d214e505ed08e3dca267d1c81c17d71370ff2cc7",
+      "turnHash": null,
+      "replyHash": null,
+      "role": "user",
+      "status": "other",
+      "messageType": "general",
+      "messageIndex": 3,
+      "contentEvidence": {
+        "type": "string",
+        "chars": 72,
+        "sha256": "sha256:a1343d598ce8bdb8346d37da716e1baa9f7c9d5e6c90b0e5681ee3eb6ea11b01",
+        "nonEmpty": true
+      },
+      "queryEvidence": {
+        "type": "string",
+        "chars": 152,
+        "sha256": "sha256:2fe2bad9b400fc05742c721a5d3ec04351b6e416431a9f383128b7048bfde1e2",
+        "nonEmpty": true
+      }
+    },
+    {
+      "messageHash": "sha256:d291f3d5ded52fb0da2896f28610b3ff5ba0ab4d34058bb13fee4e266e44c3c3",
+      "turnHash": "sha256:3a3f3da55206f0413de05287391a18673a57446bb6804e1b4d354faf5d74a78a",
+      "replyHash": "sha256:86e1802e87fd0a3dd7ea60a4d214e505ed08e3dca267d1c81c17d71370ff2cc7",
+      "role": "assistant",
+      "status": "completed",
+      "messageType": "task",
+      "messageIndex": 4,
+      "contentEvidence": {
+        "type": "string",
+        "chars": 459165,
+        "sha256": "sha256:5b5424ae0b3a2ad6beed02ec690f400683314ecc567a4fd287bbefb6e56eb1ce",
+        "nonEmpty": true
+      },
+      "queryEvidence": {
+        "type": "undefined",
+        "chars": 9,
+        "sha256": "sha256:eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+        "nonEmpty": true
+      }
+    },
+    {
+      "messageHash": "sha256:c38c7261fb568b0d780b21d83a0231eefc7904d099387553e6dab379fbfd5a88",
+      "turnHash": null,
+      "replyHash": null,
+      "role": "user",
+      "status": "other",
+      "messageType": "general",
+      "messageIndex": 5,
+      "contentEvidence": {
+        "type": "string",
+        "chars": 42,
+        "sha256": "sha256:aabec9fdf7cea096a3402478f4917a8ca2e88c374cc81e305394a4f9cd20b59a",
+        "nonEmpty": true
+      },
+      "queryEvidence": {
+        "type": "string",
+        "chars": 46,
+        "sha256": "sha256:f2c4db6f0916cb8931615cd9dea9ba4c4ba6eee69cd939c7723a65f26b07eae4",
+        "nonEmpty": true
+      }
+    },
+    {
+      "messageHash": "sha256:c832f498e410df1fa9bcc7abd8e6bdd0ee7347b18fae7af0720ffc8377c903f3",
+      "turnHash": "sha256:1ef31d1d39fe091f084fadd031f925fbdd19b848f708cb8e48bf5ca672c5cd92",
+      "replyHash": "sha256:c38c7261fb568b0d780b21d83a0231eefc7904d099387553e6dab379fbfd5a88",
+      "role": "assistant",
+      "status": "completed",
+      "messageType": "task",
+      "messageIndex": 6,
+      "contentEvidence": {
+        "type": "string",
+        "chars": 16391,
+        "sha256": "sha256:37e4c06b8d744f8af3c1d972aea331e509addb3a0951da8260618788b2950d59",
+        "nonEmpty": true
+      },
+      "queryEvidence": {
+        "type": "undefined",
+        "chars": 9,
+        "sha256": "sha256:eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+        "nonEmpty": true
+      }
+    },
+    {
+      "messageHash": "sha256:56e15f4238316592317684d5ddc4720f01090c0118fbc3bd52aa64034da8e944",
+      "turnHash": null,
+      "replyHash": null,
+      "role": "user",
+      "status": "other",
+      "messageType": "general",
+      "messageIndex": 7,
+      "contentEvidence": {
+        "type": "string",
+        "chars": 70,
+        "sha256": "sha256:769e0e54e12a2bb2fd09b183456f94c543f8ceb39e50f45a3f72f170d92a6e12",
+        "nonEmpty": true
+      },
+      "queryEvidence": {
+        "type": "string",
+        "chars": 150,
+        "sha256": "sha256:c11f91ac41153ef7475bfac60d00a201f68fbe64fa8606ce2970e0c478a4dbc1",
+        "nonEmpty": true
+      }
+    },
+    {
+      "messageHash": "sha256:ca0cd84d6ea5a062f61e98cb311655ca5c9a0d46f4aa2f0fcb96a62d94f5195e",
+      "turnHash": "sha256:72fedb01ad4d3f59e3c54cc7cf61ba8825ef3b8886a409eebc9d25a48055da4e",
+      "replyHash": "sha256:56e15f4238316592317684d5ddc4720f01090c0118fbc3bd52aa64034da8e944",
+      "role": "assistant",
+      "status": "completed",
+      "messageType": "task",
+      "messageIndex": 8,
+      "contentEvidence": {
+        "type": "string",
+        "chars": 2230,
+        "sha256": "sha256:0e1dd779ddd0c3351278c75fb8e937f2b2a46f31be14f731c4d077892c230877",
+        "nonEmpty": true
+      },
+      "queryEvidence": {
+        "type": "undefined",
+        "chars": 9,
+        "sha256": "sha256:eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+        "nonEmpty": true
+      }
+    },
+    {
+      "messageHash": "sha256:ca1b28148a7cec15f1fc766ac75acb8d5930bcc04e356091a701b04c3466ea64",
+      "turnHash": null,
+      "replyHash": null,
+      "role": "user",
+      "status": "other",
+      "messageType": "general",
+      "messageIndex": 9,
+      "contentEvidence": {
+        "type": "string",
+        "chars": 66,
+        "sha256": "sha256:c9d3cabefe1b69ff93e054133be04e911f8f8bb92e51a8bc9f01f8855c3a66f8",
+        "nonEmpty": true
+      },
+      "queryEvidence": {
+        "type": "string",
+        "chars": 70,
+        "sha256": "sha256:f231f3960cab64df6de86feeca65cce50f0dadea78c9b25bfcd00209a7363550",
+        "nonEmpty": true
+      }
+    },
+    {
+      "messageHash": "sha256:3f6363711fc85f84a69d17c77ea25d2c646976b65775a0da75c6ed05d2b545e2",
+      "turnHash": "sha256:48841b8472d344affe35c957bebaef5510ddf0637ec5ff6494df06866fcf1a86",
+      "replyHash": "sha256:ca1b28148a7cec15f1fc766ac75acb8d5930bcc04e356091a701b04c3466ea64",
+      "role": "assistant",
+      "status": "completed",
+      "messageType": "task",
+      "messageIndex": 10,
+      "contentEvidence": {
+        "type": "string",
+        "chars": 64239,
+        "sha256": "sha256:bf13511aa5d29c2b44adf1a91cb21dfc1232eee608081a957e712c25bacbabd3",
+        "nonEmpty": true
+      },
+      "queryEvidence": {
+        "type": "undefined",
+        "chars": 9,
+        "sha256": "sha256:eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+        "nonEmpty": true
+      }
+    },
+    {
+      "messageHash": "sha256:7ee62fc207106dd944c18d42641e14809dfd3269397d717f21755f4c99ae61ec",
+      "turnHash": null,
+      "replyHash": null,
+      "role": "user",
+      "status": "other",
+      "messageType": "general",
+      "messageIndex": 11,
+      "contentEvidence": {
+        "type": "string",
+        "chars": 43,
+        "sha256": "sha256:e53e1fe5148dc3175731bc5a6f9b97a5002c9abc2a8802c17f282ca46d166d96",
+        "nonEmpty": true
+      },
+      "queryEvidence": {
+        "type": "string",
+        "chars": 47,
+        "sha256": "sha256:dcc9ef2aa3ef7033c9a6d7079e5620b6fcfc5e27240afe8e69d0673e91e60085",
+        "nonEmpty": true
+      }
+    },
+    {
+      "messageHash": "sha256:a824201875bb6405300c2e7d214fa17d945eb9c16ab77d9a8816c551d89bded8",
+      "turnHash": "sha256:f9b73835f257d2d1da7cc3b9779ab288d2b6f55aed1febaf6f460b94641788c9",
+      "replyHash": "sha256:7ee62fc207106dd944c18d42641e14809dfd3269397d717f21755f4c99ae61ec",
+      "role": "assistant",
+      "status": "completed",
+      "messageType": "task",
+      "messageIndex": 12,
+      "contentEvidence": {
+        "type": "string",
+        "chars": 2948,
+        "sha256": "sha256:ae09dd82c14787a66e43871a1cda4d5950fc34bcb0e7a0163ed0e6002f5d2888",
+        "nonEmpty": true
+      },
+      "queryEvidence": {
+        "type": "undefined",
+        "chars": 9,
+        "sha256": "sha256:eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+        "nonEmpty": true
+      }
+    },
+    {
+      "messageHash": "sha256:832ae267dba824baea0e2541fa6194fd1ba4c9cf971c91435a46a328c486109b",
+      "turnHash": null,
+      "replyHash": null,
+      "role": "user",
+      "status": "other",
+      "messageType": "general",
+      "messageIndex": 13,
+      "contentEvidence": {
+        "type": "string",
+        "chars": 37,
+        "sha256": "sha256:2bfdd8f3cd60472f3d79e5f07f20fded17b9cc613f84bc6bf5ac2f4e2f02c4ca",
+        "nonEmpty": true
+      },
+      "queryEvidence": {
+        "type": "string",
+        "chars": 41,
+        "sha256": "sha256:2ffaf6aba4af9324b36ab15bdd906298f487bb9cb82f73084e754361cc189468",
+        "nonEmpty": true
+      }
+    },
+    {
+      "messageHash": "sha256:53b9d3206416397e15a3f47f6b17c836f023753bc8ef4cb05e49e9acd58355f3",
+      "turnHash": "sha256:2f3540ea880966930a693b7fc779d0edd7fc9f008851cfb05e69d9a28c9956d4",
+      "replyHash": "sha256:832ae267dba824baea0e2541fa6194fd1ba4c9cf971c91435a46a328c486109b",
+      "role": "assistant",
+      "status": "completed",
+      "messageType": "task",
+      "messageIndex": 14,
+      "contentEvidence": {
+        "type": "string",
+        "chars": 1373854,
+        "sha256": "sha256:2e61ed59dd9d4473e43dbfdbb3aee5334abf8da87946a3562b2653b66b4cbcde",
+        "nonEmpty": true
+      },
+      "queryEvidence": {
+        "type": "undefined",
+        "chars": 9,
+        "sha256": "sha256:eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+        "nonEmpty": true
+      }
+    },
+    {
+      "messageHash": "sha256:3e20cf639b36589ddf667ae785800dd1eb7b347d805e4328439571a4c50b5f2d",
+      "turnHash": null,
+      "replyHash": null,
+      "role": "user",
+      "status": "other",
+      "messageType": "general",
+      "messageIndex": 15,
+      "contentEvidence": {
+        "type": "string",
+        "chars": 67,
+        "sha256": "sha256:79de1fb2297739172c3c34970a19d1398c560318cb668e4d1b7da54b63036834",
+        "nonEmpty": true
+      },
+      "queryEvidence": {
+        "type": "string",
+        "chars": 71,
+        "sha256": "sha256:4bafbd3f42ebf642bc5f321d5f74e1c6832a0324cfdb74a74dd107426b3e244b",
+        "nonEmpty": true
+      }
+    },
+    {
+      "messageHash": "sha256:0a0863503ed8b461b90e67d7ffaaae2a7c280fb51a1389acd52f859dbdc46bdc",
+      "turnHash": "sha256:e942c6de8494d552a7960f46093d0d879d5249bb84005243e60af72c992a5cef",
+      "replyHash": "sha256:3e20cf639b36589ddf667ae785800dd1eb7b347d805e4328439571a4c50b5f2d",
+      "role": "assistant",
+      "status": "completed",
+      "messageType": "task",
+      "messageIndex": 16,
+      "contentEvidence": {
+        "type": "string",
+        "chars": 9200,
+        "sha256": "sha256:e6519ddd5be4a64b357d3da9bc9ace21a0b95eb1e2440fb16d24222500ad15c3",
+        "nonEmpty": true
+      },
+      "queryEvidence": {
+        "type": "undefined",
+        "chars": 9,
+        "sha256": "sha256:eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+        "nonEmpty": true
+      }
+    },
+    {
+      "messageHash": "sha256:d67661814d5d0a6707cfd4f611a315856d5a510987eeb8794b6809307f5d20eb",
+      "turnHash": null,
+      "replyHash": null,
+      "role": "user",
+      "status": "other",
+      "messageType": "general",
+      "messageIndex": 17,
+      "contentEvidence": {
+        "type": "string",
+        "chars": 40,
+        "sha256": "sha256:2ffaea2c7f691d82947b10c91cf9fd229d623825521f6576cb9e998f1647d955",
+        "nonEmpty": true
+      },
+      "queryEvidence": {
+        "type": "string",
+        "chars": 44,
+        "sha256": "sha256:71c07c31a1a632cbd273cef47d5fdde8490ccbe9298bbc0036a816b3ef7e0156",
+        "nonEmpty": true
+      }
+    },
+    {
+      "messageHash": "sha256:3cb5fde885218c35b0fd4a791c014a0d6e332998b3362a0324415ee0dfd0d01a",
+      "turnHash": "sha256:7bc9eec1212f6454b04f1eb97ab9e7874f620835f4c8dc456706109d92f46f4e",
+      "replyHash": "sha256:d67661814d5d0a6707cfd4f611a315856d5a510987eeb8794b6809307f5d20eb",
+      "role": "assistant",
+      "status": "completed",
+      "messageType": "task",
+      "messageIndex": 18,
+      "contentEvidence": {
+        "type": "string",
+        "chars": 390269,
+        "sha256": "sha256:c3655f37c73094d9cb7bc869c9c33d150f5e962aab8f32d647d1af62fe74392f",
+        "nonEmpty": true
+      },
+      "queryEvidence": {
+        "type": "undefined",
+        "chars": 9,
+        "sha256": "sha256:eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+        "nonEmpty": true
+      }
+    },
+    {
+      "messageHash": "sha256:2d3ea517f1e2e2918f416d386780e5c7101bb87f310fab19c11eb02f74a60753",
+      "turnHash": null,
+      "replyHash": null,
+      "role": "user",
+      "status": "other",
+      "messageType": "general",
+      "messageIndex": 19,
+      "contentEvidence": {
+        "type": "string",
+        "chars": 59,
+        "sha256": "sha256:8de7da52c64e18ed7f4d175ecfc2532a90f2ac5085f9dbe0ebd224c930abf5b9",
+        "nonEmpty": true
+      },
+      "queryEvidence": {
+        "type": "string",
+        "chars": 139,
+        "sha256": "sha256:80a861062e9e0b0757045466b53c52829f70260344ebb35e58426acecb6e0cf1",
+        "nonEmpty": true
+      }
+    },
+    {
+      "messageHash": "sha256:61abc77001355e5c909e8cabb663dcd5e7ba0dc4b94bf03a8cbe4745e1b7d73c",
+      "turnHash": "sha256:1af3a27e74d4da28750d488e39a28f06b8c2f145b47355ce6918f368897bd821",
+      "replyHash": "sha256:2d3ea517f1e2e2918f416d386780e5c7101bb87f310fab19c11eb02f74a60753",
+      "role": "assistant",
+      "status": "completed",
+      "messageType": "task",
+      "messageIndex": 20,
+      "contentEvidence": {
+        "type": "string",
+        "chars": 473021,
+        "sha256": "sha256:21d6ce1bf7c1c8f566c0e91a4124c6a3e2a5e89dfc4440c0897795493d3252df",
+        "nonEmpty": true
+      },
+      "queryEvidence": {
+        "type": "undefined",
+        "chars": 9,
+        "sha256": "sha256:eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+        "nonEmpty": true
+      }
+    }
+  ],
+  "toolSamples": [
+    {
+      "toolCallHash": "sha256:3e3cacc06c2ab2a538f6d3e9fd880d6e4df014c86ccfaad9eb385ae162f2cd45",
+      "nameEvidence": {
+        "type": "string",
+        "chars": 10,
+        "sha256": "sha256:1d86de49071f6d07f51af68338258c1078fbcc4ae2e7d0ca7c084d541d1a056d",
+        "nonEmpty": true
+      },
+      "paramsEvidence": {
+        "type": "object",
+        "chars": 234,
+        "sha256": "sha256:fa93cacdd5485456cc3f2f7683f67fb5578bd54eeea02cbff31e3ff8336388da",
+        "nonEmpty": true
+      },
+      "resultStatus": "success",
+      "resultDataEvidence": {
+        "type": "object",
+        "chars": 1532,
+        "sha256": "sha256:729a7e9cf47444f513b45b0f717cb7872ba2ad3cca6294e999cdb063927745f7",
+        "nonEmpty": true
+      },
+      "resultErrorEvidence": {
+        "type": "string",
+        "chars": 0,
+        "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nonEmpty": false
+      },
+      "timingKeys": [
+        "generated_at_ms",
+        "tool_call_finished_at_ms",
+        "tool_call_started_at_ms"
+      ]
+    },
+    {
+      "toolCallHash": "sha256:8a6f75ea9e461f29ac5fc5bc0e8496a52761ed78ca890aa6e231b8edfcb2e7d8",
+      "nameEvidence": {
+        "type": "string",
+        "chars": 10,
+        "sha256": "sha256:1d86de49071f6d07f51af68338258c1078fbcc4ae2e7d0ca7c084d541d1a056d",
+        "nonEmpty": true
+      },
+      "paramsEvidence": {
+        "type": "object",
+        "chars": 199,
+        "sha256": "sha256:52c068859de3586535aca02d64c4d620bdefcd58915a1dacc2b7202dad834379",
+        "nonEmpty": true
+      },
+      "resultStatus": "success",
+      "resultDataEvidence": {
+        "type": "object",
+        "chars": 1528,
+        "sha256": "sha256:f68c44bdad3d295641f49152e2a44e52fbb5a7d93c408eba855f335f61bd3d42",
+        "nonEmpty": true
+      },
+      "resultErrorEvidence": {
+        "type": "string",
+        "chars": 0,
+        "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nonEmpty": false
+      },
+      "timingKeys": [
+        "generated_at_ms",
+        "tool_call_finished_at_ms",
+        "tool_call_started_at_ms"
+      ]
+    },
+    {
+      "toolCallHash": "sha256:192be97c1b155258e67700cdb748f1b7b4f1c4917ab8f9222f35bb91801152a5",
+      "nameEvidence": {
+        "type": "string",
+        "chars": 10,
+        "sha256": "sha256:1d86de49071f6d07f51af68338258c1078fbcc4ae2e7d0ca7c084d541d1a056d",
+        "nonEmpty": true
+      },
+      "paramsEvidence": {
+        "type": "object",
+        "chars": 203,
+        "sha256": "sha256:9c5cc87d9a532c566e9a163957962e6df78db90ef0905aed7400ddfca28926d6",
+        "nonEmpty": true
+      },
+      "resultStatus": "success",
+      "resultDataEvidence": {
+        "type": "object",
+        "chars": 1550,
+        "sha256": "sha256:ee12356463ffceb6dc2bf77deee0967f9d2b40d21b0f643dc2a361537c75ab39",
+        "nonEmpty": true
+      },
+      "resultErrorEvidence": {
+        "type": "string",
+        "chars": 0,
+        "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nonEmpty": false
+      },
+      "timingKeys": [
+        "generated_at_ms",
+        "tool_call_finished_at_ms",
+        "tool_call_started_at_ms"
+      ]
+    },
+    {
+      "toolCallHash": "sha256:b71d55273bcced91d4182f2eb0af76b7098e8e94b6ac96c8dfbeef5fbab51a46",
+      "nameEvidence": {
+        "type": "string",
+        "chars": 2,
+        "sha256": "sha256:e60e21bf756c08cf052e5c3e608aed1568c0d774eeb7ba374783bddef9cdda75",
+        "nonEmpty": true
+      },
+      "paramsEvidence": {
+        "type": "object",
+        "chars": 55,
+        "sha256": "sha256:76edd621ee38e0c9f609d9f041f39e64f77f713d8fe30ec02279fa7603b1532c",
+        "nonEmpty": true
+      },
+      "resultStatus": "success",
+      "resultDataEvidence": {
+        "type": "object",
+        "chars": 2,
+        "sha256": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "nonEmpty": true
+      },
+      "resultErrorEvidence": {
+        "type": "string",
+        "chars": 0,
+        "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nonEmpty": false
+      },
+      "timingKeys": [
+        "generated_at_ms",
+        "tool_call_finished_at_ms",
+        "tool_call_started_at_ms"
+      ]
+    },
+    {
+      "toolCallHash": "sha256:1595286fed2034941c5c0b99ebce618e43232df536fa0892f5fea3b8f88ac71f",
+      "nameEvidence": {
+        "type": "string",
+        "chars": 10,
+        "sha256": "sha256:1d86de49071f6d07f51af68338258c1078fbcc4ae2e7d0ca7c084d541d1a056d",
+        "nonEmpty": true
+      },
+      "paramsEvidence": {
+        "type": "object",
+        "chars": 269,
+        "sha256": "sha256:c16398141b6286c16a8c14ca4c05afdb0caa3ab755c58d63f91fbed1f64c77c9",
+        "nonEmpty": true
+      },
+      "resultStatus": "success",
+      "resultDataEvidence": {
+        "type": "object",
+        "chars": 1318,
+        "sha256": "sha256:069a7cbc0fdbe022df3c7d1e448f559df2a9aa246c7e3fd284aa08bbd88fe814",
+        "nonEmpty": true
+      },
+      "resultErrorEvidence": {
+        "type": "string",
+        "chars": 0,
+        "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nonEmpty": false
+      },
+      "timingKeys": [
+        "generated_at_ms",
+        "tool_call_finished_at_ms",
+        "tool_call_started_at_ms"
+      ]
+    },
+    {
+      "toolCallHash": "sha256:e275369bb33811cdaa6e42a9a7754fed449ba32f226ae840402252c232b42817",
+      "nameEvidence": {
+        "type": "string",
+        "chars": 10,
+        "sha256": "sha256:1d86de49071f6d07f51af68338258c1078fbcc4ae2e7d0ca7c084d541d1a056d",
+        "nonEmpty": true
+      },
+      "paramsEvidence": {
+        "type": "object",
+        "chars": 199,
+        "sha256": "sha256:c995736e02ad9917d98e9ba5848c806cd7577ea29484f14ddc24a5f9c44e912e",
+        "nonEmpty": true
+      },
+      "resultStatus": "success",
+      "resultDataEvidence": {
+        "type": "object",
+        "chars": 1192,
+        "sha256": "sha256:d14bbcaf0e2280de536793d1d11640fedcc6e376559773acdb02dc3ebe9ba0d1",
+        "nonEmpty": true
+      },
+      "resultErrorEvidence": {
+        "type": "string",
+        "chars": 0,
+        "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nonEmpty": false
+      },
+      "timingKeys": [
+        "generated_at_ms",
+        "tool_call_finished_at_ms",
+        "tool_call_started_at_ms"
+      ]
+    },
+    {
+      "toolCallHash": "sha256:aa2c4b096ab45295b784c46dbff4e38ff2b3489e939b7df0b393852339e8c821",
+      "nameEvidence": {
+        "type": "string",
+        "chars": 4,
+        "sha256": "sha256:9b9a8d05a7ec353bda84f9c1bb3178c299de3001b5e970508ddc889c487f92ca",
+        "nonEmpty": true
+      },
+      "paramsEvidence": {
+        "type": "object",
+        "chars": 145,
+        "sha256": "sha256:158cb2ef6607caf82fefe08795dbc3ff96ae6b26da60d788875aab57ea38d560",
+        "nonEmpty": true
+      },
+      "resultStatus": "success",
+      "resultDataEvidence": {
+        "type": "undefined",
+        "chars": 9,
+        "sha256": "sha256:eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+        "nonEmpty": true
+      },
+      "resultErrorEvidence": {
+        "type": "string",
+        "chars": 0,
+        "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nonEmpty": false
+      },
+      "timingKeys": [
+        "generated_at_ms",
+        "tool_call_finished_at_ms",
+        "tool_call_started_at_ms"
+      ]
+    },
+    {
+      "toolCallHash": "sha256:026bdabd5cc49b37e0ad495ffabf8c35d2ee3aed3b2320d94eeb443fff0b8e47",
+      "nameEvidence": {
+        "type": "string",
+        "chars": 10,
+        "sha256": "sha256:1d86de49071f6d07f51af68338258c1078fbcc4ae2e7d0ca7c084d541d1a056d",
+        "nonEmpty": true
+      },
+      "paramsEvidence": {
+        "type": "object",
+        "chars": 127,
+        "sha256": "sha256:b2949b8b74866ca7641d28f4c7a785eda222270bb06f6b3e55e75e3c9ad6ad66",
+        "nonEmpty": true
+      },
+      "resultStatus": "success",
+      "resultDataEvidence": {
+        "type": "object",
+        "chars": 1412,
+        "sha256": "sha256:f55fdba92630bc705b317a5ea0c233f3133f920c8c3163086fb9a64aee8e75cf",
+        "nonEmpty": true
+      },
+      "resultErrorEvidence": {
+        "type": "string",
+        "chars": 0,
+        "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nonEmpty": false
+      },
+      "timingKeys": [
+        "generated_at_ms",
+        "tool_call_finished_at_ms",
+        "tool_call_started_at_ms"
+      ]
+    },
+    {
+      "toolCallHash": "sha256:e93cb2c1a727d9f593eab773bc50f6e85f74d26e6c80b19a0bca377b56c09132",
+      "nameEvidence": {
+        "type": "string",
+        "chars": 10,
+        "sha256": "sha256:1d86de49071f6d07f51af68338258c1078fbcc4ae2e7d0ca7c084d541d1a056d",
+        "nonEmpty": true
+      },
+      "paramsEvidence": {
+        "type": "object",
+        "chars": 227,
+        "sha256": "sha256:1ea7245f467227bafce13c2b052469568da0f44a92227f9137774cf2e5561668",
+        "nonEmpty": true
+      },
+      "resultStatus": "success",
+      "resultDataEvidence": {
+        "type": "object",
+        "chars": 1752,
+        "sha256": "sha256:0f7560c473604897364b745d2619c5fd6179aa117e90ca21af45725a0c880f8a",
+        "nonEmpty": true
+      },
+      "resultErrorEvidence": {
+        "type": "string",
+        "chars": 0,
+        "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nonEmpty": false
+      },
+      "timingKeys": [
+        "generated_at_ms",
+        "tool_call_finished_at_ms",
+        "tool_call_started_at_ms"
+      ]
+    },
+    {
+      "toolCallHash": "sha256:e20ae302c475961ac9f3107ecc3d67fd297f4e9b9945a21fb1384a78387ada7d",
+      "nameEvidence": {
+        "type": "string",
+        "chars": 5,
+        "sha256": "sha256:3f00927a719345edd4a8316599d3b328857987547f8884306861161ffa09647e",
+        "nonEmpty": true
+      },
+      "paramsEvidence": {
+        "type": "object",
+        "chars": 60,
+        "sha256": "sha256:b8efecbf3d5dc9910293d39df6cbf7fa8aea66b969eee8524e1f115a46ff7e4b",
+        "nonEmpty": true
+      },
+      "resultStatus": "success",
+      "resultDataEvidence": {
+        "type": "object",
+        "chars": 378,
+        "sha256": "sha256:796018eef3734d73edf75d5c088b5a9e3dbf24198438a01be107b71a2d1eea02",
+        "nonEmpty": true
+      },
+      "resultErrorEvidence": {
+        "type": "string",
+        "chars": 0,
+        "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nonEmpty": false
+      },
+      "timingKeys": [
+        "generated_at_ms",
+        "tool_call_finished_at_ms",
+        "tool_call_started_at_ms"
+      ]
+    },
+    {
+      "toolCallHash": "sha256:64b70c8ed5e76a468f0c99464f96fe233dba189a75a4e78615e645e2aa7dcb81",
+      "nameEvidence": {
+        "type": "string",
+        "chars": 10,
+        "sha256": "sha256:1d86de49071f6d07f51af68338258c1078fbcc4ae2e7d0ca7c084d541d1a056d",
+        "nonEmpty": true
+      },
+      "paramsEvidence": {
+        "type": "object",
+        "chars": 180,
+        "sha256": "sha256:28516af50457be194897901832154555bc9679b58dbd4d43372ac7755a9bbfac",
+        "nonEmpty": true
+      },
+      "resultStatus": "success",
+      "resultDataEvidence": {
+        "type": "object",
+        "chars": 1137,
+        "sha256": "sha256:faade6c36f2a5e1ab7003ab9abe9107afb7f61def04e55c2e35540e5bfff9867",
+        "nonEmpty": true
+      },
+      "resultErrorEvidence": {
+        "type": "string",
+        "chars": 0,
+        "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nonEmpty": false
+      },
+      "timingKeys": [
+        "generated_at_ms",
+        "tool_call_finished_at_ms",
+        "tool_call_started_at_ms"
+      ]
+    },
+    {
+      "toolCallHash": "sha256:ad9a2d1b4b206d92fbff4b71caa5818bf5c7c341fc7d0e77f1bd053a2fcbd386",
+      "nameEvidence": {
+        "type": "string",
+        "chars": 5,
+        "sha256": "sha256:3f00927a719345edd4a8316599d3b328857987547f8884306861161ffa09647e",
+        "nonEmpty": true
+      },
+      "paramsEvidence": {
+        "type": "object",
+        "chars": 77,
+        "sha256": "sha256:7b9fec47cae21e4c3a293fcaa27ebe376942aee9dc03ea0acb2b6bc583c84061",
+        "nonEmpty": true
+      },
+      "resultStatus": "success",
+      "resultDataEvidence": {
+        "type": "object",
+        "chars": 395,
+        "sha256": "sha256:6fd3c126d1c8083b734950d83c2d8495648094bd5545f216bf5716d4283d0d07",
+        "nonEmpty": true
+      },
+      "resultErrorEvidence": {
+        "type": "string",
+        "chars": 0,
+        "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nonEmpty": false
+      },
+      "timingKeys": [
+        "generated_at_ms",
+        "tool_call_finished_at_ms",
+        "tool_call_started_at_ms"
+      ]
+    },
+    {
+      "toolCallHash": "sha256:90137d199b17dadcb86670c68108734ecd4d3b1dc637be6f7cc35c2d2227cb69",
+      "nameEvidence": {
+        "type": "string",
+        "chars": 5,
+        "sha256": "sha256:3f00927a719345edd4a8316599d3b328857987547f8884306861161ffa09647e",
+        "nonEmpty": true
+      },
+      "paramsEvidence": {
+        "type": "object",
+        "chars": 81,
+        "sha256": "sha256:dfe2c05cf7d841cced16f49a2fd7cd01427a0fccd1c1dc413afc88b3dab61654",
+        "nonEmpty": true
+      },
+      "resultStatus": "success",
+      "resultDataEvidence": {
+        "type": "object",
+        "chars": 399,
+        "sha256": "sha256:5ff095391302138c2ce7a7c104d9f7ad8a2698a17c7baf6f9919faf226d2f32c",
+        "nonEmpty": true
+      },
+      "resultErrorEvidence": {
+        "type": "string",
+        "chars": 0,
+        "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nonEmpty": false
+      },
+      "timingKeys": [
+        "generated_at_ms",
+        "tool_call_finished_at_ms",
+        "tool_call_started_at_ms"
+      ]
+    },
+    {
+      "toolCallHash": "sha256:48a0c01f41effd352b61a231ec419731478e48ecc2c6e138b10b3784c9c0f230",
+      "nameEvidence": {
+        "type": "string",
+        "chars": 5,
+        "sha256": "sha256:3f00927a719345edd4a8316599d3b328857987547f8884306861161ffa09647e",
+        "nonEmpty": true
+      },
+      "paramsEvidence": {
+        "type": "object",
+        "chars": 80,
+        "sha256": "sha256:6915050bfb28c9781f5ce3ce815fe19fc085d222956d01b8e0bb66a981d5c010",
+        "nonEmpty": true
+      },
+      "resultStatus": "success",
+      "resultDataEvidence": {
+        "type": "object",
+        "chars": 399,
+        "sha256": "sha256:c4fd85fced150e716b9c9ce8e531a11ff2df8541a9c5553d34cca10c0814688a",
+        "nonEmpty": true
+      },
+      "resultErrorEvidence": {
+        "type": "string",
+        "chars": 0,
+        "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nonEmpty": false
+      },
+      "timingKeys": [
+        "generated_at_ms",
+        "tool_call_finished_at_ms",
+        "tool_call_started_at_ms"
+      ]
+    },
+    {
+      "toolCallHash": "sha256:5202955306f778a10fe3b68aba31d11d1aa6487831cf8fc3880758b5b0273fff",
+      "nameEvidence": {
+        "type": "string",
+        "chars": 5,
+        "sha256": "sha256:3f00927a719345edd4a8316599d3b328857987547f8884306861161ffa09647e",
+        "nonEmpty": true
+      },
+      "paramsEvidence": {
+        "type": "object",
+        "chars": 77,
+        "sha256": "sha256:9f2a372745dbf4df38614c8df551d3ef98ade11252366a9bf45772ed3f7573e4",
+        "nonEmpty": true
+      },
+      "resultStatus": "success",
+      "resultDataEvidence": {
+        "type": "object",
+        "chars": 396,
+        "sha256": "sha256:f8e848b677aff0b2aa30b733be8b93e588f1237a024f67aaa0f9b04340e148a6",
+        "nonEmpty": true
+      },
+      "resultErrorEvidence": {
+        "type": "string",
+        "chars": 0,
+        "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nonEmpty": false
+      },
+      "timingKeys": [
+        "generated_at_ms",
+        "tool_call_finished_at_ms",
+        "tool_call_started_at_ms"
+      ]
+    },
+    {
+      "toolCallHash": "sha256:b04b3cb19942bf3459671f3d3acb6f9c7987ec80449ef6ef83484adb2960bb55",
+      "nameEvidence": {
+        "type": "string",
+        "chars": 5,
+        "sha256": "sha256:3f00927a719345edd4a8316599d3b328857987547f8884306861161ffa09647e",
+        "nonEmpty": true
+      },
+      "paramsEvidence": {
+        "type": "object",
+        "chars": 74,
+        "sha256": "sha256:a08300c7adfb0eea96dfe8ac89ddbc56ad0cd832fcadcd445d44e087c8b8c68c",
+        "nonEmpty": true
+      },
+      "resultStatus": "success",
+      "resultDataEvidence": {
+        "type": "object",
+        "chars": 392,
+        "sha256": "sha256:218fcf788c7cc3f476fd18235963ab956e31aae5d1160ddf59247b1e261759f4",
+        "nonEmpty": true
+      },
+      "resultErrorEvidence": {
+        "type": "string",
+        "chars": 0,
+        "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nonEmpty": false
+      },
+      "timingKeys": [
+        "generated_at_ms",
+        "tool_call_finished_at_ms",
+        "tool_call_started_at_ms"
+      ]
+    },
+    {
+      "toolCallHash": "sha256:02f89699cdd35ffee7e1675dd1e511057d5c6e34f2ea562b0a513bb93d961344",
+      "nameEvidence": {
+        "type": "string",
+        "chars": 5,
+        "sha256": "sha256:3f00927a719345edd4a8316599d3b328857987547f8884306861161ffa09647e",
+        "nonEmpty": true
+      },
+      "paramsEvidence": {
+        "type": "object",
+        "chars": 96,
+        "sha256": "sha256:02189226403fcda9b051c51a16dae4ea71ab542e8cee42ffb644d95621e55113",
+        "nonEmpty": true
+      },
+      "resultStatus": "success",
+      "resultDataEvidence": {
+        "type": "object",
+        "chars": 414,
+        "sha256": "sha256:bb30a1c81453d89f811d46bc239a79c5bdae925515ce5cc83629e9b62cb55b68",
+        "nonEmpty": true
+      },
+      "resultErrorEvidence": {
+        "type": "string",
+        "chars": 0,
+        "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nonEmpty": false
+      },
+      "timingKeys": [
+        "generated_at_ms",
+        "tool_call_finished_at_ms",
+        "tool_call_started_at_ms"
+      ]
+    },
+    {
+      "toolCallHash": "sha256:1b2c62842e292eb91fe83a4431c5a0bd4d8980fa7cbecdb1edd3a771f5fbaf3a",
+      "nameEvidence": {
+        "type": "string",
+        "chars": 4,
+        "sha256": "sha256:9b9a8d05a7ec353bda84f9c1bb3178c299de3001b5e970508ddc889c487f92ca",
+        "nonEmpty": true
+      },
+      "paramsEvidence": {
+        "type": "object",
+        "chars": 147,
+        "sha256": "sha256:26c2e38fb7bbb3b8d7daa91f86c0e45e60512fd3db6f7dd214ff9454702a1394",
+        "nonEmpty": true
+      },
+      "resultStatus": "success",
+      "resultDataEvidence": {
+        "type": "undefined",
+        "chars": 9,
+        "sha256": "sha256:eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+        "nonEmpty": true
+      },
+      "resultErrorEvidence": {
+        "type": "string",
+        "chars": 0,
+        "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nonEmpty": false
+      },
+      "timingKeys": [
+        "generated_at_ms",
+        "tool_call_finished_at_ms",
+        "tool_call_started_at_ms"
+      ]
+    },
+    {
+      "toolCallHash": "sha256:5e3ec6c0d231417865c6eb7133ab998c7dd2583f09358eb006f64b97a88043d1",
+      "nameEvidence": {
+        "type": "string",
+        "chars": 4,
+        "sha256": "sha256:464c4ffd019e1e9691dcf0537c797353ef2b1c1d4833d3d463e5b74ae4547344",
+        "nonEmpty": true
+      },
+      "paramsEvidence": {
+        "type": "object",
+        "chars": 79,
+        "sha256": "sha256:b22715388041272e70a4b77ed35f29c58213490cc30a025dd1de75ec688cab2d",
+        "nonEmpty": true
+      },
+      "resultStatus": "success",
+      "resultDataEvidence": {
+        "type": "object",
+        "chars": 583,
+        "sha256": "sha256:13512e283f8bc217f90528d2eebd24fafa6de4420f0f3548abc63b04b52fe06e",
+        "nonEmpty": true
+      },
+      "resultErrorEvidence": {
+        "type": "string",
+        "chars": 0,
+        "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nonEmpty": false
+      },
+      "timingKeys": [
+        "generated_at_ms",
+        "tool_call_finished_at_ms",
+        "tool_call_started_at_ms"
+      ]
+    },
+    {
+      "toolCallHash": "sha256:c522bc17e1f824e397cc489507f05a9d921b0fd3c0c195a7bd17a09f09d2ac04",
+      "nameEvidence": {
+        "type": "string",
+        "chars": 10,
+        "sha256": "sha256:1d86de49071f6d07f51af68338258c1078fbcc4ae2e7d0ca7c084d541d1a056d",
+        "nonEmpty": true
+      },
+      "paramsEvidence": {
+        "type": "object",
+        "chars": 126,
+        "sha256": "sha256:2cb497111f7af0fcee5aa46cfdf2d33eab317fb59391c940583c8949410e57ec",
+        "nonEmpty": true
+      },
+      "resultStatus": "success",
+      "resultDataEvidence": {
+        "type": "object",
+        "chars": 2667,
+        "sha256": "sha256:db8fc4aa92a3c688c073a702b73f25b4906c93bf3a1447c3a7a42d27b77cc89f",
+        "nonEmpty": true
+      },
+      "resultErrorEvidence": {
+        "type": "string",
+        "chars": 0,
+        "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nonEmpty": false
+      },
+      "timingKeys": [
+        "generated_at_ms",
+        "tool_call_finished_at_ms",
+        "tool_call_started_at_ms"
+      ]
+    }
+  ],
+  "privacy": {
+    "rawIdentifiersIncluded": false,
+    "rawTextIncluded": false,
+    "rawPathsIncluded": false,
+    "rawToolPayloadsIncluded": false
+  },
+  "evidenceSha256": "sha256:7477bd1a78d9767f38935a163fb43e9b1c97895b36cd44f0639c7faf4ba41d72"
+}

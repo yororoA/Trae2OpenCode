@@ -13,14 +13,18 @@ import {
   scanDirectory,
   hashFileSha256,
 } from "./snapshot";
+import {
+  getProfileVerification,
+  identifyStorageProfile,
+} from "./profiles";
+import { probeMessageSources } from "./source-locations";
 import type {
   FixtureReport,
   CollectorOptions,
   WorkspaceSnapshot,
-  ProfileFeatures,
 } from "./types";
 
-const COLLECTOR_VERSION = "0.1.2";
+const COLLECTOR_VERSION = "0.2.0";
 
 export function collect(options: CollectorOptions = {}): FixtureReport {
   const traeRoots = discoverTraeRoots(options.traeRoot);
@@ -150,15 +154,22 @@ export function collect(options: CollectorOptions = {}): FixtureReport {
 
   // profile 统计
   const profileCounts: Record<string, number> = {};
+  const profileVerification: FixtureReport["summary"]["profileVerification"] =
+    {};
   for (const ws of workspaces) {
-    const profile = buildProfileLabel(ws.profileFeatures);
+    const profile = identifyStorageProfile(ws.profileFeatures);
     profileCounts[profile] = (profileCounts[profile] || 0) + 1;
+    profileVerification[profile] = getProfileVerification(profile);
   }
 
   return {
     collectorVersion: COLLECTOR_VERSION,
     collectedAt: new Date().toISOString(),
     os: traeRoots.os,
+    sourceProduct: {
+      name: "trae-cn",
+      version: options.productVersion ?? null,
+    },
     traeRoots: {
       os: traeRoots.os,
       userDataPath: "<trae-user-data>",
@@ -166,6 +177,10 @@ export function collect(options: CollectorOptions = {}): FixtureReport {
       workspaceStoragePath: "workspaceStorage",
     },
     globalStorage: { stateVscdb: globalStateVscdb },
+    messageSources: probeMessageSources(
+      traeRoots.userDataPath,
+      options.productVersion ?? null,
+    ),
     workspaces,
     summary: {
       totalWorkspaces: workspaces.length,
@@ -179,21 +194,9 @@ export function collect(options: CollectorOptions = {}): FixtureReport {
         0,
       ),
       profileCounts,
+      profileVerification,
     },
   };
-}
-
-function buildProfileLabel(features: ProfileFeatures): string {
-  if (features.hasMementoStorage && features.keyTables.length === 0) {
-    return "legacy-memento";
-  }
-  if (features.hasLongText && features.hasPasteFiles) {
-    return "modern-3.x-with-attachments";
-  }
-  if (features.keyTables.length > 0) {
-    return "modern-3.x-basic";
-  }
-  return "unknown";
 }
 
 export function collectToFile(options: CollectorOptions = {}): string {

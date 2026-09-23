@@ -1,0 +1,102 @@
+{
+  "fixtureVersion": 1,
+  "sourceProduct": {
+    "name": "trae-cn",
+    "version": "3.3.104"
+  },
+  "profileId": "trae-cn-runtime-v2",
+  "profileVerification": "verified",
+  "database": {
+    "relativePath": "ModularData/ai-agent/database.db",
+    "observedFormat": "opaque",
+    "ownerProcess": "ai-agent",
+    "sidecarsObserved": [
+      "database.db-wal",
+      "database.db-shm"
+    ],
+    "evidenceLevel": "path-observed"
+  },
+  "runtimeReadPath": {
+    "serviceMethod": "TraeApi.chat.getMessages",
+    "endpoint": "lite/get_messages",
+    "environment": "local",
+    "evidenceLevel": "runtime-readback",
+    "evidenceFixture": "trae-cn-3.3.104.structured-runtime.json"
+  },
+  "locations": [
+    {
+      "contentKind": "user",
+      "availability": "located",
+      "sourcePath": "TraeApi.chat.getMessages#message",
+      "fields": [
+        "message_id",
+        "chat_session_id",
+        "role",
+        "query",
+        "content",
+        "message_type",
+        "message_index",
+        "created_at",
+        "user_message_context"
+      ],
+      "evidenceLevel": "runtime-readback"
+    },
+    {
+      "contentKind": "assistant",
+      "availability": "located",
+      "sourcePath": "TraeApi.chat.getMessages#message",
+      "fields": [
+        "message_id",
+        "chat_session_id",
+        "turn_id",
+        "reply_to_message_id",
+        "role",
+        "content",
+        "message_type",
+        "message_index",
+        "status",
+        "created_at",
+        "chat_start_time",
+        "chat_end_time"
+      ],
+      "evidenceLevel": "runtime-readback"
+    },
+    {
+      "contentKind": "reasoning",
+      "availability": "located",
+      "sourcePath": "TraeApi.chat.getMessages#assistant.messages[].plan_item",
+      "fields": [
+        "id",
+        "thought",
+        "reasoning_content",
+        "timing"
+      ],
+      "evidenceLevel": "runtime-readback"
+    },
+    {
+      "contentKind": "tool",
+      "availability": "located",
+      "sourcePath": "TraeApi.chat.getMessages#assistant.messages[].plan_item.tool_call_info",
+      "fields": [
+        "id",
+        "name",
+        "params",
+        "result.status",
+        "result.data",
+        "result.error_message",
+        "timing.generated_at_ms",
+        "timing.tool_call_started_at_ms",
+        "timing.tool_call_finished_at_ms"
+      ],
+      "evidenceLevel": "runtime-readback"
+    }
+  ],
+  "verification": {
+    "rowSampled": false,
+    "runtimeReadback": true,
+    "status": "verified",
+    "runtimeEvidenceFixture": "trae-cn-3.3.104.runtime.json",
+    "structuredRuntimeEvidenceFixture": "trae-cn-3.3.104.structured-runtime.json",
+    "reason": "A real V2 TraeApi.chat.getMessages readback verifies message text, reasoning, tool payloads, relationships, status, and timing. The physical database remains opaque and is not a production source."
+  }
+}

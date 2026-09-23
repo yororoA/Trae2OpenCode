@@ -14,6 +14,10 @@ import {
   discoverTraeRoots,
   getDefaultTraeUserDataPaths,
 } from "../discovery";
+import {
+  getProfileVerification,
+  identifyStorageProfile,
+} from "../profiles";
 
 describe("analyzeJsonStructure", () => {
   it("提取顶层 key", () => {
@@ -96,5 +100,57 @@ describe("discoverTraeRoots", () => {
   it("不存在时返回 null", () => {
     const result = discoverTraeRoots("/nonexistent/path/to/trae");
     assert.strictEqual(result, null);
+  });
+});
+
+describe("identifyStorageProfile", () => {
+  const baseFeatures = {
+    hasLongText: false,
+    hasPasteFiles: false,
+    workspaceJsonKeys: ["folder"],
+  };
+
+  it("识别 3.x workspace storage", () => {
+    const profile = identifyStorageProfile({
+      ...baseFeatures,
+      hasMementoStorage: false,
+      keyTables: ["ItemTable"],
+    });
+
+    assert.strictEqual(profile, "trae-cn-workspace-v3");
+    assert.strictEqual(getProfileVerification(profile), "verified");
+  });
+
+  it("识别旧 memento storage", () => {
+    const profile = identifyStorageProfile({
+      ...baseFeatures,
+      hasMementoStorage: true,
+      keyTables: [],
+    });
+
+    assert.strictEqual(profile, "trae-cn-memento-v1");
+    assert.strictEqual(getProfileVerification(profile), "unverified");
+  });
+});
+
+describe("Trae CN 3.3.104 fixture", () => {
+  it("只包含脱敏后的结构信息", () => {
+    const fixturePath = path.join(
+      process.cwd(),
+      "fixtures",
+      "profiles",
+      "trae-cn-3.3.104.structure.json",
+    );
+    const content = fs.readFileSync(fixturePath, "utf-8");
+    const fixture = JSON.parse(content);
+
+    assert.strictEqual(fixture.sourceProduct.version, "3.3.104");
+    assert.ok(fixture.summary.totalWorkspaces > 0);
+    assert.strictEqual(
+      fixture.summary.profileVerification["trae-cn-workspace-v3"],
+      "verified",
+    );
+    assert.doesNotMatch(content, /\/Users\//);
+    assert.doesNotMatch(content, /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/);
   });
 });

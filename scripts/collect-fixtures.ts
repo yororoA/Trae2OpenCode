@@ -5,13 +5,14 @@
  * 用法:
  *   npx tsx scripts/collect-fixtures.ts
  *   npx tsx scripts/collect-fixtures.ts --trae-root /path/to/Trae/User
- *   npx tsx scripts/collect-fixtures.ts --max-workspaces 5 --output fixtures/my-report.json
+ *   npx tsx scripts/collect-fixtures.ts --product-version 3.3.104
  */
 
 import { collectToFile } from "../src/fixture-collector/index";
 
 function parseArgs(): {
   traeRoot?: string;
+  productVersion?: string;
   maxWorkspaces?: number;
   output?: string;
 } {
@@ -22,6 +23,9 @@ function parseArgs(): {
     switch (args[i]) {
       case "--trae-root":
         opts.traeRoot = args[++i];
+        break;
+      case "--product-version":
+        opts.productVersion = args[++i];
         break;
       case "--max-workspaces":
         opts.maxWorkspaces = parseInt(args[++i], 10);
@@ -36,6 +40,7 @@ function parseArgs(): {
 
 选项:
   --trae-root <path>    指定 TRAE User 数据目录路径
+  --product-version <v> TRAE 客户端版本
   --max-workspaces <n>  限制处理的 workspace 数量
   --output <path>       输出 JSON 报告路径 (默认: fixtures/fixture-report.json)
   --help, -h            显示此帮助信息

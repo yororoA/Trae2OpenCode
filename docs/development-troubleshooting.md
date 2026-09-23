@@ -1,0 +1,73 @@
+# 开发环境故障排查
+
+## 2026-09-23：执行通道 transport exception
+
+### 执行通道现象与定位
+
+Agent 的直连 `exec_command`（包括 `Shell` 别名）在命令启动前返回：
+
+```text
+transport exception: entity not found: No such file or directory (os error 2)
+```
+
+`pwd`、`true`，不同工作目录和显式 shell 均出现相同错误。
+通过代码编排工具调用本地 `RunCommand`，同一仓库内的命令可以成功执行。
+因此当前证据将故障范围缩小到直连执行通道；并非 npm 脚本报错，也不是仓库
+目录消失。执行实体或连接引用失效是候选原因，尚无平台内部日志证实具体根因。
+此前 reload 未消除错误，不能将切换接口描述为原通道已修复。
+
+### 执行通道暂行方案
+
+已确认暂时使用本地 `RunCommand`，继续开发，不再反复探测故障直连通道。
+Agent 可通过代码编排接口调用该工具；普通终端直接执行对应项目命令即可。
+
+备用执行器的 PATH 曾只包含工具注入目录，缺少系统命令和用户 Node 路径。
+直接调用会导致 npm 不可用、Git hook 找不到 `uname`/`mktemp`，或 push
+找不到 `ssh`。使用登录 shell 加载已有环境，例如：
+
+```sh
+/bin/zsh -lic 'npm test'
+/bin/zsh -lic 'npm run typecheck'
+/bin/zsh -lic 'npm run build'
+/bin/zsh -lic 'git push'
+```
+
+不要将某台机器的 Node 安装路径写进项目脚本，也不要跳过 Git hook。
+Git 写操作、测试和构建串行执行：备用通道曾出现
+`auto review target toolcall is not pending` 回执错误。
+该错误不能直接证明命令未执行；重试 commit/push 前先核对 `git status`、
+`git log -1` 和上游提交，避免重复写入。
+
+### 验证结果与恢复条件
+
+使用备用方案已验证提交 `0598c87`：19 项单元测试、TypeScript 类型检查、
+构建及暂存 diff 检查通过，推送后本地与上游提交一致。
+其中新增测试最初误用未安装的 Vitest，已统一为项目的 `node:test` 和
+`node:assert/strict`；这是测试文件问题，与 transport 故障分开记录。
+
+未来恢复直连通道时，应先确认最小命令能返回退出码，再验证项目命令。
+在此之前保留备用方案。临时调试服务与 `.dbg/terminal-transport*` 等产物
+在接受备用方案后清理，此文档保留可复用的排查结论。
+
+## 2026-09-23：Renderer 探针被 CSP 阻止上报
+
+### 探针现象与定位
+
+TRAE workbench DevTools 中的只读探针可以调用 V2
+`TraeApi.chat.getMessages`，但向 `http://127.0.0.1:7777/event` 上报时被
+`connect-src` CSP 拒绝。该错误只影响调试报告传输，不影响已经完成的结构化回读
+和 renderer 内脱敏。
+
+异步函数中的 `copy()` 也不能稳定写入系统剪贴板；早期 fallback 因作用域错误和
+V2 session store 识别错误分别出现过 `reportForFallback is not defined` 与
+`current session not found`。
+
+### 探针回传方案
+
+探针在 renderer 内完成白名单脱敏后，将报告写入
+`localStorage["trae-m0-redacted-probe"]`。再在 DevTools 顶层执行读取与复制，
+避免网络请求。回传文件只允许包含 schema、计数、长度、关系和 SHA-256；必须用
+`collect:trae-structured-runtime-evidence` 重新白名单化并执行隐私扫描。
+
+该方案仅用于生成验证 fixture。生产 reader 不得依赖 DevTools、`localStorage`
+或 renderer 日志，必须使用已验证 runtime adapter 或等价官方 bridge。
