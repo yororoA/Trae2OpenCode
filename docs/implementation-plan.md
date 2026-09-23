@@ -231,8 +231,12 @@ trae2opencode rollback --manifest <path>
 - M0-3：来源映射与只读探测已提交（`0598c87`），19 项测试及类型检查通过。
   当前证据仅为 `schema-observed`，真实消息的角色、顺序、reasoning/tool
   关联仍需脱敏回读验证；M0-3 尚未通过全部验收，M0 退出条件尚未满足。
-- 下一步推进没有前置依赖的 M0-4，使用隔离的 OpenCode 数据目录与合成会话
-  验证原生 import/export。目标端验证成功不能替代 TRAE 源端真实会话验收。
+- M0-4：隔离原生 import/export 已验证已完成消息及四类工具状态；未完成
+  assistant（缺少 `time.completed`）在回读中整条丢失，会话项目归属与
+  更新时间也会被目标重算。详见 [M0-4 验证与限制](./m0-4-import-roundtrip.md)。
+  目标端验证成功不能替代 TRAE 源端真实会话验收。
+- 下一步补齐 M0-3 真实脱敏回读，再在 M0-5 固化字段映射、目标时间差异与
+  未完成消息的拒绝写入策略；M0 退出条件满足前不进入完整迁移实现。
 - 开发执行通道暂时使用备用方案，原因与复现方法见
   [开发环境故障排查](./development-troubleshooting.md)。
 

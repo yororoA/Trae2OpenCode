@@ -1,0 +1,95 @@
+{
+  "info": {
+    "id": "ses_m04_roundtrip",
+    "projectID": "fixture-project",
+    "title": "M0-4 synthetic import round-trip",
+    "agent": "fixture-agent",
+    "model": { "id": "fixture-model", "providerID": "fixture-provider" },
+    "cost": 0,
+    "tokens": {
+      "input": 0,
+      "output": 0,
+      "reasoning": 0,
+      "cache": { "read": 0, "write": 0 }
+    },
+    "time": { "created": 1800000000000, "updated": 1800000008000 },
+    "location": { "directory": "<fixture-project>" }
+  },
+  "messages": [
+    {
+      "id": "msg_m04_user_1",
+      "type": "user",
+      "time": { "created": 1800000000000 },
+      "text": "合成测试：检查状态。\nKeep Unicode, whitespace and order."
+    },
+    {
+      "id": "msg_m04_assistant_1",
+      "type": "assistant",
+      "agent": "fixture-agent",
+      "model": { "id": "fixture-model", "providerID": "fixture-provider" },
+      "time": { "created": 1800000001000, "completed": 1800000004000 },
+      "finish": "stop",
+      "content": [
+        {
+          "type": "reasoning",
+          "text": "Synthetic persisted reasoning for a format test.",
+          "time": { "created": 1800000001000, "completed": 1800000001500 }
+        },
+        { "type": "text", "text": "合成工具结果：\n" },
+        {
+          "type": "tool",
+          "id": "call_m04_completed",
+          "name": "fixture.read",
+          "state": {
+            "status": "completed",
+            "input": { "path": "example.txt", "nested": { "limit": 2, "enabled": true } },
+            "content": [{ "type": "text", "text": "first line\n第二行\n" }],
+            "metadata": { "fixture": true }
+          },
+          "time": { "created": 1800000002000, "ran": 1800000002100, "completed": 1800000002500 }
+        },
+        {
+          "type": "tool",
+          "id": "call_m04_error",
+          "name": "fixture.missing",
+          "state": {
+            "status": "error",
+            "input": { "path": "missing.txt" },
+            "error": { "type": "FixtureNotFound", "message": "Synthetic missing file", "status": 404 }
+          },
+          "time": { "created": 1800000003000, "ran": 1800000003100, "completed": 1800000003500 }
+        },
+        { "type": "text", "text": "  Done.\n" }
+      ]
+    },
+    {
+      "id": "msg_m04_user_2",
+      "type": "user",
+      "time": { "created": 1800000005000 },
+      "text": "Synthetic interrupted turn."
+    },
+    {
+      "id": "msg_m04_assistant_2",
+      "type": "assistant",
+      "agent": "fixture-agent",
+      "model": { "id": "fixture-model", "providerID": "fixture-provider" },
+      "time": { "created": 1800000006000 },
+      "content": [
+        {
+          "type": "tool",
+          "id": "call_m04_running",
+          "name": "fixture.pending",
+          "state": { "status": "running", "input": { "count": 3 }, "metadata": {} },
+          "time": { "created": 1800000006000, "ran": 1800000006100 }
+        },
+        {
+          "type": "tool",
+          "id": "call_m04_streaming",
+          "name": "fixture.streaming",
+          "state": { "status": "streaming", "input": "{\"unfinished\":" },
+          "time": { "created": 1800000007000 }
+        }
+      ]
+    }
+  ]
+}
