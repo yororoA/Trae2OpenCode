@@ -48,3 +48,19 @@ export {
   type WorkspaceCapabilityFieldId,
   type WorkspaceStorageProfile,
 } from "./capability-probe.js";
+export {
+  assessTraeSessionRecoverability,
+  gradeSessionRecoveries,
+  gradeSessionRecovery,
+  type MessageSourceStatus,
+  type RecoveryReason,
+  type RecoveryReasonCode,
+  type SessionEvidenceContext,
+  type SessionEvidenceProvider,
+  type SessionMessageEvidence,
+  type SessionRecoveryAssessment,
+  type SessionRecoveryEvidence,
+  type SessionRecoveryIssue,
+  type TraeSessionRecoveryOptions,
+  type TraeSessionRecoveryReport,
+} from "./recovery-grading.js";

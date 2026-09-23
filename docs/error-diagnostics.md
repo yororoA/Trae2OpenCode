@@ -28,6 +28,9 @@ M1-3 统一三类对外契约：
 | `T2O_TRAE_SQLITE_SNAPSHOT_FAILED` | 4 | SQLite 一致性快照创建失败 |
 | `T2O_TRAE_SQLITE_SNAPSHOT_INVALID` | 4 | SQLite 快照完整性校验失败 |
 | `T2O_TRAE_RUNTIME_PROBE_FAILED` | 4 | runtime capability probe 失败 |
+| `T2O_TRAE_RECOVERY_EVIDENCE_INVALID` | 4 | 会话恢复证据矛盾或重复 |
+| `T2O_TRAE_SESSION_DISCOVERY_FAILED` | 4 | session metadata 发现失败 |
+| `T2O_TRAE_SESSION_EVIDENCE_PROVIDER_FAILED` | 4 | session 消息证据 provider 失败 |
 
 调用方应依赖错误码和退出码，不应解析英文 message。新增错误必须先进入
 `src/shared/error-codes.ts`，不能在各模块内自行定义退出码。

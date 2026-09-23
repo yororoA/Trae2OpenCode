@@ -67,6 +67,18 @@ export const ERROR_DEFINITIONS = {
     exitCode: 4,
     message: "TRAE runtime capability probe failed.",
   },
+  T2O_TRAE_RECOVERY_EVIDENCE_INVALID: {
+    exitCode: 4,
+    message: "TRAE session recovery evidence is invalid.",
+  },
+  T2O_TRAE_SESSION_DISCOVERY_FAILED: {
+    exitCode: 4,
+    message: "TRAE session metadata discovery failed.",
+  },
+  T2O_TRAE_SESSION_EVIDENCE_PROVIDER_FAILED: {
+    exitCode: 4,
+    message: "TRAE session evidence provider failed.",
+  },
   T2O_INTERNAL_UNEXPECTED: {
     exitCode: 1,
     message: "An unexpected internal error occurred.",

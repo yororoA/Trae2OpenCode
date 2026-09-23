@@ -1,6 +1,6 @@
 # Trae2OpenCode 实现规划
 
-> 状态：M0、M1 已合入 `main`；M2-1 已集成；M2-2 至 M2-4 已完成
+> 状态：M0、M1 已合入 `main`；M2 已完成，待里程碑分支 PR
 > 核验日期：2026-09-23
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
@@ -36,7 +36,8 @@ M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP
 | M2 workspace 解析 | M2-2 已完成 | 已实现 folder/workspace URI、JSONC multi-root 和逐记录诊断 |
 | M2 SQLite 快照 | M2-3 已完成 | 已实现 Online Backup、WAL 一致性、完整性校验和自动清理 |
 | M2 能力探测 | M2-4 已完成 | 已输出 storage profile、字段覆盖率和 runtime adapter 状态 |
-| M2 扫描后续/M3 读取 | 未开始 | recovery grading 与 runtime reader 尚未实现 |
+| M2 recovery grading | M2-5 已完成 | 已实现逐会话四级分级、稳定缺失原因和 metadata session discovery |
+| M3 TRAE 读取 | 未开始 | production runtime reader 与消息标准化尚未实现 |
 | M4 OpenCode adapter | 契约验证完成，实现未开始 | 2.0.12 隔离 import/export 已验证，尚无生产 capability probe 与 import adapter |
 | M5-M7 | 未开始 | 编排、安全、资源迁移、兼容与发布能力均未实现 |
 
@@ -346,7 +347,11 @@ M1 只完成工程骨架与数据契约，不表示生产 scanner、runtime read
    详细契约见 [M2-3 SQLite 快照](./m2-3-sqlite-snapshot.md)。
 4. M2-4 已完成 storage profile 与字段覆盖率探测，详细契约见
    [M2-4 能力探测](./m2-4-capability-probe.md)。
-5. 后续将 M0 renderer 探针替换为生产 runtime adapter；探针、日志和数据库解密
+5. M2-5 已完成会话级 recovery grading；当前实机发现的 10 个 session 因
+   production runtime adapter 尚未接入而全部明确标记为 `metadata-only`。
+   详细契约见 [M2-5 恢复等级](./m2-5-recovery-grading.md)。
+6. M2 里程碑任务已全部完成。后续将 M0 renderer 探针替换为 production runtime
+   adapter；探针、日志和数据库解密
    均不得成为生产数据源。
 
 ### M1：工程骨架与 IR，2-3 天
@@ -366,7 +371,7 @@ M1 只完成工程骨架与数据契约，不表示生产 scanner、runtime read
 | M2-2 | workspace 与项目路径解析 | M2-1 | folder/workspace URI 均可规范化 | 已完成 |
 | M2-3 | SQLite 一致性只读快照 | M2-1 | TRAE 运行时扫描也不写源库 | 已完成 |
 | M2-4 | 数据源能力探测器 | M2-2, M2-3 | 输出 storage profile 和字段覆盖率 | 已完成 |
-| M2-5 | 会话级 recovery grading | M2-4 | 每个会话都有等级和缺失原因 | 未开始 |
+| M2-5 | 会话级 recovery grading | M2-4 | 每个会话都有等级和缺失原因 | 已完成 |
 
 ### M3：TRAE Parser 与 IR 标准化，6-10 天
 
@@ -495,8 +500,8 @@ OpenCode import 是实验性能力。M4-6 必须验证实际导入结果，不�
 ## 10. 推荐执行顺序
 
 1. M0、M1 已完成并合入 `main`。
-2. M2-1 至 M2-4 已完成；下一步进入 M2-5 会话级 recovery grading。
-3. 完成 recovery grading，再进入生产 runtime reader。
+2. M2-1 至 M2-5 已完成；里程碑分支通过验收后合入 `main`。
+3. 进入 M3-1，实现会话索引、时间和标题的生产解析。
 4. 生成可审计 IR，并打通真实来源到 OpenCode 的 import/export 对账。
 5. 增加批量迁移、manifest、resume 和 rollback。
 6. 最后处理附件、Skill、MCP；SQLite Writer 保持为可选项。
