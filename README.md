@@ -4,8 +4,16 @@ TRAE 会话数据勘探与 OpenCode 迁移工具。M0 格式验证和 M1 工程�
 TRAE CN 3.3.104 的 V2 runtime profile 已通过真实结构化回读验证，覆盖正文、
 reasoning、tool payload、关系和时间字段。M2-1 已提供 macOS/Windows 生产路径
 发现，M2-2 已实现 workspace 与项目路径解析，M2-3 已实现 SQLite 一致性只读
-快照，M2-4/M2-5 已实现 capability probe 与会话恢复分级；runtime reader 与
-完整迁移流程尚未实现。
+快照，M2-4/M2-5 已实现 capability probe 与会话恢复分级；production runtime
+bridge 与完整迁移流程尚未实现。M3-1 已实现会话候选发现与 runtime metadata
+规范化；M3-2 已实现 runtime 用户消息解析、正文/query 优先级、冲突去重及
+workspace 输入历史只读解析；M3-3 已实现 runtime assistant 正文投影、关系与
+时间规范化，以及仅基于精确路径证据的 long-text 关联；M3-4 已接入持久化
+reasoning 与 plan 来源解析；M3-5 已接入 tool call/result 状态归并与冲突诊断；
+M3-6 已实现图片/文件/长文本资源 hash、MIME、精确路径引用及缺失状态解析；
+M3-7 已实现版本化 parser 注册表与统一的 profile/能力门禁；
+M3-8 已完成 IR 组装、来源指纹、内容交错排序、关系完整性与保守恢复分级，
+累计 186 项测试通过。
 
 ## 开发与验证
 
@@ -53,6 +61,14 @@ npm run verify:opencode
 - [M2-3 SQLite 一致性只读快照](docs/m2-3-sqlite-snapshot.md)
 - [M2-4 数据源能力探测](docs/m2-4-capability-probe.md)
 - [M2-5 会话恢复等级](docs/m2-5-recovery-grading.md)
+- [M3-1 会话索引、时间与标题解析](docs/m3-1-session-metadata.md)
+- [M3-2 用户消息与查询缓存解析](docs/m3-2-user-messages.md)
+- [M3-3 Assistant 文本与 long-text 关联](docs/m3-3-assistant-messages.md)
+- [M3-4 持久化 reasoning 与 plan](docs/m3-4-reasoning-plan.md)
+- [M3-5 Tool call/result 归并](docs/m3-5-tool-calls.md)
+- [M3-6 图片、文件和长文本资源](docs/m3-6-resources.md)
+- [M3-7 版本化 parser 注册表](docs/m3-7-parser-registry.md)
+- [M3-8 IR 组装与完整性校验](docs/m3-8-ir-assembly.md)
 - [TRAE 消息来源定位](docs/m0-3-source-location.md)
 - [OpenCode 导入验证与限制](docs/m0-4-import-roundtrip.md)
 - [M0-5 字段映射与降级矩阵](docs/m0-5-mapping-matrix.md)

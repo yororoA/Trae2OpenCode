@@ -15,6 +15,10 @@ export const ERROR_DEFINITIONS = {
     exitCode: 3,
     message: "Migration bundle failed schema validation.",
   },
+  T2O_TRAE_BUNDLE_INPUT_INVALID: {
+    exitCode: 4,
+    message: "TRAE bundle inputs have inconsistent versions, identities, or counts.",
+  },
   T2O_TRAE_ROOT_NOT_FOUND: {
     exitCode: 4,
     message: "No readable TRAE data root was found.",
@@ -78,6 +82,54 @@ export const ERROR_DEFINITIONS = {
   T2O_TRAE_SESSION_EVIDENCE_PROVIDER_FAILED: {
     exitCode: 4,
     message: "TRAE session evidence provider failed.",
+  },
+  T2O_TRAE_SESSION_INDEX_VERSION_UNSUPPORTED: {
+    exitCode: 4,
+    message: "The TRAE session index version is unsupported.",
+  },
+  T2O_TRAE_SESSION_METADATA_PROVIDER_FAILED: {
+    exitCode: 4,
+    message: "The TRAE session metadata provider failed.",
+  },
+  T2O_TRAE_USER_MESSAGE_VERSION_UNSUPPORTED: {
+    exitCode: 4,
+    message: "The TRAE user message version is unsupported.",
+  },
+  T2O_TRAE_USER_MESSAGE_PROVIDER_FAILED: {
+    exitCode: 4,
+    message: "The TRAE user message provider failed.",
+  },
+  T2O_TRAE_ASSISTANT_MESSAGE_VERSION_UNSUPPORTED: {
+    exitCode: 4,
+    message: "The TRAE assistant message version is unsupported.",
+  },
+  T2O_TRAE_ASSISTANT_MESSAGE_PROVIDER_FAILED: {
+    exitCode: 4,
+    message: "The TRAE assistant message provider failed.",
+  },
+  T2O_TRAE_RESOURCE_VERSION_UNSUPPORTED: {
+    exitCode: 4,
+    message: "The TRAE resource parser version is unsupported.",
+  },
+  T2O_TRAE_PROFILE_VERSION_UNSUPPORTED: {
+    exitCode: 4,
+    message: "The TRAE product version has no verified parser registration.",
+  },
+  T2O_TRAE_PROFILE_UNKNOWN: {
+    exitCode: 4,
+    message: "The TRAE parser profile is unknown.",
+  },
+  T2O_TRAE_PROFILE_REVISION_UNSUPPORTED: {
+    exitCode: 4,
+    message: "The TRAE parser profile revision is unsupported.",
+  },
+  T2O_TRAE_PROFILE_UNVERIFIED: {
+    exitCode: 4,
+    message: "The TRAE parser profile has not been verified.",
+  },
+  T2O_TRAE_PROFILE_CAPABILITY_UNSUPPORTED: {
+    exitCode: 4,
+    message: "The TRAE parser profile does not support this capability.",
   },
   T2O_INTERNAL_UNEXPECTED: {
     exitCode: 1,

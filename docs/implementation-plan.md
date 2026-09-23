@@ -1,7 +1,7 @@
 # Trae2OpenCode 实现规划
 
-> 状态：M0、M1 已合入 `main`；M2 已完成，待里程碑分支 PR
-> 核验日期：2026-09-23
+> 状态：M0、M1、M2 已合入 `main`；M3-1 至 M3-8 已完成，位于 `m3/trae-parser`
+> 核验日期：2026-09-24
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
 ## 1. 结论
@@ -32,12 +32,12 @@ M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP
 | M0 格式勘探 | 已完成 | M0-1 至 M0-5 的证据、策略和测试均已完成 |
 | M0 分支交付 | 已集成 | PR #5 已合入 `m0/format-exploration`，PR #6 已合入 `main` |
 | M1 工程骨架与 IR | 已集成 | PR #7 至 #10 已合入里程碑分支，PR #11 已合入 `main` |
-| M2 路径发现 | M2-1 已集成 | PR #12 已合入 `m2/trae-scanner` |
-| M2 workspace 解析 | M2-2 已完成 | 已实现 folder/workspace URI、JSONC multi-root 和逐记录诊断 |
-| M2 SQLite 快照 | M2-3 已完成 | 已实现 Online Backup、WAL 一致性、完整性校验和自动清理 |
-| M2 能力探测 | M2-4 已完成 | 已输出 storage profile、字段覆盖率和 runtime adapter 状态 |
-| M2 recovery grading | M2-5 已完成 | 已实现逐会话四级分级、稳定缺失原因和 metadata session discovery |
-| M3 TRAE 读取 | 未开始 | production runtime reader 与消息标准化尚未实现 |
+| M2 路径发现 | 已集成 | M2 通过 PR #13 合入 `main` |
+| M2 workspace 解析 | 已集成 | 已实现 folder/workspace URI、JSONC multi-root 和逐记录诊断 |
+| M2 SQLite 快照 | 已集成 | 已实现 Online Backup、WAL 一致性、完整性校验和自动清理 |
+| M2 能力探测 | 已集成 | 已输出 storage profile、字段覆盖率和 runtime adapter 状态 |
+| M2 recovery grading | 已集成 | 已实现逐会话四级分级、稳定缺失原因和 metadata session discovery |
+| M3 TRAE 读取 | M3-1 至 M3-8 已完成 | 已实现各类 parser、profile 注册、IR 组装与完整性/golden 校验；production runtime bridge 尚未接入 |
 | M4 OpenCode adapter | 契约验证完成，实现未开始 | 2.0.12 隔离 import/export 已验证，尚无生产 capability probe 与 import adapter |
 | M5-M7 | 未开始 | 编排、安全、资源迁移、兼容与发布能力均未实现 |
 
@@ -406,7 +406,7 @@ M2-5 建立了逐会话恢复分级和可复用证据接口：
 M2 最终累计 98 项单元测试、lint、TypeScript typecheck、build、CLI smoke 和
 实机脱敏验证均通过。M2 只读 scanner 已具备可审计的路径、workspace、SQLite、
 能力和恢复等级基础，但 production runtime reader、正文标准化和真实迁移仍未
-实现。
+实现。M2 已通过 PR #13 合入 `main`，合并提交为 `eea2311`。
 
 #### M2 当前进展
 
@@ -425,6 +425,54 @@ M2 最终累计 98 项单元测试、lint、TypeScript typecheck、build、CLI s
 6. M2 里程碑任务已全部完成。后续将 M0 renderer 探针替换为 production runtime
    adapter；探针、日志和数据库解密
    均不得成为生产数据源。
+
+#### M3 当前进展
+
+1. 已从最新 `main` 建立并推送 `m3/trae-parser`；M3 子任务继续直接提交到
+   里程碑分支，commit scope 使用 `m3-*`。
+2. M3-1 已实现 `readTraeSessionMetadata`，从 workspace active session、
+   workspace session index 与 `ModularData/ai-agent/snapshot` 合并候选会话。
+3. M3-1 已实现 `parseTraeRuntimeSessionMetadata`，兼容 3.3.104 当前
+   `chat/get_sessions` 与 V2 session metadata 的 ID、标题和时间字段。
+4. runtime metadata 优先于 workspace 缓存；同优先级冲突、非法时间和时间倒序
+   均产生稳定诊断，不补造标题或时间。
+5. 实机只读发现 62 个去重候选，其中 61 个来自 snapshot、10 个来自 workspace
+   active-session；当前 workspace session index 没有 metadata entry。未接入
+   runtime provider 时，62 个会话均明确标记为 metadata `partial`。
+6. M3-2 已实现 `parseTraeRuntimeUserMessages`，严格校验 user 身份、顺序和
+   时间；正文优先来自 `content` text block，仅在 parsed query 含明确文本时
+   回退。
+7. M3-2 已通过 M2-3 快照读取
+   `icube-ai-agent-storage-input-history`，按规范化内容去重并保留每个
+   workspace 原记录 hash，不将无 session ID/时间的缓存关联到会话。
+8. 实机 10 个 workspace 的 511 个 cache occurrence 全部通过严格解析，去重为
+   477 条，保留 511 个来源引用，未产生解析诊断。
+9. M3-3 已实现 `parseTraeRuntimeAssistantMessages`，严格校验 assistant 身份、
+   turn/reply、顺序、状态与真实时间，并按已验证的 general、proposal 和 chat
+   summary 语义投影正文；reasoning 与普通 plan thought 留给 M3-4。
+10. M3-3 已实现 `scanTraeLongTextResources`，只接受严格三级 UTF-8 `.txt`
+    布局；query cache 关联必须精确命中同一 workspace 的 long-text 路径，不按
+    basename、scope、entry ID 或内容 hash 猜测归属。
+11. 当前实机只读扫描 22 个 long-text 资源和 479 条去重 cache entry，7 个精确
+    引用落到 3 个资源；其余 19 个资源保留 metadata 并产生 unassociated warning，
+    非孤立资源诊断与绝对路径泄漏均为 0。
+12. M3-3 不等于 production runtime bridge 已完成。M3-4、M3-5 仍需实现
+    reasoning/plan 与 tool 状态机；当前累计 127 项单元测试。
+13. M3-4 已完成持久化 reasoning 与 plan 来源解析，空值不补造、冲突 ID
+    fail closed，普通 thought 仅保留 hash/长度与诊断。累计 134 项测试，详见
+    [M3-4 验证](./m3-4-reasoning-plan.md)。
+14. M3-5 已完成按 call ID 的工具终态归并、payload 保留、冲突拒绝和孤儿诊断。
+    非空错误 payload 明确标记待内容验证；累计 142 项测试，详见
+    [M3-5 验证](./m3-5-tool-calls.md)。
+15. M3-6 已完成图片、文件和长文本资源解析，记录 hash/MIME/缺失与待解析状态，
+    修正长文本根符号链接与文件字段兼容。实机发现 134 个可读本地资源，缓存
+    不推断会话归属；累计 153 项测试，详见 [M3-6 验证](./m3-6-resources.md)。
+16. M3-7 已完成产品版本/profile ID/修订号精确匹配、统一能力门禁及 parser
+    分派；旧 profile 无解析资格，runtime 可用性独立判断。累计 165 项测试，
+    详见 [M3-7 验证](./m3-7-parser-registry.md)。
+17. M3-8 已完成 IR 组装、来源指纹、交错内容排序、ID/order/reply/父图完整性
+    检查及保守分级；新增 parser-to-IR golden，累计 186 项测试。本机 62 个
+    会话仍为 metadata-only，详见 [M3-8 验证](./m3-8-ir-assembly.md)。
 
 ### M1：工程骨架与 IR，2-3 天
 
@@ -447,16 +495,16 @@ M2 最终累计 98 项单元测试、lint、TypeScript typecheck、build、CLI s
 
 ### M3：TRAE Parser 与 IR 标准化，6-10 天
 
-| ID | 任务 | 依赖 | 验收 |
-| --- | --- | --- | --- |
-| M3-1 | 会话索引、时间、标题解析 | M2-4 | 顺序稳定，缺失字段有诊断 |
-| M3-2 | 用户消息与查询缓存解析 | M3-1 | 去重且保留来源 hash |
-| M3-3 | assistant 文本与 long-text 关联 | M0-3, M3-1 | 不按文件名猜测错误归属 |
-| M3-4 | reasoning/plan 解析 | M0-3, M3-1 | 仅映射实际持久化内容 |
-| M3-5 | tool call/result 状态机归并 | M0-3, M3-1 | call/result 一一关联，孤儿项有告警 |
-| M3-6 | 图片、文件和长文本附件解析 | M3-2 | 缺失文件、mime、hash 均有记录 |
-| M3-7 | profile 解析器注册表 | M3-1..6 | 未验证或未知版本拒绝静默套用规则 |
-| M3-8 | IR 排序、去重与完整性校验 | M3-1..7 | golden fixture 全部通过 |
+| ID | 任务 | 依赖 | 验收 | 状态 |
+| --- | --- | --- | --- | --- |
+| M3-1 | 会话索引、时间、标题解析 | M2-4 | 顺序稳定，缺失字段有诊断 | 已完成 |
+| M3-2 | 用户消息与查询缓存解析 | M3-1 | 去重且保留来源 hash | 已完成 |
+| M3-3 | assistant 文本与 long-text 关联 | M0-3, M3-1 | 不按文件名猜测错误归属 | 已完成 |
+| M3-4 | reasoning/plan 解析 | M0-3, M3-1 | 仅映射实际持久化内容 | 已完成 |
+| M3-5 | tool call/result 状态机归并 | M0-3, M3-1 | call/result 一一关联，孤儿项有告警 | 已完成 |
+| M3-6 | 图片、文件和长文本附件解析 | M3-2 | 缺失文件、mime、hash 均有记录 | 已完成 |
+| M3-7 | profile 解析器注册表 | M3-1..6 | 未验证或未知版本拒绝静默套用规则 | 已完成 |
+| M3-8 | IR 排序、去重与完整性校验 | M3-1..7 | golden fixture 全部通过 | 已完成 |
 
 ### M4：OpenCode 原生导入，4-6 天
 
@@ -572,9 +620,10 @@ OpenCode import 是实验性能力。M4-6 必须验证实际导入结果，不�
 ## 10. 推荐执行顺序
 
 1. M0、M1 已完成并合入 `main`。
-2. M2-1 至 M2-5 已完成；里程碑分支通过验收后合入 `main`。
-3. 进入 M3-1，实现会话索引、时间和标题的生产解析。
-4. 生成可审计 IR，并打通真实来源到 OpenCode 的 import/export 对账。
+2. M2-1 至 M2-5 已完成，并通过 PR #13 合入 `main`。
+3. M3-1 至 M3-8 已完成；进入 production runtime bridge 与 M4 原生导入。
+4. 接通已验证 runtime 来源和可审计 IR，并打通真实来源到 OpenCode 的
+   import/export 对账。
 5. 增加批量迁移、manifest、resume 和 rollback。
 6. 最后处理附件、Skill、MCP；SQLite Writer 保持为可选项。
 

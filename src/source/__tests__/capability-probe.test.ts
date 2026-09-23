@@ -207,6 +207,22 @@ describe("probeTraeCapabilities", () => {
     );
   });
 
+  it("never invokes the runtime adapter for an unsupported product version", async () => {
+    const root = createRoot();
+    let calls = 0;
+    const report = await probeTraeCapabilities({
+      root,
+      productVersion: "3.3.105",
+      runtimeProbe() {
+        calls += 1;
+        return true;
+      },
+    });
+    assert.equal(calls, 0);
+    assert.equal(report.runtime.adapterStatus, "unavailable");
+    assert.equal(report.runtime.verification, "unsupported");
+  });
+
   it("marks an unexpected session index shape invalid", async () => {
     const root = createRoot();
     const { workspacePath } = createWorkspace(root, "workspace-a");
