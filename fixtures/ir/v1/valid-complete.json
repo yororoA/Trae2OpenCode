@@ -1,0 +1,206 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-09-23T06:10:00.000Z",
+  "source": {
+    "product": {
+      "name": "trae-cn",
+      "version": "3.3.104"
+    },
+    "platform": "darwin",
+    "profile": {
+      "id": "trae-cn-runtime-v2",
+      "version": 1,
+      "verification": "verified"
+    },
+    "sourceFingerprint": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "collectedAt": "2026-09-23T06:09:00.000Z"
+  },
+  "projects": [
+    {
+      "sourceId": "project-fixture",
+      "name": "Fixture project",
+      "path": "<fixture-project>",
+      "sourceRefs": [
+        {
+          "workspaceStorageId": "workspace-fixture",
+          "sourceSessionId": null,
+          "locator": {
+            "type": "relative-path",
+            "value": "workspace.json"
+          },
+          "parserProfile": {
+            "id": "trae-cn-runtime-v2",
+            "version": 1
+          },
+          "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    }
+  ],
+  "sessions": [
+    {
+      "sourceId": "session-fixture",
+      "title": "IR fixture",
+      "projectSourceId": "project-fixture",
+      "projectPath": "<fixture-project>",
+      "createdAt": 1800000000000,
+      "updatedAt": 1800000004000,
+      "recovery": "complete",
+      "events": [
+        {
+          "type": "user",
+          "sourceId": "message-user-fixture",
+          "order": 1,
+          "createdAt": 1800000000000,
+          "turnSourceId": "turn-fixture",
+          "text": "Preserve Unicode, whitespace, and order: 中文\n",
+          "sourceRefs": [
+            {
+              "workspaceStorageId": "workspace-fixture",
+              "sourceSessionId": "session-fixture",
+              "locator": {
+                "type": "runtime-field",
+                "value": "messages[0].query"
+              },
+              "parserProfile": {
+                "id": "trae-cn-runtime-v2",
+                "version": 1
+              },
+              "sha256": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+            }
+          ]
+        },
+        {
+          "type": "assistant",
+          "sourceId": "message-assistant-fixture",
+          "order": 2,
+          "createdAt": 1800000001000,
+          "completedAt": 1800000004000,
+          "turnSourceId": "turn-fixture",
+          "replyToSourceId": "message-user-fixture",
+          "status": "completed",
+          "content": [
+            {
+              "type": "reasoning",
+              "text": "Persisted reasoning fixture.",
+              "createdAt": 1800000001000,
+              "completedAt": 1800000001500,
+              "sourceRefs": [
+                {
+                  "workspaceStorageId": "workspace-fixture",
+                  "sourceSessionId": "session-fixture",
+                  "locator": {
+                    "type": "runtime-field",
+                    "value": "messages[1].plan_item[0].reasoning_content"
+                  },
+                  "parserProfile": {
+                    "id": "trae-cn-runtime-v2",
+                    "version": 1
+                  },
+                  "sha256": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+                }
+              ]
+            },
+            {
+              "type": "tool",
+              "callId": "tool-call-fixture",
+              "name": "fixture.read",
+              "input": {
+                "path": "example.txt",
+                "limit": 2
+              },
+              "output": {
+                "text": "first line\nsecond line\n"
+              },
+              "status": "completed",
+              "createdAt": 1800000002000,
+              "completedAt": 1800000003000,
+              "sourceRefs": [
+                {
+                  "workspaceStorageId": "workspace-fixture",
+                  "sourceSessionId": "session-fixture",
+                  "locator": {
+                    "type": "runtime-field",
+                    "value": "messages[1].plan_item[1].tool_call_info"
+                  },
+                  "parserProfile": {
+                    "id": "trae-cn-runtime-v2",
+                    "version": 1
+                  },
+                  "sha256": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "Completed response.\n",
+              "sourceRefs": [
+                {
+                  "workspaceStorageId": "workspace-fixture",
+                  "sourceSessionId": "session-fixture",
+                  "locator": {
+                    "type": "runtime-field",
+                    "value": "messages[1].content"
+                  },
+                  "parserProfile": {
+                    "id": "trae-cn-runtime-v2",
+                    "version": 1
+                  },
+                  "sha256": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                }
+              ]
+            }
+          ],
+          "sourceRefs": [
+            {
+              "workspaceStorageId": "workspace-fixture",
+              "sourceSessionId": "session-fixture",
+              "locator": {
+                "type": "runtime-field",
+                "value": "messages[1]"
+              },
+              "parserProfile": {
+                "id": "trae-cn-runtime-v2",
+                "version": 1
+              },
+              "sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+            }
+          ]
+        }
+      ],
+      "resources": [],
+      "sourceRefs": [
+        {
+          "workspaceStorageId": "workspace-fixture",
+          "sourceSessionId": "session-fixture",
+          "locator": {
+            "type": "runtime-field",
+            "value": "chat.getMessages"
+          },
+          "parserProfile": {
+            "id": "trae-cn-runtime-v2",
+            "version": 1
+          },
+          "sha256": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      ]
+    }
+  ],
+  "diagnostics": [
+    {
+      "id": "diagnostic-fixture",
+      "severity": "info",
+      "code": "TRAE_THOUGHT_NOT_MAPPED",
+      "message": "A source thought field was retained as diagnostic evidence.",
+      "subject": {
+        "type": "event",
+        "sourceId": "message-assistant-fixture"
+      },
+      "sourceRefs": [],
+      "context": {
+        "field": "plan_item.thought",
+        "observed": true
+      }
+    }
+  ]
+}

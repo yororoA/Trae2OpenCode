@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-09-23T06:10:00.000Z",
+  "source": {
+    "product": {
+      "name": "trae-cn",
+      "version": "3.3.104"
+    },
+    "platform": "darwin",
+    "profile": {
+      "id": "trae-cn-runtime-v2",
+      "version": 1,
+      "verification": "verified"
+    },
+    "sourceFingerprint": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "collectedAt": "2026-09-23T06:09:00.000Z"
+  },
+  "projects": [],
+  "sessions": [],
+  "diagnostics": [],
+  "unmappedSourcePayload": {
+    "must": "not be silently accepted"
+  }
+}
