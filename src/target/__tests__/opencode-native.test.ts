@@ -35,7 +35,7 @@ const api = {
 async function setup(run: (harness: {
   transfer: OpenCodeTransfer;
   adapter: ReturnType<typeof createNativeOpenCodeAdapter>;
-  state: { stored: OpenCodeTransfer | null; version: string; fail: boolean; lose: boolean; wrongId: boolean };
+  state: { stored: OpenCodeTransfer | null; version: string; fail: boolean; lose: boolean; wrongId: boolean; dropMessage: boolean };
   calls: string[][];
   root: string;
 }) => Promise<void>) {
@@ -45,7 +45,7 @@ async function setup(run: (harness: {
     sessionId: "ses_native", directory: root,
     messageIds: new Map([["user-synthetic", "msg_u"], ["assistant-synthetic", "msg_a"]]),
   }).transfer;
-  const state = { stored: null as OpenCodeTransfer | null, version: "2.0.12", fail: false, lose: false, wrongId: false };
+  const state = { stored: null as OpenCodeTransfer | null, version: "2.0.12", fail: false, lose: false, wrongId: false, dropMessage: false };
   const calls: string[][] = [];
   const transport: OpenCodeTransport = {
     async request(route) {
@@ -56,6 +56,7 @@ async function setup(run: (harness: {
       if (!matches || !state.stored) return { status: 404, body: null };
       const data = structuredClone(state.stored);
       if (state.wrongId) data.info.id = "ses_wrong";
+      if (state.dropMessage) data.messages.pop();
       return { status: 200, body: { data } };
     },
     async run(args) {
@@ -141,6 +142,14 @@ describe("native OpenCode CLI adapter", () => {
     await setup(async ({ transfer, adapter, state }) => {
       state.wrongId = true;
       await assert.rejects(adapter.importSession(transfer), { code: "T2O_OPENCODE_READBACK_INVALID" });
+    });
+  });
+
+  it("rejects a schema-valid partial readback and still cleans private input files", async () => {
+    await setup(async ({ transfer, adapter, state, root }) => {
+      state.dropMessage = true;
+      await assert.rejects(adapter.importSession(transfer), { code: "T2O_OPENCODE_RECONCILIATION_FAILED" });
+      assert.deepEqual(await fs.readdir(root), []);
     });
   });
 

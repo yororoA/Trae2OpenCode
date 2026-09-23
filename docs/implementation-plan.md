@@ -1,6 +1,6 @@
 # Trae2OpenCode 实现规划
 
-> 状态：M0 至 M3 已合入 `main`；M4-1 至 M4-5 已完成，位于 `m4/opencode-import`
+> 状态：M0 至 M3 已合入 `main`；M4-1 至 M4-6 已完成，位于 `m4/opencode-import`
 > 核验日期：2026-09-24
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
@@ -38,7 +38,7 @@ M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP
 | M2 能力探测 | 已集成 | 已输出 storage profile、字段覆盖率和 runtime adapter 状态 |
 | M2 recovery grading | 已集成 | 已实现逐会话四级分级、稳定缺失原因和 metadata session discovery |
 | M3 TRAE 读取 | 已集成，PR #14 | 已实现各类 parser、profile 注册、IR 组装与完整性/golden 校验；production runtime bridge 尚未接入 |
-| M4 OpenCode adapter | M4-1 至 M4-5 已完成 | 已实现能力探测、IR 映射、稳定 ID、CLI adapter 和路径映射；完整对账继续推进 |
+| M4 OpenCode adapter | M4-1 至 M4-6 已完成 | 能力探测、IR 映射、稳定 ID、CLI adapter、路径映射与完整对账；五组 macOS 隔离实机通过 |
 | M5-M7 | 未开始 | 编排、安全、资源迁移、兼容与发布能力均未实现 |
 
 当前结论不能表述为“迁移工具已可用”。准确状态是：M0 已解除源数据可恢复性
@@ -517,7 +517,7 @@ M2 最终累计 98 项单元测试、lint、TypeScript typecheck、build、CLI s
 | M4-3 | 稳定 ID 与父子依赖排序 | M4-2 | 已完成：内容更新 ID 稳定，父先于子，缺父/环/重复拒绝 |
 | M4-4 | 原生 CLI import adapter | M4-1..3 | 已实现并通过 macOS 实机；Windows 无 shell 参数路径待 M7 矩阵验证 |
 | M4-5 | 项目目录与不存在路径策略 | M4-2 | 已完成：默认保留原路径，显式 path map/fallback，不自动创建目录 |
-| M4-6 | 导入后 export/readback 对账 | M4-4 | 数量、顺序、类型和 hash 一致 |
+| M4-6 | 导入后 export/readback 对账 | M4-4 | 已完成：数量、顺序、类型、metadata 与 hash；只允许已确认的 session 投影差异 |
 
 OpenCode import 是实验性能力。M4-6 必须验证实际导入结果，不能只依赖 HTTP 200；
 当前探测已证明形状不正确的消息可能没有进入最终投影。
@@ -540,6 +540,10 @@ M4-4 原生 CLI adapter 已完成，累计 233 项测试。macOS 实机 CLI/API 
 
 M4-5 只读目录策略已完成，累计 240 项测试；详见
 [M4-5 项目目录](./m4-5-project-directory.md)。
+
+M4-6 已将完整回读对账接入 adapter，累计 249 项测试。五组 macOS OpenCode
+2.0.12 隔离 import/export 全部 verified；详见
+[M4-6 回读对账](./m4-6-readback-reconciliation.md)。
 
 ### M5：迁移编排与安全性，3-5 天
 

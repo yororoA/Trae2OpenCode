@@ -203,6 +203,10 @@ export const ERROR_DEFINITIONS = {
     exitCode: 5,
     message: "The private import temporary directory could not be removed.",
   },
+  T2O_OPENCODE_RECONCILIATION_FAILED: {
+    exitCode: 5,
+    message: "The imported OpenCode transcript does not match the planned transfer.",
+  },
   T2O_INTERNAL_UNEXPECTED: {
     exitCode: 1,
     message: "An unexpected internal error occurred.",

@@ -5,6 +5,7 @@ import { Trae2OpenCodeError } from "../../shared/errors.js";
 import { requireOpenCodeCapabilities } from "./capability-probe.js";
 import { assertOpenCodeTransfer, EXPORT_ROUTE, isRecord } from "./contract.js";
 import type { OpenCodeTransfer } from "./mapping.js";
+import { requireOpenCodeReconciliation } from "./reconciliation.js";
 import { createOpenCodeTransport, type OpenCodeTransport } from "./transport.js";
 
 export interface NativeOpenCodeAdapterOptions {
@@ -103,6 +104,7 @@ export function createNativeOpenCodeAdapter(options: NativeOpenCodeAdapterOption
         await transport.run(["session", "import", input, "--server", serverUrl, "--directory", directory]);
         actual = await read(id);
         if (!actual) throw new Trae2OpenCodeError("T2O_OPENCODE_READBACK_INVALID");
+        requireOpenCodeReconciliation(transfer, actual);
       } catch (error) {
         failure = error instanceof Trae2OpenCodeError
           ? error : new Trae2OpenCodeError("T2O_OPENCODE_IMPORT_FAILED");
