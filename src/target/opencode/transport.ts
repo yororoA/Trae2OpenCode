@@ -1,0 +1,98 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { Trae2OpenCodeError } from "../../shared/errors.js";
+
+const exec = promisify(execFile);
+const MAX_RESPONSE_BYTES = 32 * 1024 * 1024;
+
+export interface OpenCodeTransport {
+  run(args: readonly string[]): Promise<string>;
+  request(route: string): Promise<{ status: number; body: unknown }>;
+}
+
+/** Credentials stay in process memory; URLs and command failures are never logged. */
+export function createOpenCodeTransport(options: {
+  serverUrl: string;
+  binary?: string;
+  password?: string;
+  username?: string;
+  cwd?: string;
+  env?: NodeJS.ProcessEnv;
+  timeoutMs?: number;
+}): OpenCodeTransport {
+  let url: URL;
+  try {
+    url = new URL(options.serverUrl);
+  } catch {
+    throw new Trae2OpenCodeError("T2O_OPENCODE_SERVER_INVALID");
+  }
+  const isLocalServer = ["127.0.0.1", "[::1]", "localhost"].includes(url.hostname);
+  const isRootUrl = url.pathname === "/" && !url.search && !url.hash && !url.username && !url.password;
+  if (!isLocalServer || !isRootUrl || url.protocol !== "http:") {
+    throw new Trae2OpenCodeError("T2O_OPENCODE_SERVER_INVALID");
+  }
+  const baseUrl = url.origin;
+  const timeoutMs = options.timeoutMs ?? 30_000;
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 300_000) {
+    throw new Trae2OpenCodeError("T2O_OPENCODE_SERVER_INVALID");
+  }
+  // Copy caller options so later mutation cannot change the endpoint or credentials.
+  const binary = options.binary ?? "opencode";
+  const cwd = options.cwd;
+  const password = options.password;
+  const username = options.username ?? "opencode";
+  const env = {
+    ...(options.env ?? process.env),
+    ...(password !== undefined ? { OPENCODE_PASSWORD: password, OPENCODE_USERNAME: username } : {}),
+  };
+  const authorization = password === undefined
+    ? undefined : `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
+  return {
+    async run(args) {
+      try {
+        // execFile intentionally avoids shell interpolation on both supported platforms.
+        const result = await exec(binary, [...args], {
+          cwd, env, timeout: timeoutMs, maxBuffer: MAX_RESPONSE_BYTES,
+          killSignal: "SIGKILL", windowsHide: true,
+        });
+        return result.stdout;
+      } catch {
+        // exec errors contain stdout/stderr, command args and potentially full messages.
+        throw new Trae2OpenCodeError("T2O_OPENCODE_COMMAND_FAILED");
+      }
+    },
+    async request(route) {
+      const isLocalRoute = route.startsWith("/") && !route.startsWith("//") &&
+        !route.includes("\\") && !route.includes("#");
+      if (!isLocalRoute) throw new Trae2OpenCodeError("T2O_OPENCODE_SERVER_INVALID");
+      try {
+        const response = await fetch(baseUrl + route, {
+          headers: authorization ? { authorization } : {},
+          signal: AbortSignal.timeout(timeoutMs),
+          redirect: "error",
+        });
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error("Missing response");
+        const chunks: Buffer[] = [];
+        let length = 0;
+        try {
+          while (true) {
+            const chunk = await reader.read();
+            if (chunk.done) break;
+            length += chunk.value.byteLength;
+            if (length > MAX_RESPONSE_BYTES) throw new Error("Response limit");
+            chunks.push(Buffer.from(chunk.value));
+          }
+        } finally {
+          await reader.cancel().catch(() => {});
+          reader.releaseLock();
+        }
+        // Error payloads need not be JSON and must not escape the transport.
+        const body = response.ok ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : null;
+        return { status: response.status, body };
+      } catch {
+        throw new Trae2OpenCodeError("T2O_OPENCODE_REQUEST_FAILED");
+      }
+    },
+  };
+}

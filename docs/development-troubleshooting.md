@@ -127,3 +127,13 @@ npm rebuild better-sqlite3
 
 重建后应先用内存数据库验证模块可加载，再运行项目测试。CI 使用固定 Node.js 20
 和全新的 `npm ci`，不会复用本机其他 Node 版本编译的二进制。
+
+## 2026-09-24：单测报告工具自更新被 sandbox 拒绝
+
+M4-1 单测流程末尾执行 `utree flush --repo-path ...` 时，工具试图写入工作区外
+的 `bits-unit-test-gen/.skill_update_*` 文件，返回 `TRAE Sandbox Error:
+hit restricted`，退出码 1。该失败发生于报告工具的自更新阶段，不能据此认定
+单测失败，也不能声称 flush 已成功落盘。
+
+本次保留 sandbox 边界，不绕过权限。测试范围、分析、用例和实际验证结果记录在
+仓库 `docs/m4-1-opencode-capability.md`；项目 `npm run check` 已独立成功。

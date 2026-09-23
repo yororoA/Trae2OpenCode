@@ -1,6 +1,6 @@
 # Trae2OpenCode 实现规划
 
-> 状态：M0、M1、M2 已合入 `main`；M3-1 至 M3-8 已完成，位于 `m3/trae-parser`
+> 状态：M0 至 M3 已合入 `main`；M4-1 已完成，位于 `m4/opencode-import`
 > 核验日期：2026-09-24
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
@@ -37,8 +37,8 @@ M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP
 | M2 SQLite 快照 | 已集成 | 已实现 Online Backup、WAL 一致性、完整性校验和自动清理 |
 | M2 能力探测 | 已集成 | 已输出 storage profile、字段覆盖率和 runtime adapter 状态 |
 | M2 recovery grading | 已集成 | 已实现逐会话四级分级、稳定缺失原因和 metadata session discovery |
-| M3 TRAE 读取 | M3-1 至 M3-8 已完成 | 已实现各类 parser、profile 注册、IR 组装与完整性/golden 校验；production runtime bridge 尚未接入 |
-| M4 OpenCode adapter | 契约验证完成，实现未开始 | 2.0.12 隔离 import/export 已验证，尚无生产 capability probe 与 import adapter |
+| M3 TRAE 读取 | 已集成，PR #14 | 已实现各类 parser、profile 注册、IR 组装与完整性/golden 校验；production runtime bridge 尚未接入 |
+| M4 OpenCode adapter | M4-1 已完成 | 已实现双端版本、原生能力、schema 探测与隔离服务；映射和 import adapter 继续推进 |
 | M5-M7 | 未开始 | 编排、安全、资源迁移、兼容与发布能力均未实现 |
 
 当前结论不能表述为“迁移工具已可用”。准确状态是：M0 已解除源数据可恢复性
@@ -473,6 +473,8 @@ M2 最终累计 98 项单元测试、lint、TypeScript typecheck、build、CLI s
 17. M3-8 已完成 IR 组装、来源指纹、交错内容排序、ID/order/reply/父图完整性
     检查及保守分级；新增 parser-to-IR golden，累计 186 项测试。本机 62 个
     会话仍为 metadata-only，详见 [M3-8 验证](./m3-8-ir-assembly.md)。
+18. M3 已通过 PR #14 合入 `main`，合并提交为 `cb3af1e`；里程碑 push 与
+    PR CI 均通过。后续开发进入 `m4/opencode-import`。
 
 ### M1：工程骨架与 IR，2-3 天
 
@@ -510,7 +512,7 @@ M2 最终累计 98 项单元测试、lint、TypeScript typecheck、build、CLI s
 
 | ID | 任务 | 依赖 | 验收 |
 | --- | --- | --- | --- |
-| M4-1 | 版本与 OpenAPI capability probe | M1-1 | 可判断 import/export/schema 能力 |
+| M4-1 | 版本与 OpenAPI capability probe | M1-1 | 已完成：双端版本、import/export 封装及可达 schema 严格校验 |
 | M4-2 | IR -> `SessionTransfer.Data` 映射 | M1-2, M0-4 | 所有目标联合类型通过 schema |
 | M4-3 | 稳定 ID 与父子依赖排序 | M4-2 | 重跑可识别同一会话 |
 | M4-4 | 原生 CLI import adapter | M4-1..3 | Windows/macOS 均可导入 |
@@ -519,6 +521,10 @@ M2 最终累计 98 项单元测试、lint、TypeScript typecheck、build、CLI s
 
 OpenCode import 是实验性能力。M4-6 必须验证实际导入结果，不能只依赖 HTTP 200；
 当前探测已证明形状不正确的消息可能没有进入最终投影。
+
+M4-1 已通过 macOS OpenCode 2.0.12 实机验证，新增 21 项测试，累计 207 项。
+探测不创建会话，未知版本/schema 继续 fail closed。详细契约和验证见
+[M4-1 能力探测](./m4-1-opencode-capability.md)。
 
 ### M5：迁移编排与安全性，3-5 天
 

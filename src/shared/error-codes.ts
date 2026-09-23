@@ -131,6 +131,38 @@ export const ERROR_DEFINITIONS = {
     exitCode: 4,
     message: "The TRAE parser profile does not support this capability.",
   },
+  T2O_OPENCODE_VERSION_UNSUPPORTED: {
+    exitCode: 5,
+    message: "The OpenCode version has no verified import contract.",
+  },
+  T2O_OPENCODE_SERVER_INVALID: {
+    exitCode: 5,
+    message: "OpenCode requires a local HTTP server URL without credentials or a path.",
+  },
+  T2O_OPENCODE_SERVER_START_FAILED: {
+    exitCode: 5,
+    message: "The isolated OpenCode server could not start.",
+  },
+  T2O_OPENCODE_COMMAND_FAILED: {
+    exitCode: 5,
+    message: "The OpenCode command failed or exceeded its time or output limit.",
+  },
+  T2O_OPENCODE_REQUEST_FAILED: {
+    exitCode: 5,
+    message: "The OpenCode request failed or exceeded its time or response limit.",
+  },
+  T2O_OPENCODE_CAPABILITY_UNAVAILABLE: {
+    exitCode: 5,
+    message: "OpenCode does not expose the required native import/export capabilities.",
+  },
+  T2O_OPENCODE_SCHEMA_UNSUPPORTED: {
+    exitCode: 5,
+    message: "The OpenCode transfer schema differs from the verified contract.",
+  },
+  T2O_OPENCODE_TRANSFER_INVALID: {
+    exitCode: 5,
+    message: "The transfer data does not satisfy the OpenCode schema.",
+  },
   T2O_INTERNAL_UNEXPECTED: {
     exitCode: 1,
     message: "An unexpected internal error occurred.",
