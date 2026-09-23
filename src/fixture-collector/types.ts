@@ -1,5 +1,7 @@
 /** Fixture 采集器类型定义 */
 
+import type { MessageSourceProbe } from "./source-locations";
+
 export interface TraeDataRoots {
   os: "darwin" | "win32" | "linux";
   userDataPath: string;
@@ -76,6 +78,7 @@ export interface FixtureReport {
   globalStorage: {
     stateVscdb: SqliteSnapshot | null;
   };
+  messageSources: MessageSourceProbe;
   workspaces: WorkspaceSnapshot[];
   summary: {
     totalWorkspaces: number;

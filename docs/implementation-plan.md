@@ -140,14 +140,19 @@ TRAE roots
 
 ### 4.1 TRAE 数据源优先级
 
-1. `workspaceStorage/<id>/workspace.json`
-2. `workspaceStorage/<id>/state.vscdb`
-3. `workspaceStorage/<id>/long-text/`
-4. `workspaceStorage/<id>/paste-files/`
-5. `globalStorage/state.vscdb`
-6. 经用户显式授权的其他本地缓存或官方 API
+1. 客户端运行时 `_aiAgentChatService.getSessionMessages`
+   (`lite/get_messages`)
+2. `ModularData/ai-agent/database.db`（加密/不透明；不得绕过访问控制）
+3. `workspaceStorage/<id>/workspace.json`
+4. `workspaceStorage/<id>/state.vscdb`
+5. `workspaceStorage/<id>/long-text/`
+6. `workspaceStorage/<id>/paste-files/`
+7. `globalStorage/state.vscdb`
+8. 经用户显式授权的其他本地缓存或官方 API
 
 扫描数据库时使用只读连接或一致性快照，不能直接操作运行中的数据库文件。
+当前版本的消息来源证据与验证状态见
+[`m0-3-source-location.md`](./m0-3-source-location.md)。
 
 ### 4.2 IR 最小结构
 
@@ -219,6 +224,17 @@ trae2opencode rollback --manifest <path>
 
 **退出条件**：至少一个真实会话能恢复完整消息链；若做不到，项目目标降级为
 “本地可用数据导出器”，不能继续宣称完整迁移。
+
+#### 当前进展（2026-09-23）
+
+- M0-1、M0-2：已固化采集器与 3.3.104 结构 fixture；旧 `memento` 仍未验证。
+- M0-3：来源映射与只读探测已提交（`0598c87`），19 项测试及类型检查通过。
+  当前证据仅为 `schema-observed`，真实消息的角色、顺序、reasoning/tool
+  关联仍需脱敏回读验证；M0-3 尚未通过全部验收，M0 退出条件尚未满足。
+- 下一步推进没有前置依赖的 M0-4，使用隔离的 OpenCode 数据目录与合成会话
+  验证原生 import/export。目标端验证成功不能替代 TRAE 源端真实会话验收。
+- 开发执行通道暂时使用备用方案，原因与复现方法见
+  [开发环境故障排查](./development-troubleshooting.md)。
 
 ### M1：工程骨架与 IR，2-3 天
 
