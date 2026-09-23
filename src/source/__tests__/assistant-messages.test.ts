@@ -469,6 +469,20 @@ describe("parseTraeRuntimeAssistantMessages", () => {
 });
 
 describe("scanTraeLongTextResources", () => {
+  it("refuses symlink roots and excessive directory depth", () => {
+    const root = createRoot();
+    const file = createLongText(root, "workspace-a", "scope/entry/file.txt", "outside workspace body");
+    const secondWorkspace = path.join(root.workspaceStoragePath, "workspace-b");
+    fs.mkdirSync(secondWorkspace);
+    fs.symlinkSync(path.dirname(path.dirname(path.dirname(file))), path.join(secondWorkspace, "long-text"), "dir");
+    createLongText(root, "workspace-a", "scope/entry/deeper/file.txt", "unsupported depth");
+    const report = scanTraeLongTextResources(root, "3.3.104");
+    assert.equal(report.longTextResources.length, 1);
+    assert.equal(report.longTextResources[0].workspaceStorageId, "workspace-a");
+    assert.equal(report.issues.filter((item) => item.code === "T2O_TRAE_LONG_TEXT_LAYOUT_INVALID").length, 2);
+    assert.doesNotMatch(JSON.stringify(report), /outside workspace body|unsupported depth/);
+  });
+
   it("associates only exact query-cache paths in the same workspace", () => {
     const root = createRoot();
     const firstPath = createLongText(

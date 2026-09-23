@@ -1,6 +1,6 @@
 # Trae2OpenCode 实现规划
 
-> 状态：M0、M1、M2 已合入 `main`；M3-1 至 M3-5 已完成，位于 `m3/trae-parser`
+> 状态：M0、M1、M2 已合入 `main`；M3-1 至 M3-6 已完成，位于 `m3/trae-parser`
 > 核验日期：2026-09-24
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
@@ -37,7 +37,7 @@ M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP
 | M2 SQLite 快照 | 已集成 | 已实现 Online Backup、WAL 一致性、完整性校验和自动清理 |
 | M2 能力探测 | 已集成 | 已输出 storage profile、字段覆盖率和 runtime adapter 状态 |
 | M2 recovery grading | 已集成 | 已实现逐会话四级分级、稳定缺失原因和 metadata session discovery |
-| M3 TRAE 读取 | M3-1 至 M3-5 已完成 | 已实现 metadata、user/assistant、reasoning/plan、tool、query cache 和精确 long-text 关联；production runtime bridge 尚未接入 |
+| M3 TRAE 读取 | M3-1 至 M3-6 已完成 | 已实现 metadata、user/assistant、reasoning/plan、tool、query cache 和资源精确路径解析；production runtime bridge 尚未接入 |
 | M4 OpenCode adapter | 契约验证完成，实现未开始 | 2.0.12 隔离 import/export 已验证，尚无生产 capability probe 与 import adapter |
 | M5-M7 | 未开始 | 编排、安全、资源迁移、兼容与发布能力均未实现 |
 
@@ -464,6 +464,9 @@ M2 最终累计 98 项单元测试、lint、TypeScript typecheck、build、CLI s
 14. M3-5 已完成按 call ID 的工具终态归并、payload 保留、冲突拒绝和孤儿诊断。
     非空错误 payload 明确标记待内容验证；累计 142 项测试，详见
     [M3-5 验证](./m3-5-tool-calls.md)。
+15. M3-6 已完成图片、文件和长文本资源解析，记录 hash/MIME/缺失与待解析状态，
+    修正长文本根符号链接与文件字段兼容。实机发现 134 个可读本地资源，缓存
+    不推断会话归属；累计 153 项测试，详见 [M3-6 验证](./m3-6-resources.md)。
 
 ### M1：工程骨架与 IR，2-3 天
 
@@ -493,7 +496,7 @@ M2 最终累计 98 项单元测试、lint、TypeScript typecheck、build、CLI s
 | M3-3 | assistant 文本与 long-text 关联 | M0-3, M3-1 | 不按文件名猜测错误归属 | 已完成 |
 | M3-4 | reasoning/plan 解析 | M0-3, M3-1 | 仅映射实际持久化内容 | 已完成 |
 | M3-5 | tool call/result 状态机归并 | M0-3, M3-1 | call/result 一一关联，孤儿项有告警 | 已完成 |
-| M3-6 | 图片、文件和长文本附件解析 | M3-2 | 缺失文件、mime、hash 均有记录 | 未开始 |
+| M3-6 | 图片、文件和长文本附件解析 | M3-2 | 缺失文件、mime、hash 均有记录 | 已完成 |
 | M3-7 | profile 解析器注册表 | M3-1..6 | 未验证或未知版本拒绝静默套用规则 | 未开始 |
 | M3-8 | IR 排序、去重与完整性校验 | M3-1..7 | golden fixture 全部通过 | 未开始 |
 
@@ -612,7 +615,7 @@ OpenCode import 是实验性能力。M4-6 必须验证实际导入结果，不�
 
 1. M0、M1 已完成并合入 `main`。
 2. M2-1 至 M2-5 已完成，并通过 PR #13 合入 `main`。
-3. M3-1 至 M3-5 已完成；进入 M3-6 至 M3-8，完成资源与 IR 标准化。
+3. M3-1 至 M3-6 已完成；进入 M3-7 至 M3-8，完成 profile 注册与 IR 标准化。
 4. 完成 M3 其余解析器，生成可审计 IR，并打通真实来源到 OpenCode 的
    import/export 对账。
 5. 增加批量迁移、manifest、resume 和 rollback。

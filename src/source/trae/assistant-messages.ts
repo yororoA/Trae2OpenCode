@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { ERROR_DEFINITIONS } from "../../shared/error-codes.js";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
 import type { DiscoveredTraeRoot } from "./path-discovery.js";
+import { assertResourcePath, inspectResourceFile } from "./resource-file.js";
 import {
   parseTraeReasoningPlan,
   type TraePlanItem,
@@ -246,13 +247,6 @@ function sha256(value: unknown): string {
   return `sha256:${crypto
     .createHash("sha256")
     .update(canonicalize(value))
-    .digest("hex")}`;
-}
-
-function sha256Buffer(value: Buffer): string {
-  return `sha256:${crypto
-    .createHash("sha256")
-    .update(value)
     .digest("hex")}`;
 }
 
@@ -838,6 +832,7 @@ function walkLongTextDirectory(
 ): void {
   let entries: fs.Dirent[];
   try {
+    assertResourcePath(path.dirname(path.dirname(longTextRoot)), directoryPath);
     entries = fs
       .readdirSync(directoryPath, { withFileTypes: true })
       .sort((left, right) => left.name.localeCompare(right.name));
@@ -865,7 +860,7 @@ function walkLongTextDirectory(
       );
       continue;
     }
-    if (entry.isDirectory()) {
+    if (entry.isDirectory() && relativePath.split(path.sep).length < 3) {
       walkLongTextDirectory(
         absolutePath,
         longTextRoot,
@@ -892,10 +887,13 @@ function walkLongTextDirectory(
       continue;
     }
 
-    let content: Buffer;
+    let metadata: ReturnType<typeof inspectResourceFile>;
     try {
-      content = fs.readFileSync(absolutePath);
-      new TextDecoder("utf-8", { fatal: true }).decode(content);
+      metadata = inspectResourceFile(
+        path.dirname(path.dirname(longTextRoot)),
+        absolutePath,
+        true,
+      );
     } catch {
       issues.push(
         createIssue("T2O_TRAE_LONG_TEXT_READ_FAILED", {
@@ -907,7 +905,7 @@ function walkLongTextDirectory(
       continue;
     }
 
-    const contentSha256 = sha256Buffer(content);
+    const contentSha256 = metadata.sha256;
     const [scope, entryId, fileName] = segments as [
       string,
       string,
@@ -922,7 +920,7 @@ function walkLongTextDirectory(
         scope,
         entryId,
         fileName,
-        sizeBytes: content.byteLength,
+        sizeBytes: metadata.sizeBytes,
         contentSha256,
         sources: [
           {
@@ -970,7 +968,15 @@ function scanLongTextCandidates(
     );
     let isDirectory = false;
     try {
-      isDirectory = fs.statSync(longTextRoot).isDirectory();
+      const stat = fs.lstatSync(longTextRoot);
+      if (stat.isSymbolicLink()) {
+        issues.push(createIssue("T2O_TRAE_LONG_TEXT_LAYOUT_INVALID", {
+          severity: "error",
+          workspaceStorageId,
+        }));
+        continue;
+      }
+      isDirectory = stat.isDirectory();
     } catch {
       continue;
     }

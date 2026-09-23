@@ -64,7 +64,7 @@ export interface TraeQueryCacheFile {
   type: string;
   resourceUri: string;
   kind: string;
-  uploadMode: string;
+  uploadMode?: string;
   width?: number;
   height?: number;
 }
@@ -783,7 +783,6 @@ function parseFiles(value: unknown): ParseResult<TraeQueryCacheFile[]> {
       item.type,
       item.resourceUri,
       item.kind,
-      item.uploadMode,
     ];
     const hasInvalidRequiredField =
       sizeBytes === undefined ||
@@ -791,12 +790,15 @@ function parseFiles(value: unknown): ParseResult<TraeQueryCacheFile[]> {
         (field) =>
           typeof field !== "string" || field.length === 0,
       );
-    const width = parseOptionalDimension(item.width);
-    const height = parseOptionalDimension(item.height);
+    const width = parseOptionalDimension(item.imageWidth ?? item.width);
+    const height = parseOptionalDimension(item.imageHeight ?? item.height);
+    const invalidUploadMode =
+      item.uploadMode !== undefined &&
+      (typeof item.uploadMode !== "string" || item.uploadMode.length === 0);
     const hasInvalidDimension =
-      (item.width !== undefined && width === undefined) ||
-      (item.height !== undefined && height === undefined);
-    if (hasInvalidRequiredField || hasInvalidDimension) {
+      ((item.imageWidth ?? item.width) !== undefined && width === undefined) ||
+      ((item.imageHeight ?? item.height) !== undefined && height === undefined);
+    if (hasInvalidRequiredField || hasInvalidDimension || invalidUploadMode) {
       return { valid: false };
     }
 
@@ -807,7 +809,7 @@ function parseFiles(value: unknown): ParseResult<TraeQueryCacheFile[]> {
       type: item.type as string,
       resourceUri: item.resourceUri as string,
       kind: item.kind as string,
-      uploadMode: item.uploadMode as string,
+      ...(item.uploadMode === undefined ? {} : { uploadMode: item.uploadMode as string }),
       ...(width === undefined ? {} : { width }),
       ...(height === undefined ? {} : { height }),
     });
