@@ -9,6 +9,8 @@
   "scripts": {
     "test": "node --import tsx --test src/**/__tests__/*.test.ts",
     "collect-fixtures": "npx tsx scripts/collect-fixtures.ts",
+    "collect:trae-runtime-evidence": "tsx scripts/collect-trae-runtime-evidence.ts",
+    "collect:trae-structured-runtime-evidence": "tsx scripts/collect-trae-structured-runtime-evidence.ts",
     "verify:opencode": "tsx scripts/verify-opencode-roundtrip.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit"

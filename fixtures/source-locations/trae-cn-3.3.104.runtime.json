@@ -1,0 +1,242 @@
+{
+  "evidenceVersion": 1,
+  "sourceProduct": {
+    "name": "trae-cn",
+    "version": "3.3.104"
+  },
+  "source": {
+    "kind": "renderer-runtime-log",
+    "path": "logs/<run>/window<id>/renderer.log",
+    "serviceMethod": "_aiAgentChatService.getSessionMessages",
+    "rpc": "chat/get_messages"
+  },
+  "verification": {
+    "status": "partial",
+    "sessionHash": "sha256:1ff944d7f39f1728078c84af07d2fdee687164205fc5484ea8142d188ff31069",
+    "observedFrom": "2026-09-23T09:32:05.439+08:00",
+    "observedTo": "2026-09-23T10:23:18.841+08:00"
+  },
+  "history": {
+    "observations": [
+      {
+        "observedAt": "2026-09-23T09:32:05.439+08:00",
+        "loadedMessageCount": 20,
+        "storeMessageCount": 20,
+        "pendingMessageCount": 0,
+        "planItemCount": 622,
+        "hasMore": true
+      },
+      {
+        "observedAt": "2026-09-23T10:23:11.112+08:00",
+        "loadedMessageCount": 20,
+        "storeMessageCount": 20,
+        "pendingMessageCount": 0,
+        "planItemCount": 623,
+        "hasMore": true
+      }
+    ],
+    "paginationObserved": true,
+    "planItemsObserved": true
+  },
+  "turns": {
+    "samples": [
+      {
+        "assistantMessageHash": "sha256:35a89f7288a28939cf6eb17b53997f00ac28c8aa684792432097b06400c76fff",
+        "userMessageHash": "sha256:f2ab5783cb0f11310671de703da36f1fda8976bc9dac96864a5e3447fa6cfd1e",
+        "turnHash": "sha256:a82ff01804974c8656aea695fe7940959b47aac859fe6b52e47ef504af969dda",
+        "messageIndex": 22,
+        "messageType": "task",
+        "status": "in_progress",
+        "relationVerified": true
+      },
+      {
+        "assistantMessageHash": "sha256:8b066f7b5f08b4b79893314e665c2fcc57d63b1edcc5c7dcd22f98ae6a570c80",
+        "userMessageHash": "sha256:15e897b6150ed29541c3d141dabd1841f03dcf464ecd695525b913401473f653",
+        "turnHash": "sha256:cd763c730db152455f70f116545bf2c532d6737e36ba6039285c0d293bde09c1",
+        "messageIndex": 24,
+        "messageType": "task",
+        "status": "in_progress",
+        "relationVerified": true
+      },
+      {
+        "assistantMessageHash": "sha256:3bd48c95a67d706519a5a993663165523e2125324acc11700e7f4d9dcdc74b79",
+        "userMessageHash": "sha256:51bba063e75c5d1fb7f43f1e37e9f8c17c388f700088577e63bf94ea922fb91a",
+        "turnHash": "sha256:3e04df9c99b02b9c04a794d9370224aa67b74739ad769dec30caf3e8b424fac2",
+        "messageIndex": 26,
+        "messageType": "task",
+        "status": "in_progress",
+        "relationVerified": true
+      }
+    ],
+    "roleProjectionVerified": true,
+    "replyAssociationVerified": true,
+    "turnAssociationVerified": true,
+    "messageIndicesStrictlyIncreasing": true
+  },
+  "tools": {
+    "sampledCalls": 34,
+    "pairedCalls": 34,
+    "unpairedCalls": 0,
+    "statusValues": [
+      "Exited",
+      "Running"
+    ],
+    "samples": [
+      {
+        "toolCallHash": "sha256:250f047776dde87a04aee20ad8b179525abca4250714cc574f3441de81145a68",
+        "statuses": [
+          "Running",
+          "Exited"
+        ],
+        "terminalStatus": "Exited",
+        "exitKind": "error"
+      },
+      {
+        "toolCallHash": "sha256:bfba5cf51c0db6717241149d29a13c5a09a891ad40cf5af7c7b3fa62ef903d1e",
+        "statuses": [
+          "Running",
+          "Exited"
+        ],
+        "terminalStatus": "Exited",
+        "exitKind": "success"
+      },
+      {
+        "toolCallHash": "sha256:1ea223d9dba808645c2b99f1db42d238ddceace9dda4032000b26adde041ab3e",
+        "statuses": [
+          "Running",
+          "Exited"
+        ],
+        "terminalStatus": "Exited",
+        "exitKind": "success"
+      },
+      {
+        "toolCallHash": "sha256:a0a7ce84208ab9a947f4ceaf6bc932bcb68a51423b3879d74ba00e528944a522",
+        "statuses": [
+          "Running",
+          "Exited"
+        ],
+        "terminalStatus": "Exited",
+        "exitKind": "success"
+      },
+      {
+        "toolCallHash": "sha256:b811a4fe7a2d56524cc98411dfc8e9a954a37f86b2329b404c4867d4a25065cb",
+        "statuses": [
+          "Running",
+          "Exited"
+        ],
+        "terminalStatus": "Exited",
+        "exitKind": "error"
+      },
+      {
+        "toolCallHash": "sha256:5c93a2b474ab8dfd54ad35c631d5487ffff17da10b8df4c8f9fbf9ab4d038d67",
+        "statuses": [
+          "Running",
+          "Exited"
+        ],
+        "terminalStatus": "Exited",
+        "exitKind": "success"
+      },
+      {
+        "toolCallHash": "sha256:7f92af09c022a44eb4332c2de815e950bf37801a3f39ae0d2459794f1956f8c5",
+        "statuses": [
+          "Running",
+          "Exited"
+        ],
+        "terminalStatus": "Exited",
+        "exitKind": "success"
+      },
+      {
+        "toolCallHash": "sha256:bbf077ad3e3a35879f027bbc2556dc3d2858631fabdebd3d0f71e8aff9de1c56",
+        "statuses": [
+          "Running",
+          "Exited"
+        ],
+        "terminalStatus": "Exited",
+        "exitKind": "success"
+      },
+      {
+        "toolCallHash": "sha256:35655ae330eaa6a804bdb5664b9c463c6e66d3f9b5acd1c0ac2c703a27d326d9",
+        "statuses": [
+          "Running",
+          "Exited"
+        ],
+        "terminalStatus": "Exited",
+        "exitKind": "error"
+      },
+      {
+        "toolCallHash": "sha256:04861b2740739cd4947e7726fa5d39c477b13bf2126ffeda415464f2202b23e2",
+        "statuses": [
+          "Running",
+          "Exited"
+        ],
+        "terminalStatus": "Exited",
+        "exitKind": "success"
+      },
+      {
+        "toolCallHash": "sha256:b89a14ac68160e529cb76a6d5102afa3bdfb99fb43cd5e2ba938a5b88afa6858",
+        "statuses": [
+          "Running",
+          "Exited"
+        ],
+        "terminalStatus": "Exited",
+        "exitKind": "success"
+      },
+      {
+        "toolCallHash": "sha256:167d2ed87f1576e0012aba8376b760039b476884493c777b7e2157d12547c56d",
+        "statuses": [
+          "Running",
+          "Exited"
+        ],
+        "terminalStatus": "Exited",
+        "exitKind": "error"
+      }
+    ]
+  },
+  "coverage": {
+    "user": {
+      "evidenceLevel": "runtime-readback",
+      "verified": [
+        "user message identity in assistant reply relation",
+        "session membership"
+      ]
+    },
+    "assistant": {
+      "evidenceLevel": "runtime-readback",
+      "verified": [
+        "assistant message identity",
+        "message_index ordering",
+        "turn_id and reply_to_message_id association"
+      ]
+    },
+    "reasoning": {
+      "evidenceLevel": "schema-observed",
+      "verified": [
+        "plan items are attached during history readback"
+      ],
+      "unverified": [
+        "thought text projection",
+        "reasoning versus non-reasoning plan item classification"
+      ]
+    },
+    "tool": {
+      "evidenceLevel": "runtime-readback",
+      "verified": [
+        "tool_call_id status transition",
+        "terminal success/error classification"
+      ],
+      "unverified": [
+        "tool_name projection",
+        "tool_params payload",
+        "tool_result payload",
+        "plan_item to tool_call_id database join"
+      ]
+    }
+  },
+  "privacy": {
+    "messageContentIncluded": false,
+    "rawIdentifiersIncluded": false,
+    "absolutePathsIncluded": false,
+    "accountDataIncluded": false
+  },
+  "evidenceSha256": "sha256:fd7260057652c2e89d633b760ca0c3b34550de5812634de528fd0c4cd960e97a"
+}

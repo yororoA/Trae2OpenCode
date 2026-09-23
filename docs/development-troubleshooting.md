@@ -2,7 +2,7 @@
 
 ## 2026-09-23：执行通道 transport exception
 
-### 现象与定位
+### 执行通道现象与定位
 
 Agent 的直连 `exec_command`（包括 `Shell` 别名）在命令启动前返回：
 
@@ -16,7 +16,7 @@ transport exception: entity not found: No such file or directory (os error 2)
 目录消失。执行实体或连接引用失效是候选原因，尚无平台内部日志证实具体根因。
 此前 reload 未消除错误，不能将切换接口描述为原通道已修复。
 
-### 暂行方案
+### 执行通道暂行方案
 
 已确认暂时使用本地 `RunCommand`，继续开发，不再反复探测故障直连通道。
 Agent 可通过代码编排接口调用该工具；普通终端直接执行对应项目命令即可。
@@ -48,3 +48,26 @@ Git 写操作、测试和构建串行执行：备用通道曾出现
 未来恢复直连通道时，应先确认最小命令能返回退出码，再验证项目命令。
 在此之前保留备用方案。临时调试服务与 `.dbg/terminal-transport*` 等产物
 在接受备用方案后清理，此文档保留可复用的排查结论。
+
+## 2026-09-23：Renderer 探针被 CSP 阻止上报
+
+### 探针现象与定位
+
+TRAE workbench DevTools 中的只读探针可以调用 V2
+`TraeApi.chat.getMessages`，但向 `http://127.0.0.1:7777/event` 上报时被
+`connect-src` CSP 拒绝。该错误只影响调试报告传输，不影响已经完成的结构化回读
+和 renderer 内脱敏。
+
+异步函数中的 `copy()` 也不能稳定写入系统剪贴板；早期 fallback 因作用域错误和
+V2 session store 识别错误分别出现过 `reportForFallback is not defined` 与
+`current session not found`。
+
+### 探针回传方案
+
+探针在 renderer 内完成白名单脱敏后，将报告写入
+`localStorage["trae-m0-redacted-probe"]`。再在 DevTools 顶层执行读取与复制，
+避免网络请求。回传文件只允许包含 schema、计数、长度、关系和 SHA-256；必须用
+`collect:trae-structured-runtime-evidence` 重新白名单化并执行隐私扫描。
+
+该方案仅用于生成验证 fixture。生产 reader 不得依赖 DevTools、`localStorage`
+或 renderer 日志，必须使用已验证 runtime adapter 或等价官方 bridge。

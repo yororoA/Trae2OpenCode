@@ -36,15 +36,17 @@ export interface AiAgentDatabaseSnapshot {
 }
 
 export interface MessageSourceProbe {
-  profileId: "trae-cn-ai-agent-v1" | "unknown";
-  profileVerification: "unverified" | "unsupported";
+  profileId: "trae-cn-runtime-v2" | "unknown";
+  profileVerification: "verified" | "unsupported";
   productVersion: string | null;
   database: AiAgentDatabaseSnapshot | null;
   runtimeReadPath:
     | {
-        serviceMethod: "_aiAgentChatService.getSessionMessages";
+        serviceMethod: "TraeApi.chat.getMessages";
         endpoint: "lite/get_messages";
-        evidenceLevel: "schema-observed";
+        environment: "local";
+        evidenceLevel: "runtime-readback";
+        evidenceFixture: "trae-cn-3.3.104.structured-runtime.json";
       }
     | null;
   locations: MessageSourceLocation[];
@@ -55,69 +57,89 @@ const HEADER_SAMPLE_BYTES = 32;
 const MAPPED_PRODUCT_VERSIONS = new Set(["3.3.104"]);
 
 /**
- * M0-3 source map derived from the TRAE CN 3.3.104 client and ai-agent
- * executable schemas. It deliberately remains below row-sampled until a
- * redacted runtime readback verifies the relationship on real data.
+ * M0-3 source map verified from a real TRAE CN 3.3.104 V2 runtime readback.
+ * Physical database tables remain opaque and are not a production data source.
  */
 const MESSAGE_SOURCE_LOCATIONS: readonly MessageSourceLocation[] = [
   {
     contentKind: "user",
     availability: "located",
-    sourcePath: "ModularData/ai-agent/database.db#chat_message",
+    sourcePath: "TraeApi.chat.getMessages#message",
     fields: [
       "message_id",
-      "session_id",
-      "turn_id",
+      "chat_session_id",
+      "role",
+      "query",
       "content",
-      "message_role",
       "message_type",
       "message_index",
+      "created_at",
       "user_message_context",
     ],
-    evidenceLevel: "schema-observed",
-    notes: ["Select rows by message_role; role values are not yet row-sampled."],
+    evidenceLevel: "runtime-readback",
+    notes: [
+      "Real V2 readback verifies non-empty query and content values.",
+      "Assistant reply_to_message_id verifies user/assistant association.",
+    ],
   },
   {
     contentKind: "assistant",
     availability: "located",
-    sourcePath: "ModularData/ai-agent/database.db#chat_message",
+    sourcePath: "TraeApi.chat.getMessages#message",
     fields: [
       "message_id",
-      "session_id",
+      "chat_session_id",
       "turn_id",
+      "reply_to_message_id",
+      "role",
       "content",
-      "message_role",
       "message_type",
       "message_index",
+      "status",
+      "created_at",
+      "chat_start_time",
+      "chat_end_time",
     ],
-    evidenceLevel: "schema-observed",
-    notes: ["Select rows by message_role; role values are not yet row-sampled."],
+    evidenceLevel: "runtime-readback",
+    notes: [
+      "Real V2 readback verifies structured assistant envelopes and text.",
+      "All sampled assistant messages have turn, reply, start, and end timing.",
+    ],
   },
   {
     contentKind: "reasoning",
     availability: "located",
-    sourcePath: "ModularData/ai-agent/database.db#plan_item",
-    fields: ["turn_id", "thought"],
-    evidenceLevel: "schema-observed",
+    sourcePath:
+      "TraeApi.chat.getMessages#assistant.messages[].plan_item",
+    fields: ["id", "thought", "reasoning_content", "timing"],
+    evidenceLevel: "runtime-readback",
     notes: [
-      "The persisted thought field is a candidate reasoning source.",
+      "Real V2 readback verifies non-empty thought and reasoning_content values.",
+      "Only reasoning persisted by TRAE can be recovered.",
       "Hidden reasoning that was never persisted is not recoverable.",
     ],
   },
   {
     contentKind: "tool",
     availability: "located",
-    sourcePath: "ModularData/ai-agent/database.db#plan_item",
+    sourcePath:
+      "TraeApi.chat.getMessages#assistant.messages[].plan_item.tool_call_info",
     fields: [
-      "turn_id",
-      "tool_id",
-      "tool_name",
-      "tool_params",
-      "tool_result",
-      "tool_status",
+      "id",
+      "name",
+      "params",
+      "result.status",
+      "result.data",
+      "result.error_message",
+      "timing.generated_at_ms",
+      "timing.tool_call_started_at_ms",
+      "timing.tool_call_finished_at_ms",
     ],
-    evidenceLevel: "schema-observed",
-    notes: ["Call/result pairing and status values are not yet row-sampled."],
+    evidenceLevel: "runtime-readback",
+    notes: [
+      "Real V2 readback verifies tool names, parameters, results, and status.",
+      "Plan-item containment provides the assistant/tool association.",
+    ],
   },
 ];
 
@@ -193,15 +215,17 @@ export function probeMessageSources(
     productVersion !== null && MAPPED_PRODUCT_VERSIONS.has(productVersion);
 
   return {
-    profileId: hasKnownMapping ? "trae-cn-ai-agent-v1" : "unknown",
-    profileVerification: hasKnownMapping ? "unverified" : "unsupported",
+    profileId: hasKnownMapping ? "trae-cn-runtime-v2" : "unknown",
+    profileVerification: hasKnownMapping ? "verified" : "unsupported",
     productVersion,
     database: probeAiAgentDatabase(userDataPath),
     runtimeReadPath: hasKnownMapping
       ? {
-          serviceMethod: "_aiAgentChatService.getSessionMessages",
+          serviceMethod: "TraeApi.chat.getMessages",
           endpoint: "lite/get_messages",
-          evidenceLevel: "schema-observed",
+          environment: "local",
+          evidenceLevel: "runtime-readback",
+          evidenceFixture: "trae-cn-3.3.104.structured-runtime.json",
         }
       : null,
     locations: hasKnownMapping
