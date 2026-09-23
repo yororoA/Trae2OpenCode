@@ -61,9 +61,11 @@ ${commandLines}
   version    Show the version
 
 Options:
-  -h, --help     Show this help
-  -V, --version  Show the version
-      --json     Emit machine-readable output and errors
+  -h, --help          Show this help
+  -V, --version       Show the version
+      --json          Emit machine-readable output and errors
+      --trae-root <path>
+                      Override the TRAE data root
 `;
 }
 
@@ -130,6 +132,9 @@ export function runCli(
         },
         json: {
           type: "boolean",
+        },
+        "trae-root": {
+          type: "string",
         },
       },
     });

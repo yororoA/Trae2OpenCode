@@ -74,7 +74,7 @@ V2 session store 识别错误分别出现过 `reportForFallback is not defined` 
 
 ## 2026-09-23：提交后钩子写入被 sandbox 拒绝
 
-### 现象与定位
+### 提交钩子现象与定位
 
 执行 `git commit` 时，Git 已创建提交并输出提交哈希，随后 TRAE 的全局
 post-commit 钩子尝试写入工作区外的文件：
@@ -87,9 +87,43 @@ Not allow operate files: /Users/bytedance/.bytesec/commit_hook/commit_result.jso
 因此命令最终退出码为 1，但 `git status` 和 `git log -1` 均确认提交已经成功。
 该问题不属于仓库内 hook，也不影响后续 `git push`。
 
-### 处理方式
+### 提交钩子处理方式
 
 看到此错误后先核对 HEAD、工作区和上游状态，不要直接重复提交。当前 sandbox
 会话中保留全局 hook，不通过 `--no-verify` 绕过检查；提交已存在时直接继续执行
 后续验证与推送。若需要彻底消除误报，应在 TRAE 权限配置中显式允许该 hook
 写入目标路径。
+
+## 2026-09-23：better-sqlite3 Node ABI 不一致
+
+### ABI 现象与定位
+
+运行 SQLite 快照测试时，原生模块加载失败：
+
+```text
+better_sqlite3.node was compiled against NODE_MODULE_VERSION 137
+This version of Node.js requires NODE_MODULE_VERSION 108
+```
+
+仓库曾在不同 Node 版本下复用同一 `node_modules`。当前测试进程为 Node.js
+18.20.8（ABI 108），已有 `better-sqlite3` 二进制则由 Node.js 24（ABI 137）
+安装。该错误发生在模块加载阶段，与数据库内容和快照实现无关。
+
+### ABI 处理方式
+
+先确认 `node` 与 `npm` 来自同一版本环境：
+
+```sh
+which node
+which npm
+node -p 'process.version + " ABI=" + process.versions.modules'
+```
+
+再在当前 Node 环境重建原生依赖：
+
+```sh
+npm rebuild better-sqlite3
+```
+
+重建后应先用内存数据库验证模块可加载，再运行项目测试。CI 使用固定 Node.js 20
+和全新的 `npm ci`，不会复用本机其他 Node 版本编译的二进制。

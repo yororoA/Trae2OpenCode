@@ -1,6 +1,6 @@
 # Trae2OpenCode 实现规划
 
-> 状态：M0 已合入 `main`；M1-1 至 M1-3 已合入 M1 里程碑分支；M1-4 已完成，待任务分支 PR
+> 状态：M0、M1 已合入 `main`；M2 已完成，待里程碑分支 PR
 > 核验日期：2026-09-23
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
@@ -31,11 +31,13 @@ M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP
 | --- | --- | --- |
 | M0 格式勘探 | 已完成 | M0-1 至 M0-5 的证据、策略和测试均已完成 |
 | M0 分支交付 | 已集成 | PR #5 已合入 `m0/format-exploration`，PR #6 已合入 `main` |
-| M1 工程骨架 | M1-1 已集成 | PR #7 已合入 `m1/engineering-skeleton` |
-| M1 IR/schema | M1-2 已集成 | PR #8 已合入 `m1/engineering-skeleton` |
-| M1 错误与诊断 | M1-3 已集成 | PR #9 已合入 `m1/engineering-skeleton` |
-| M1 golden fixture | M1-4 已完成 | 已建立规范化、Schema/bundle hash、显式更新和 CI 漂移检测 |
-| M2/M3 TRAE 读取 | 未开始 | M0 collector/probe 只用于勘探；生产 scanner、runtime reader 和 recovery grading 尚未实现 |
+| M1 工程骨架与 IR | 已集成 | PR #7 至 #10 已合入里程碑分支，PR #11 已合入 `main` |
+| M2 路径发现 | M2-1 已集成 | PR #12 已合入 `m2/trae-scanner` |
+| M2 workspace 解析 | M2-2 已完成 | 已实现 folder/workspace URI、JSONC multi-root 和逐记录诊断 |
+| M2 SQLite 快照 | M2-3 已完成 | 已实现 Online Backup、WAL 一致性、完整性校验和自动清理 |
+| M2 能力探测 | M2-4 已完成 | 已输出 storage profile、字段覆盖率和 runtime adapter 状态 |
+| M2 recovery grading | M2-5 已完成 | 已实现逐会话四级分级、稳定缺失原因和 metadata session discovery |
+| M3 TRAE 读取 | 未开始 | production runtime reader 与消息标准化尚未实现 |
 | M4 OpenCode adapter | 契约验证完成，实现未开始 | 2.0.12 隔离 import/export 已验证，尚无生产 capability probe 与 import adapter |
 | M5-M7 | 未开始 | 编排、安全、资源迁移、兼容与发布能力均未实现 |
 
@@ -273,37 +275,175 @@ trae2opencode rollback --manifest <path>
 - 开发执行通道曾发生 transport 故障，原因、备用方案与复现方法见
   [开发环境故障排查](./development-troubleshooting.md)。
 
-#### M1 后续工作
+#### M1 完成明细
 
-1. M1-1 已通过 PR #7 合入里程碑分支；可执行 CLI、lint、CI 和统一质量门禁
-   已建立。
-2. M1-2 已通过 PR #8 合入里程碑分支；IR v1、JSON Schema、运行时 validator
-   和 fixture 校验已建立。
-3. M1-3 已通过 PR #9 合入里程碑分支；错误码、退出码、diagnostic 和脱敏
-   结构化日志已统一。
-4. M1-4 已完成：golden fixture 只读检查、显式更新、Schema hash 和 bundle
-   hash 已建立，单元测试增至 51 项。
-5. 将 M0 renderer 探针替换为生产 runtime adapter；探针、日志和数据库解密均
-   不得成为生产数据源。
+| 任务 | 交付提交 | 集成 PR | 核心结果 | 完成时测试数 |
+| --- | --- | --- | --- | ---: |
+| M1-1 | `f76d031`、`69434d8` | #7 | CLI、lint、CI 和统一质量门禁 | 35 |
+| M1-2 | `89ed76a` | #8 | IR v1、JSON Schema 和运行时校验 | 40 |
+| M1-3 | `214c8af` | #9 | 错误码、diagnostic 和脱敏结构化日志 | 48 |
+| M1-4 | `74ea549` | #10 | deterministic golden fixture 框架 | 51 |
+
+M1-1 建立了可发布的 TypeScript CLI 骨架：
+
+- 增加 `trae2opencode` 可执行入口、参数解析、帮助和版本输出。
+- `doctor`、`scan`、`preview`、`export`、`migrate`、`verify`、`rollback`
+  在实现前明确 fail closed，不会误执行未完成的迁移流程。
+- 使用 Biome 建立 lint 门禁，并将 lint、test、typecheck、build、CLI smoke
+  合并为 `npm run check`。
+- 增加 GitHub Actions `Quality` workflow，使用 Node.js 20 和 `npm ci` 执行
+  同一本地质量门禁。
+- 固定公共 npm registry，验证打包后的 bin 具有可执行权限。
+
+M1-2 固化了后续 scanner、reader 和 OpenCode adapter 共用的
+`MigrationBundle` v1 契约：
+
+- 定义 source、project、session、user/assistant event、text/reasoning/tool
+  content、resource 和 diagnostic 类型。
+- session、event、assistant content 和 resource 强制携带 `sourceRefs`，记录
+  workspace storage ID、源 session ID、locator、parser profile 和 SHA-256。
+- JSON Schema 使用 Draft 2020-12，对已知对象执行
+  `additionalProperties: false`，未知源字段不能被静默接受。
+- 提供 `validateMigrationBundle` 和 `assertMigrationBundle` 运行时接口，以及
+  checked-in 独立 Schema、合法/非法 fixture 和同步检查。
+- `unknown` 恢复或工具状态只允许进入离线 IR，不自动获得 OpenCode 写入资格。
+  完整契约见 [Migration Bundle IR v1](./ir-schema-v1.md)。
+
+M1-3 统一了可供 CLI 和后续模块复用的错误与诊断边界：
+
+- 建立稳定的 `T2O_*` 错误码与退出码，调用方无需解析英文 message。
+- Schema issue 转换为可定位的 IR diagnostic，只包含 instance/schema path、
+  keyword 和安全 message，不回显被校验正文。
+- CLI `--json` 使用 JSON Lines 输出机器可读错误；未知异常统一转换为
+  `T2O_INTERNAL_UNEXPECTED`。
+- 日志 context 采用字段白名单；正文、query、reasoning、tool input/output、
+  payload、token、credential 和绝对用户路径默认脱敏。
+- 详细约束见 [错误、诊断与结构化日志](./error-diagnostics.md)。
+
+M1-4 建立了 IR 变更的显式评审门禁：
+
+- `canonicalizeMigrationBundle` 先执行 Schema 校验，再递归排序对象 key；消息、
+  content block 和 resource 数组保持原始顺序。
+- golden manifest 同时记录 Schema hash、bundle hash、输入路径和期望输出路径；
+  即使只改变可选 Schema 字段，也会触发 CI 漂移。
+- `npm run golden:check` 只读比较，不会自动覆盖期望结果。
+- `npm run golden:update -- --accept` 是唯一更新入口；缺少 `--accept` 时以退出码
+  2 拒绝写入，确保 IR 变化必须产生可审查 diff。
+- 详细流程见 [IR Golden Fixture 工作流](./golden-fixtures.md)。
+
+M1 里程碑分支最终通过 PR #11 合入 `main`，合并提交为 `4a9219d`。退出时
+51 项单元测试、lint、TypeScript typecheck、build 和 CLI smoke 全部通过。
+M1 只完成工程骨架与数据契约，不表示生产 scanner、runtime reader 或真实迁移
+已经可用。
+
+#### M2 完成明细
+
+| 任务 | 交付提交 | 集成状态 | 核心结果 | 完成时测试数 |
+| --- | --- | --- | --- | ---: |
+| M2-1 | `47549eb` | PR #12 已合入 | macOS/Windows 路径发现、`--trae-root` 覆盖和稳定错误码 | 66 |
+| M2-2 | `969facb` | 直接提交 `m2/trae-scanner` | folder/workspace URI、JSONC multi-root、跨平台路径规范化和逐记录诊断 | 78 |
+| M2-3 | `31a569e` | 直接提交 `m2/trae-scanner` | SQLite Online Backup、WAL 一致性、`quick_check`、快照权限和自动清理 | 83 |
+| M2-4 | `5571a67` | 直接提交 `m2/trae-scanner` | storage profile、字段覆盖率和 runtime adapter 能力探测 | 89 |
+| M2-5 | `74a2bc4` | 直接提交 `m2/trae-scanner` | metadata session discovery、四级 recovery grading 和稳定缺失原因 | 98 |
+
+M2-1 建立了独立于 M0 fixture collector 的生产路径发现器：
+
+- 默认支持 macOS `~/Library/Application Support/Trae CN/User` 和 fallback
+  `Trae/User`。
+- Windows 支持 `%APPDATA%`、`%LOCALAPPDATA%` 及缺省推导目录。
+- 显式 `--trae-root` 支持产品目录、`User` 目录和 `~` 展开，指定后不回退默认
+  路径。
+- 发现阶段只检查目录和能力位，不读取数据库正文；未知平台和缺失根目录使用
+  `T2O_*` 错误码。
+
+M2-2 固化了 workspace 到项目路径的解析契约：
+
+- `workspace.json` 的 `folder` 直接映射单项目，`workspace` 指向 JSONC
+  `.code-workspace` 配置。
+- 支持 macOS file URI、Windows drive URI、Windows UNC URI、百分号解码和相对
+  folder path。
+- multi-root 项目按平台语义去重；损坏 metadata、失效配置和远程 URI 隔离为
+  稳定诊断，不猜测路径。
+- 实机解析到 14 个 workspace、11 个 folder、3 个 multi-root 和 25 个项目路径；
+  2 个失效配置、1 个缺失 metadata 被保留为诊断。
+
+M2-3 建立了运行中 TRAE SQLite 的一致性只读快照：
+
+- 源库使用只读连接和 connection-local `query_only`，通过 Online Backup 生成
+  独立快照，不复制主库/WAL 文件、不执行 checkpoint。
+- 临时快照固定为 `0700` 目录、`0600` 数据库，转换为 standalone `DELETE`
+  journal，`quick_check` 失败则 fail closed。
+- callback 成功、失败和重复 cleanup 均有覆盖；缺失/损坏源和快照失败使用稳定
+  `T2O_*` 错误码。
+- 真实 TRAE 快照为 2,248,704 bytes、549 页、`quick_check=ok`；源主库与 WAL
+  SHA-256 均未变化。
+
+M2-4 将存储结构能力与消息运行能力分开探测：
+
+- 3.3.104 且 `ItemTable(key,value)` 有效时标记 `trae-cn-workspace-v3` 为
+  `verified`；旧 memento、hybrid 和未知版本保持 `unverified`/`unsupported`。
+- 只检查 key 存在和 JSON 容器形状，不把 session ID、输入历史、Agent map 或
+  其他数据库值写入报告。
+- runtime profile `trae-cn-runtime-v2` 可以保持 evidence `verified`，但未接入
+  production runtime adapter 时字段必须是 `requires-runtime`。
+- 实机发现 16 个 workspace、解析 15 个，其中 15 个为 verified v3；session
+  index 14/15 可用，invalid 字段为 0，报告无绝对路径。
+
+M2-5 建立了逐会话恢复分级和可复用证据接口：
+
+- `complete` 要求 verified profile、消息数、user text、assistant content、
+  completion time 和 reply relation 全部覆盖。
+- `partial` 允许存在明确缺口，但必须有可用结构化消息源及部分 user/assistant
+  内容。
+- 只能恢复 session metadata 时标记 `metadata-only`；源损坏且无法恢复时标记
+  `unrecoverable`。
+- 从 `ai-chat-v2.lastActiveSessionId` 和
+  `chat.ChatSessionStore.index.entries` 发现并稳定排序 session ID；未来 M3
+  runtime reader 通过 provider 注入逐会话消息证据。
+- 实机发现 10 个 session；在 production runtime adapter 尚未接入时，10 个均为
+  `metadata-only`，没有误报为 `partial` 或 `complete`。
+
+M2 最终累计 98 项单元测试、lint、TypeScript typecheck、build、CLI smoke 和
+实机脱敏验证均通过。M2 只读 scanner 已具备可审计的路径、workspace、SQLite、
+能力和恢复等级基础，但 production runtime reader、正文标准化和真实迁移仍未
+实现。
+
+#### M2 当前进展
+
+1. M2-1 已通过 PR #12 合入里程碑分支：支持 macOS/Windows 默认路径与显式
+   `--trae-root`。详细契约见
+   [M2-1 路径发现](./m2-1-path-discovery.md)。
+2. M2-2 已完成 workspace 与项目路径解析，详细契约见
+   [M2-2 Workspace 解析](./m2-2-workspace-resolution.md)。
+3. M2-3 已完成 SQLite 一致性只读快照，WAL 与真实 TRAE 数据库验证均通过，
+   详细契约见 [M2-3 SQLite 快照](./m2-3-sqlite-snapshot.md)。
+4. M2-4 已完成 storage profile 与字段覆盖率探测，详细契约见
+   [M2-4 能力探测](./m2-4-capability-probe.md)。
+5. M2-5 已完成会话级 recovery grading；当前实机发现的 10 个 session 因
+   production runtime adapter 尚未接入而全部明确标记为 `metadata-only`。
+   详细契约见 [M2-5 恢复等级](./m2-5-recovery-grading.md)。
+6. M2 里程碑任务已全部完成。后续将 M0 renderer 探针替换为 production runtime
+   adapter；探针、日志和数据库解密
+   均不得成为生产数据源。
 
 ### M1：工程骨架与 IR，2-3 天
 
 | ID | 任务 | 依赖 | 验收 | 状态 |
 | --- | --- | --- | --- | --- |
-| M1-1 | 完善 TypeScript CLI 入口、lint、test、build | M0-5 | CLI 可执行，本地和 CI 可检查与构建 | 已完成 |
-| M1-2 | 定义版本化 IR 和 JSON Schema | M0-5 | 合法/非法 fixture 校验覆盖 | 已完成 |
-| M1-3 | 统一错误码、诊断和结构化日志 | M1-1 | CLI 错误可定位且正文不泄露 | 已完成 |
-| M1-4 | 建立 golden fixture 测试框架 | M1-1, M1-2 | IR 变化必须显式更新 golden | 已完成 |
+| M1-1 | 完善 TypeScript CLI 入口、lint、test、build | M0-5 | CLI 可执行，本地和 CI 可检查与构建 | 已完成并集成 |
+| M1-2 | 定义版本化 IR 和 JSON Schema | M0-5 | 合法/非法 fixture 校验覆盖 | 已完成并集成 |
+| M1-3 | 统一错误码、诊断和结构化日志 | M1-1 | CLI 错误可定位且正文不泄露 | 已完成并集成 |
+| M1-4 | 建立 golden fixture 测试框架 | M1-1, M1-2 | IR 变化必须显式更新 golden | 已完成并集成 |
 
 ### M2：TRAE 扫描与恢复等级，3-5 天
 
-| ID | 任务 | 依赖 | 验收 |
-| --- | --- | --- | --- |
-| M2-1 | macOS/Windows 路径发现器 | M1-1 | 支持默认路径和 `--trae-root` |
-| M2-2 | workspace 与项目路径解析 | M2-1 | folder/workspace URI 均可规范化 |
-| M2-3 | SQLite 一致性只读快照 | M2-1 | TRAE 运行时扫描也不写源库 |
-| M2-4 | 数据源能力探测器 | M2-2, M2-3 | 输出 storage profile 和字段覆盖率 |
-| M2-5 | 会话级 recovery grading | M2-4 | 每个会话都有等级和缺失原因 |
+| ID | 任务 | 依赖 | 验收 | 状态 |
+| --- | --- | --- | --- | --- |
+| M2-1 | macOS/Windows 路径发现器 | M1-1 | 支持默认路径和 `--trae-root` | 已完成并集成 |
+| M2-2 | workspace 与项目路径解析 | M2-1 | folder/workspace URI 均可规范化 | 已完成 |
+| M2-3 | SQLite 一致性只读快照 | M2-1 | TRAE 运行时扫描也不写源库 | 已完成 |
+| M2-4 | 数据源能力探测器 | M2-2, M2-3 | 输出 storage profile 和字段覆盖率 | 已完成 |
+| M2-5 | 会话级 recovery grading | M2-4 | 每个会话都有等级和缺失原因 | 已完成 |
 
 ### M3：TRAE Parser 与 IR 标准化，6-10 天
 
@@ -431,37 +571,58 @@ OpenCode import 是实验性能力。M4-6 必须验证实际导入结果，不�
 
 ## 10. 推荐执行顺序
 
-1. M0 分支集成、M1-1 CLI/lint/CI 骨架和 M1-2 IR/schema 已完成。
-2. M1-4 golden fixture 框架已完成；合入后 M1 里程碑达到退出条件。
-3. 进入 M2，实现 scanner、runtime capability probe 和 recovery grading。
+1. M0、M1 已完成并合入 `main`。
+2. M2-1 至 M2-5 已完成；里程碑分支通过验收后合入 `main`。
+3. 进入 M3-1，实现会话索引、时间和标题的生产解析。
 4. 生成可审计 IR，并打通真实来源到 OpenCode 的 import/export 对账。
 5. 增加批量迁移、manifest、resume 和 rollback。
 6. 最后处理附件、Skill、MCP；SQLite Writer 保持为可选项。
 
 原始 P0 估算为 20-30 个工程日。当前完成的是高风险的 M0 勘探，不宜按任务数直接
-折算整体百分比；M1-M5 和 M7 仍包含主要产品实现工作，剩余工期应在 M1 拆分后
-重新评估。
+折算整体百分比；M2-M5 和 M7 仍包含主要产品实现工作，剩余工期应在 M2 扫描
+契约冻结后重新评估。
 
-## 11. 分支命名规范
+## 11. 分支与提交规范
 
-### 11.1 命名格式
+### 11.1 里程碑分支
 
 | 层级 | 格式 | 示例 |
 | --- | --- | --- |
 | 里程碑分支 | `m{编号}/{kebab-case-short-name}` | `m0/format-exploration` |
-| 任务分支 | `m{编号}-{序号}/{kebab-case-short-name}` | `m0-1/fixture-collection` |
 
-### 11.2 合并策略
+M0、M1 已使用并完成任务分支流程。自 M2-2 起不再创建任务分支，任务直接提交到
+对应里程碑分支。
+
+### 11.2 提交格式
+
+提交使用 Conventional Commits，scope 固定为任务 ID：
 
 ```text
-任务分支 ──PR──▶ 里程碑分支 ──PR──▶ main
+feat(m2-2): resolve workspace project paths
+fix(m2-2): reject ambiguous workspace metadata
+test(m2-2): cover Windows file URI normalization
+docs(m2-2): record workspace resolution contract
+chore(m2-2): update task tooling
 ```
 
-- 任务分支完成后通过 PR 合入对应的里程碑分支。
-- 每个里程碑的退出条件满足后，里程碑分支合入 `main`。
+类型按提交内容选择，不把功能实现标为 `chore`。一个任务允许多个提交，但每个
+提交都必须保留对应任务 scope。
+
+### 11.3 合并策略
+
+```text
+任务提交 ──▶ 里程碑分支 ──PR──▶ main
+```
+
+- 任务提交直接推送至当前里程碑分支。
+- 每个任务提交前必须通过完整质量门禁。
+- 每个里程碑的退出条件满足后，里程碑分支通过 PR 合入 `main`。
 - `main` 始终是可发布状态（P0 完成后即具备首个可用版本）。
 
-### 11.3 分支一览
+### 11.4 分支一览
+
+M0、M1 的子分支仅作为既有历史保留；M2 起仅维护里程碑分支，M2-1 的既有 PR
+记录仍保留在 Git 历史中。
 
 ```text
 main
@@ -480,49 +641,9 @@ main
 │   └── m1-4/golden-fixtures        #   建立 golden fixture 测试框架
 │
 ├── m2/trae-scanner                 # M2：TRAE 扫描与恢复等级
-│   ├── m2-1/path-discovery         #   macOS/Windows 路径发现器
-│   ├── m2-2/workspace-resolution   #   workspace 与项目路径解析
-│   ├── m2-3/sqlite-snapshot        #   SQLite 一致性只读快照
-│   ├── m2-4/capability-probe       #   数据源能力探测器
-│   └── m2-5/recovery-grading       #   会话级 recovery grading
-│
 ├── m3/trae-parser                  # M3：TRAE Parser 与 IR 标准化
-│   ├── m3-1/session-index          #   会话索引、时间、标题解析
-│   ├── m3-2/user-messages          #   用户消息与查询缓存解析
-│   ├── m3-3/assistant-longtext     #   assistant 文本与 long-text 关联
-│   ├── m3-4/reasoning-parser       #   reasoning/plan 解析
-│   ├── m3-5/tool-call-merge        #   tool call/result 状态机归并
-│   ├── m3-6/attachment-parser      #   图片、文件、长文本附件解析 [P1]
-│   ├── m3-7/profile-registry       #   多 profile 解析器注册表
-│   └── m3-8/ir-validation          #   IR 排序、去重与完整性校验
-│
 ├── m4/opencode-import              # M4：OpenCode 原生导入
-│   ├── m4-1/capability-probe       #   版本与 OpenAPI capability probe
-│   ├── m4-2/ir-to-transfer         #   IR → SessionTransfer.Data 映射
-│   ├── m4-3/stable-id-ordering     #   稳定 ID 与父子依赖排序
-│   ├── m4-4/cli-import-adapter     #   原生 CLI import adapter
-│   ├── m4-5/project-path-strategy  #   项目目录与不存在路径策略
-│   └── m4-6/roundtrip-verify       #   导入后 export/readback 对账
-│
 ├── m5/migration-orchestration      # M5：迁移编排与安全性
-│   ├── m5-1/doctor-scan-preview    #   doctor/scan/preview/export 命令
-│   ├── m5-2/dry-run                #   migrate --dry-run
-│   ├── m5-3/manifest-checkpoint    #   manifest、checkpoint、resume
-│   ├── m5-4/idempotent-strategy    #   冲突与幂等策略
-│   ├── m5-5/rollback               #   rollback
-│   └── m5-6/sensitive-filter       #   敏感信息过滤
-│
 ├── m6/resource-migration           # M6：资源迁移 [P1，可独立发布]
-│   ├── m6-1/skill-discovery        #   Skill 发现、校验与冲突预览
-│   ├── m6-2/skill-copy             #   Skill 复制与来源 manifest
-│   ├── m6-3/mcp-discovery          #   MCP 配置发现与脱敏
-│   ├── m6-4/mcp-mapping            #   TRAE → OpenCode MCP 映射
-│   └── m6-5/runtime-readiness      #   runtime readiness 检查
-│
 └── m7/compatibility-release        # M7：兼容与发布
-    ├── m7-1/os-matrix              #   macOS/Windows 集成矩阵
-    ├── m7-2/version-contract       #   OpenCode 版本契约测试
-    ├── m7-3/stress-recovery        #   大会话与异常中断测试
-    ├── m7-4/install-docs           #   安装包、README、故障排查
-    └── m7-5/sqlite-fallback        #   可选 SQLite fallback 评估 [P2]
 ```

@@ -15,6 +15,70 @@ export const ERROR_DEFINITIONS = {
     exitCode: 3,
     message: "Migration bundle failed schema validation.",
   },
+  T2O_TRAE_ROOT_NOT_FOUND: {
+    exitCode: 4,
+    message: "No readable TRAE data root was found.",
+  },
+  T2O_TRAE_PLATFORM_UNSUPPORTED: {
+    exitCode: 4,
+    message: "TRAE scanning is not supported on this platform.",
+  },
+  T2O_TRAE_WORKSPACE_STORAGE_UNREADABLE: {
+    exitCode: 4,
+    message: "TRAE workspace storage could not be read.",
+  },
+  T2O_TRAE_WORKSPACE_METADATA_NOT_FOUND: {
+    exitCode: 4,
+    message: "TRAE workspace metadata was not found.",
+  },
+  T2O_TRAE_WORKSPACE_METADATA_INVALID: {
+    exitCode: 4,
+    message: "TRAE workspace metadata is invalid.",
+  },
+  T2O_TRAE_WORKSPACE_URI_UNSUPPORTED: {
+    exitCode: 4,
+    message: "TRAE workspace URI is unsupported.",
+  },
+  T2O_TRAE_WORKSPACE_CONFIG_NOT_FOUND: {
+    exitCode: 4,
+    message: "TRAE workspace configuration was not found.",
+  },
+  T2O_TRAE_WORKSPACE_CONFIG_INVALID: {
+    exitCode: 4,
+    message: "TRAE workspace configuration is invalid.",
+  },
+  T2O_TRAE_SQLITE_SOURCE_NOT_FOUND: {
+    exitCode: 4,
+    message: "TRAE SQLite source was not found.",
+  },
+  T2O_TRAE_SQLITE_SOURCE_INVALID: {
+    exitCode: 4,
+    message: "TRAE SQLite source is invalid or unreadable.",
+  },
+  T2O_TRAE_SQLITE_SNAPSHOT_FAILED: {
+    exitCode: 4,
+    message: "TRAE SQLite snapshot could not be created.",
+  },
+  T2O_TRAE_SQLITE_SNAPSHOT_INVALID: {
+    exitCode: 4,
+    message: "TRAE SQLite snapshot failed integrity validation.",
+  },
+  T2O_TRAE_RUNTIME_PROBE_FAILED: {
+    exitCode: 4,
+    message: "TRAE runtime capability probe failed.",
+  },
+  T2O_TRAE_RECOVERY_EVIDENCE_INVALID: {
+    exitCode: 4,
+    message: "TRAE session recovery evidence is invalid.",
+  },
+  T2O_TRAE_SESSION_DISCOVERY_FAILED: {
+    exitCode: 4,
+    message: "TRAE session metadata discovery failed.",
+  },
+  T2O_TRAE_SESSION_EVIDENCE_PROVIDER_FAILED: {
+    exitCode: 4,
+    message: "TRAE session evidence provider failed.",
+  },
   T2O_INTERNAL_UNEXPECTED: {
     exitCode: 1,
     message: "An unexpected internal error occurred.",

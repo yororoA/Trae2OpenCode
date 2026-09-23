@@ -1,8 +1,11 @@
 # Trae2OpenCode
 
-TRAE 会话数据勘探与 OpenCode 迁移工具。M0 格式验证已完成：TRAE CN 3.3.104
-的 V2 runtime profile 已通过真实结构化回读验证，覆盖正文、reasoning、tool
-payload、关系和时间字段。生产 reader 与完整迁移流程尚未实现。
+TRAE 会话数据勘探与 OpenCode 迁移工具。M0 格式验证和 M1 工程骨架已完成：
+TRAE CN 3.3.104 的 V2 runtime profile 已通过真实结构化回读验证，覆盖正文、
+reasoning、tool payload、关系和时间字段。M2-1 已提供 macOS/Windows 生产路径
+发现，M2-2 已实现 workspace 与项目路径解析，M2-3 已实现 SQLite 一致性只读
+快照，M2-4/M2-5 已实现 capability probe 与会话恢复分级；runtime reader 与
+完整迁移流程尚未实现。
 
 ## 开发与验证
 
@@ -45,6 +48,11 @@ npm run verify:opencode
 - [Migration Bundle IR v1](docs/ir-schema-v1.md)
 - [IR Golden Fixture 工作流](docs/golden-fixtures.md)
 - [错误、诊断与结构化日志](docs/error-diagnostics.md)
+- [M2-1 TRAE 路径发现](docs/m2-1-path-discovery.md)
+- [M2-2 Workspace 与项目路径解析](docs/m2-2-workspace-resolution.md)
+- [M2-3 SQLite 一致性只读快照](docs/m2-3-sqlite-snapshot.md)
+- [M2-4 数据源能力探测](docs/m2-4-capability-probe.md)
+- [M2-5 会话恢复等级](docs/m2-5-recovery-grading.md)
 - [TRAE 消息来源定位](docs/m0-3-source-location.md)
 - [OpenCode 导入验证与限制](docs/m0-4-import-roundtrip.md)
 - [M0-5 字段映射与降级矩阵](docs/m0-5-mapping-matrix.md)
