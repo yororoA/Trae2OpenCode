@@ -1,6 +1,6 @@
 # Trae2OpenCode 实现规划
 
-> 状态：M0 已合入 `main`；M1-1/M1-2 已合入 M1 里程碑分支；M1-3 已完成，待任务分支 PR
+> 状态：M0 已合入 `main`；M1-1 至 M1-3 已合入 M1 里程碑分支；M1-4 已完成，待任务分支 PR
 > 核验日期：2026-09-23
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
@@ -33,7 +33,8 @@ M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP
 | M0 分支交付 | 已集成 | PR #5 已合入 `m0/format-exploration`，PR #6 已合入 `main` |
 | M1 工程骨架 | M1-1 已集成 | PR #7 已合入 `m1/engineering-skeleton` |
 | M1 IR/schema | M1-2 已集成 | PR #8 已合入 `m1/engineering-skeleton` |
-| M1 错误与诊断 | M1-3 已完成 | 已统一错误码、退出码、diagnostic 和脱敏 JSON Lines 日志 |
+| M1 错误与诊断 | M1-3 已集成 | PR #9 已合入 `m1/engineering-skeleton` |
+| M1 golden fixture | M1-4 已完成 | 已建立规范化、Schema/bundle hash、显式更新和 CI 漂移检测 |
 | M2/M3 TRAE 读取 | 未开始 | M0 collector/probe 只用于勘探；生产 scanner、runtime reader 和 recovery grading 尚未实现 |
 | M4 OpenCode adapter | 契约验证完成，实现未开始 | 2.0.12 隔离 import/export 已验证，尚无生产 capability probe 与 import adapter |
 | M5-M7 | 未开始 | 编排、安全、资源迁移、兼容与发布能力均未实现 |
@@ -278,9 +279,11 @@ trae2opencode rollback --manifest <path>
    已建立。
 2. M1-2 已通过 PR #8 合入里程碑分支；IR v1、JSON Schema、运行时 validator
    和 fixture 校验已建立。
-3. M1-3 已完成：错误码、退出码、diagnostic 和脱敏结构化日志已统一，单元测试
-   增至 48 项。下一步建立 golden fixture 测试框架。
-4. 将 M0 renderer 探针替换为生产 runtime adapter；探针、日志和数据库解密均
+3. M1-3 已通过 PR #9 合入里程碑分支；错误码、退出码、diagnostic 和脱敏
+   结构化日志已统一。
+4. M1-4 已完成：golden fixture 只读检查、显式更新、Schema hash 和 bundle
+   hash 已建立，单元测试增至 51 项。
+5. 将 M0 renderer 探针替换为生产 runtime adapter；探针、日志和数据库解密均
    不得成为生产数据源。
 
 ### M1：工程骨架与 IR，2-3 天
@@ -290,7 +293,7 @@ trae2opencode rollback --manifest <path>
 | M1-1 | 完善 TypeScript CLI 入口、lint、test、build | M0-5 | CLI 可执行，本地和 CI 可检查与构建 | 已完成 |
 | M1-2 | 定义版本化 IR 和 JSON Schema | M0-5 | 合法/非法 fixture 校验覆盖 | 已完成 |
 | M1-3 | 统一错误码、诊断和结构化日志 | M1-1 | CLI 错误可定位且正文不泄露 | 已完成 |
-| M1-4 | 建立 golden fixture 测试框架 | M1-1, M1-2 | IR 变化必须显式更新 golden | 未开始 |
+| M1-4 | 建立 golden fixture 测试框架 | M1-1, M1-2 | IR 变化必须显式更新 golden | 已完成 |
 
 ### M2：TRAE 扫描与恢复等级，3-5 天
 
@@ -429,8 +432,8 @@ OpenCode import 是实验性能力。M4-6 必须验证实际导入结果，不�
 ## 10. 推荐执行顺序
 
 1. M0 分支集成、M1-1 CLI/lint/CI 骨架和 M1-2 IR/schema 已完成。
-2. 完成 M1-4 golden fixture 框架。
-3. 实现 scanner、runtime capability probe 和 3.3.104 V2 reader。
+2. M1-4 golden fixture 框架已完成；合入后 M1 里程碑达到退出条件。
+3. 进入 M2，实现 scanner、runtime capability probe 和 recovery grading。
 4. 生成可审计 IR，并打通真实来源到 OpenCode 的 import/export 对账。
 5. 增加批量迁移、manifest、resume 和 rollback。
 6. 最后处理附件、Skill、MCP；SQLite Writer 保持为可选项。
