@@ -1,6 +1,6 @@
 # Trae2OpenCode 实现规划
 
-> 状态：M0 至 M4 已合入 `main`；M5-1、M5-2 已实现，位于 `m5/migration-orchestration`
+> 状态：M0 至 M4 已合入 `main`；M5-1 至 M5-3 已实现，位于 `m5/migration-orchestration`
 > 核验日期：2026-09-24
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
@@ -39,7 +39,7 @@ M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP
 | M2 recovery grading | 已集成 | 已实现逐会话四级分级、稳定缺失原因和 metadata session discovery |
 | M3 TRAE 读取 | 已集成，PR #14 | 已实现各类 parser、profile 注册、IR 组装与完整性/golden 校验；production runtime bridge 尚未接入 |
 | M4 OpenCode adapter | 已集成，PR #15 | 能力探测、IR 映射、稳定 ID、CLI adapter、路径映射与完整对账；五组 macOS 隔离实机通过 |
-| M5 迁移编排 | M5-1 已实现 | 只读 CLI、离线 IR 与显式 CDP transport；真实已登录 renderer 端到端验证待完成 |
+| M5 迁移编排 | M5-1 至 M5-3 已实现 | 只读 CLI、dry-run、manifest、resume、真实 import/verify；真实已登录 renderer 端到端待验收 |
 | M6-M7 | 未开始 | 资源迁移、兼容与发布能力待实现 |
 
 当前结论不能表述为“迁移工具已可用”。准确状态是：M0 已解除源数据可恢复性
@@ -554,7 +554,7 @@ M4 已通过 PR #15 合入 `main`，合并提交为 `e80d744`；里程碑 CI 通
 | --- | --- | --- | --- |
 | M5-1 | `doctor/scan/preview/export` | M2, M3 | 已实现并通过本机只读验收；CDP 真实正文端到端验证待完成 |
 | M5-2 | `migrate --dry-run` | M4 | 已实现：共享 transfer 计划、目录策略、恢复筛选与脱敏统计 |
-| M5-3 | manifest、checkpoint、resume | M4 | 中断后从最后成功会话继续 |
+| M5-3 | manifest、checkpoint、resume | M4 | 已实现：持久化先于写入、原子 checkpoint、失败隔离、恢复与 verify |
 | M5-4 | 冲突与幂等策略 | M5-3 | 默认 skip，显式 replace 才覆盖本工具产物 |
 | M5-5 | rollback | M5-3 | 只删除 manifest 记录的新会话 |
 | M5-6 | 敏感信息过滤 | M1-3 | 日志、报告、fixture 不含凭据和默认正文 |
@@ -564,6 +564,9 @@ M5-1 累计 265 项测试通过，CLI 实机发现 62 个会话、25 个项目�
 
 M5-2 累计 275 项测试通过；实机 dry-run 排除全部 62 个 metadata-only 会话，
 未误报可导入。详见 [M5-2 dry-run](./m5-2-dry-run.md)。
+
+M5-3 累计 292 项测试通过；隔离 OpenCode 实机已验证导入响应丢失后的恢复，
+重复执行只 import 一次。详见 [M5-3 manifest/resume](./m5-3-manifest-resume.md)。
 
 ### M6：资源迁移，4-7 天，可独立发布
 

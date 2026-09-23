@@ -74,7 +74,11 @@ Options:
       --cdp-target <id>
                       Select a workbench when several windows are open
       --input <path>  Read a previously exported IR bundle
-      --output <dir>  Create a private export directory
+      --output <dir>  Create a private export or migration directory
+      --resume <path>
+                      Resume migration using a manifest and the same source/options
+      --manifest <path>
+                      Manifest to verify
       --session <id>  Select one source session
       --project <path>
                       Select sessions by source project
@@ -174,6 +178,8 @@ export async function runCli(
         namespace: { type: "string" },
         "path-map": { type: "string", multiple: true },
         "fallback-directory": { type: "string" },
+        manifest: { type: "string" },
+        resume: { type: "string" },
       },
     });
   } catch (cause) {
@@ -263,9 +269,12 @@ export async function runCli(
         recovery: stringOption("recovery"), namespace: stringOption("namespace"),
         pathMaps: parsed.values["path-map"] as string[] | undefined,
         fallbackDirectory: stringOption("fallback-directory"),
+        manifest: stringOption("manifest"), resume: stringOption("resume"),
       });
       io.stdout(`${JSON.stringify(result, null, useJson ? undefined : 2)}\n`);
-      return 0;
+      const failed = typeof result === "object" && result !== null &&
+        "hasFailures" in result && result.hasFailures === true;
+      return failed ? 5 : 0;
     } catch (error) {
       return writeError(io, error, { json: useJson, clock: runtime.clock, context: { command } });
     }

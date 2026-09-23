@@ -71,17 +71,28 @@ describe("runCli", () => {
     assert.doesNotMatch(output.stderr(), /\n\s+at /);
   });
 
-  it("keeps planned migration commands disabled", async () => {
+  it("requires a target and checkpoint destination before migration", async () => {
     const output = captureIO();
 
     const exitCode = await runCli(["migrate"], output.io, "9.8.7");
 
     assert.equal(exitCode, 2);
-    assert.equal(
-      output.stderr(),
-      "Error [T2O_CLI_COMMAND_NOT_IMPLEMENTED]: " +
-        "This command is not implemented yet.\n",
-    );
+    assert.match(output.stderr(), /T2O_CLI_INVALID_ARGUMENTS/);
+    assert.equal(output.stdout(), "");
+  });
+
+  it("parses manifest and resume options and rejects incompatible combinations", async () => {
+    for (const args of [
+      ["verify", "--manifest", "private-path"],
+      ["scan", "--resume", "private-path"],
+      ["migrate", "--dry-run", "--resume", "private-path"],
+      ["migrate", "--output", "private-path", "--resume", "private-path"],
+    ]) {
+      const output = captureIO();
+      assert.equal(await runCli([...args, "--json"], output.io, "9.8.7"), 2);
+      assert.equal(JSON.parse(output.stderr()).code, "T2O_CLI_INVALID_ARGUMENTS");
+      assert.doesNotMatch(output.stderr(), /private-path/);
+    }
   });
 
   it("parses a TRAE root override without exposing the path", async () => {

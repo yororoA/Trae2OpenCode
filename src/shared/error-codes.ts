@@ -51,6 +51,30 @@ export const ERROR_DEFINITIONS = {
     exitCode: 4,
     message: "Export failed; choose a new output directory with an existing writable parent.",
   },
+  T2O_MIGRATION_MANIFEST_INVALID: {
+    exitCode: 4,
+    message: "The migration manifest is invalid, incompatible, or unreadable.",
+  },
+  T2O_MIGRATION_CHECKPOINT_FAILED: {
+    exitCode: 4,
+    message: "The migration checkpoint could not be saved; target writes stopped.",
+  },
+  T2O_MIGRATION_LOCKED: {
+    exitCode: 4,
+    message: "Another process is using this migration manifest.",
+  },
+  T2O_MIGRATION_PLAN_CHANGED: {
+    exitCode: 4,
+    message: "The source bundle or migration options differ from the manifest.",
+  },
+  T2O_MIGRATION_TARGET_CHANGED: {
+    exitCode: 5,
+    message: "The target endpoint, contract, or previously created session has changed.",
+  },
+  T2O_MIGRATION_PARTIAL_WRITE: {
+    exitCode: 5,
+    message: "A session from this migration exists but failed reconciliation; no overwrite was attempted.",
+  },
   T2O_TRAE_ROOT_NOT_FOUND: {
     exitCode: 4,
     message: "No readable TRAE data root was found.",
