@@ -1,6 +1,6 @@
 # Trae2OpenCode 实现规划
 
-> 状态：Draft
+> 状态：M0 已完成，待进入 M1
 > 核验日期：2026-09-23
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
@@ -13,17 +13,17 @@
 `SessionTransfer.Data`，其中 assistant 原生支持 `text`、`reasoning` 和 `tool`
 内容。优先使用该接口可避免绑定内部数据库 schema。
 
-当前最大不确定性在 TRAE 侧。实机上的 TRAE CN 3.3.104 与早期调研资料存在差异：
+实机上的 TRAE CN 3.3.104 与早期调研资料存在差异：
 
 - `state.vscdb` 仍可提供 workspace、输入历史、会话 ID、模型和 Agent 关联。
 - 旧 workspace 的 `memento/icube-ai-agent-storage` 中存在会话索引，但
   `messages` 可能为空。
 - 长文本和附件分散在 `long-text/`、`paste-files/` 等目录。
-- 仅凭当前已确认的本地字段，不能保证恢复每个会话的完整 assistant 正文、
-  reasoning 和工具结果。
+- V2 renderer 的 `TraeApi.chat.getMessages` 可返回结构化 user/assistant 正文、
+  reasoning、工具 payload、关系和时间字段。
 
-因此，MVP 的第一个交付物不是迁移写入器，而是“可恢复性盘点器”。只有先确定
-每个会话有哪些可验证的数据，后续迁移才不会静默丢失内容。
+M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP 的第一个实现阶段
+仍是“可恢复性盘点器”：先按会话验证字段覆盖率，再生成 IR，避免静默丢失内容。
 
 ## 2. 目标与边界
 
@@ -123,11 +123,12 @@ src/
 
 默认不删除任何既有目标数据。回滚只删除本次 manifest 记录且经确认的新会话。
 
-### ADR-006：未验证的运行时内容必须 fail closed
+### ADR-006：按版本验证 runtime profile，其他来源 fail closed
 
-生产迁移只使用受支持的结构化读取接口。renderer log 只能作为脱敏验证证据，
-不能作为迁移源；不直接解密 TRAE 数据库，不补造 assistant 完成时间，也不将
-关系级证据升级为内容级恢复。完整决策见
+TRAE CN 3.3.104 只允许通过已验证的 V2 `TraeApi.chat.getMessages` runtime
+adapter 或等价官方 bridge 读取消息。renderer log 只能作为辅助证据，不能作为
+迁移源；不直接解密 TRAE 数据库，不补造 assistant 完成时间。未知版本与旧
+`memento` profile 继续 fail closed。完整决策见
 [ADR-0006](./adr/0006-runtime-readback-fail-closed.md)。
 
 ## 4. 数据流
@@ -147,7 +148,7 @@ TRAE roots
 
 ### 4.1 TRAE 数据源优先级
 
-1. 客户端运行时 `_aiAgentChatService.getSessionMessages`
+1. 已验证的 V2 runtime `TraeApi.chat.getMessages({ env: "local" })`
    (`lite/get_messages`)
 2. `ModularData/ai-agent/database.db`（加密/不透明；不得绕过访问控制）
 3. `workspaceStorage/<id>/workspace.json`
@@ -217,7 +218,8 @@ trae2opencode rollback --manifest <path>
 
 ## 6. 里程碑与任务
 
-工期为单人净工程日估算。TRAE 完整正文的数据源尚未确认，因此 M0 是继续实施的门槛。
+工期为单人净工程日估算。M0 已确认 TRAE 完整结构化消息来源，后续 reader 仍须
+遵守相同版本和证据门禁。
 
 ### M0：格式勘探与决策冻结，2-4 天
 
@@ -234,21 +236,20 @@ trae2opencode rollback --manifest <path>
 
 #### 当前进展（2026-09-23）
 
-- M0-1、M0-2：已固化采集器与 3.3.104 结构 fixture；旧 `memento` 仍未验证。
-- M0-3：来源映射与只读探测已提交（`0598c87`）。后续真实 runtime 证据已验证
-  user/assistant 身份、消息顺序、turn/reply 关系、
-  plan item 附着和 34 组工具状态转换。正文、reasoning、tool payload、数据库
-  role 值和 join 仍未验证，因此 M0-3 以部分验收、fail closed 结束。详见
-  [M0-3 来源定位](./m0-3-source-location.md)。
+- M0-1、M0-2：已固化采集器、3.3.104 storage fixture 与 V2 runtime profile；
+  当前 profile 为 `verified`，旧 `memento` 仍为 `unverified` 并 fail closed。
+- M0-3：真实 V2 `TraeApi.chat.getMessages` 回读已验证 50 条消息、25 组 reply
+  关系、正文、reasoning、1,218 个 tool call 及时间字段；来源定位完成。脱敏
+  canonical evidence 和限制详见 [M0-3 来源定位](./m0-3-source-location.md)。
 - M0-4：隔离原生 import/export 已验证已完成消息及四类工具状态；未完成
   assistant（缺少 `time.completed`）在回读中整条丢失，会话项目归属与
   更新时间也会被目标重算。详见 [M0-4 验证与限制](./m0-4-import-roundtrip.md)。
   目标端验证成功不能替代 TRAE 源端真实会话验收。
-- M0-5：已固化 [ADR-0006](./adr/0006-runtime-readback-fail-closed.md) 与
-  [字段映射矩阵](./m0-5-mapping-matrix.md)。未知或未验证 profile 只导出
-  metadata/diagnostic；缺少真实完成时间的 assistant 拒绝目标写入。
-- M0 退出条件仍未满足。当前产品目标按约定降级为本地可用数据导出器；取得
-  结构化正文、reasoning 和 tool payload 证据前，不启用完整迁移或目标写入。
+- M0-5：[ADR-0006](./adr/0006-runtime-readback-fail-closed.md) 与
+  [字段映射矩阵](./m0-5-mapping-matrix.md) 已按新证据更新。未知或未验证 profile
+  只导出 metadata/diagnostic；缺少真实完成时间的 assistant 仍拒绝目标写入。
+- M0 退出条件已满足：至少一个真实会话的完整消息链可从结构化 runtime 入口恢复。
+  这允许进入 M1-M3 实现，不表示生产迁移 reader 或目标写入已经完成。
 - 开发执行通道曾发生 transport 故障，原因、备用方案与复现方法见
   [开发环境故障排查](./development-troubleshooting.md)。
 
@@ -387,7 +388,7 @@ OpenCode import 是实验性能力。M4-6 必须验证实际导入结果，不�
 
 | 风险 | 影响 | 应对 |
 | --- | --- | --- |
-| TRAE 正文只在云端或临时缓存 | 无法完整迁移 | M0 先证实；按会话标记恢复等级 |
+| runtime adapter 在非 renderer 场景不可调用 | 无法执行批量读取 | M2 capability probe；必要时使用等价官方 bridge |
 | TRAE 不同版本字段漂移 | 误解析或丢数据 | storage profile + fixture + fail closed |
 | OpenCode 实验性 import 变化 | 导入失败或静默丢字段 | OpenAPI 探测 + round-trip 对账 |
 | 运行中的 SQLite/WAL 不一致 | 扫描结果损坏 | 一致性快照，只读解析 |
@@ -397,13 +398,13 @@ OpenCode import 是实验性能力。M4-6 必须验证实际导入结果，不�
 
 ## 10. 推荐执行顺序
 
-1. 完成 M0，不通过退出条件就调整产品定位。
-2. 实现 IR、scanner 和 `export`，先形成稳定、可审计的离线产物。
-3. 打通一个完整 fixture 的 OpenCode import/export round-trip。
+1. 实现 IR、scanner 和 runtime capability probe。
+2. 实现 3.3.104 V2 reader 与 `export`，先形成稳定、可审计的离线产物。
+3. 用真实脱敏结构契约打通 OpenCode import/export round-trip。
 4. 增加批量迁移、manifest、resume 和 rollback。
 5. 最后处理附件、Skill、MCP；SQLite Writer 保持为可选项。
 
-按当前不确定性，P0 预计 20-30 个工程日。M0 结束后再给出更可信的剩余工期。
+原始 P0 估算为 20-30 个工程日；M0 已完成，剩余工期应在 M1 拆分后重新评估。
 
 ## 11. 分支命名规范
 

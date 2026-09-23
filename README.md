@@ -1,8 +1,8 @@
 # Trae2OpenCode
 
-TRAE 会话数据勘探与 OpenCode 迁移工具，当前处于 M0 格式验证阶段。
-尚未提供完整迁移功能。TRAE 真实运行时关系已部分验证，但正文、reasoning 和
-tool payload 仍无受支持的结构化读取证据，因此目标写入保持关闭。
+TRAE 会话数据勘探与 OpenCode 迁移工具。M0 格式验证已完成：TRAE CN 3.3.104
+的 V2 runtime profile 已通过真实结构化回读验证，覆盖正文、reasoning、tool
+payload、关系和时间字段。生产 reader 与完整迁移流程尚未实现。
 
 ## 开发与验证
 
@@ -11,6 +11,14 @@ npm install
 npm test
 npm run typecheck
 npm run build
+```
+
+真实 runtime 探针只能提交脱敏后的 canonical evidence：
+
+```sh
+npm run collect:trae-structured-runtime-evidence -- \
+  --probe "<redacted-probe.json>" \
+  --output "<structured-runtime-evidence.json>"
 ```
 
 安装 OpenCode 2.0.12 后，可运行隔离的合成会话导入/回读检查：

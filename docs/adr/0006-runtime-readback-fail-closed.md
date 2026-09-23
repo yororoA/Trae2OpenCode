@@ -7,9 +7,10 @@
 ## 背景
 
 TRAE CN 3.3.104 的消息实体位于不透明的 `ai-agent` 数据库中。客户端 schema
-暴露了 `chat_message`、`plan_item` 等候选字段，但当前没有经授权的行级 fixture。
-真实 renderer runtime 证据只确认了历史回读、消息关系、plan item 附着和工具
-状态变化，没有保留消息正文、reasoning 或工具 payload。
+暴露了 `chat_message`、`plan_item` 等候选字段，但没有经授权的数据库行级
+fixture。真实 V2 renderer 回读现已确认 `TraeApi.chat.getMessages` 返回消息正文、
+reasoning、工具 payload、关系、状态和时间字段；脱敏 fixture 只保留 schema、
+计数、长度和 SHA-256。
 
 OpenCode 2.0.12 的原生 import 可以无损回读已完成消息，但缺少
 `assistant.time.completed` 的消息会在 CLI 和 API export 中整条消失。
@@ -18,9 +19,10 @@ OpenCode 2.0.12 的原生 import 可以无损回读已完成消息，但缺少
 
 ### 1. 生产读取边界
 
-生产迁移路径只接受 TRAE 提供且当前版本明确支持的结构化运行时接口。renderer
-日志仅用于生成脱敏验证证据，不是迁移输入。实现不得依赖日志格式、动态注入客户端、
-提取数据库密钥或自行解密 `ai-agent` 数据库。
+TRAE CN 3.3.104 的生产迁移路径只接受已验证的 V2
+`TraeApi.chat.getMessages({ env: "local" })` adapter 或等价官方 bridge。renderer
+日志仅用于辅助验证，不是迁移输入。实现不得依赖日志格式、提取数据库密钥或自行
+解密 `ai-agent` 数据库。
 
 直接数据库读取只有在产品提供受支持的只读方式、用户明确授权且对应版本已有脱敏
 fixture 后，才能作为独立 storage profile 启用。
@@ -32,13 +34,14 @@ fixture 后，才能作为独立 storage profile 启用。
 
 | 证据 | 当前处理 |
 | --- | --- |
-| 经支持接口验证的结构化 payload | 可按字段映射进入 IR |
+| 当前版本真实回读验证的结构化 payload | 可按字段映射进入 IR |
 | 只验证身份、顺序或关联 | 只导出 metadata/source ref 和 diagnostic |
 | 只观察到 schema 或路径 | 不读取内容，不推断字段值 |
 | 未知版本或未验证 profile | 只允许 metadata/diagnostic 导出，拒绝目标 import |
 
-TRAE CN 3.3.104 当前仍是未验证 profile。已验证的 user/assistant 身份、reply、
-turn、顺序以及 tool 状态不能替代正文、reasoning、工具名称、输入和输出。
+`trae-cn-runtime-v2` 是当前唯一经过内容级验证的 runtime profile。旧
+`memento`、未知产品版本以及直接数据库 profile 仍未验证并 fail closed。profile
+验证只授权已覆盖字段；例如当前非空错误 payload 和附件关联仍需额外 fixture。
 
 ### 3. 不补造状态或时间
 
@@ -63,10 +66,10 @@ completed，也不根据消息位置猜测结束状态。缺少真实 `time.comp
 
 ## 结果
 
-- M0-3 的运行时关系验证可作为后续 parser 的回归证据，但不能启用完整 parser。
-- M0-5 可以冻结映射和降级规则；M0 的“真实完整消息链”退出条件仍未满足。
-- 在取得结构化正文证据前，产品定位降级为本地可用 metadata/diagnostic 导出器，
-  完整迁移能力保持关闭。
+- M0-3 已完成，3.3.104 runtime profile 可作为后续 parser 的字段契约和回归证据。
+- M0-5 已更新映射和降级规则；M0 的“真实完整消息链”退出条件已满足。
+- 项目可进入 reader、IR 和目标 adapter 实现；生产迁移能力要到逐会话完整性校验
+  和 OpenCode 回读对账完成后才启用。
 
 ## 被否决方案
 

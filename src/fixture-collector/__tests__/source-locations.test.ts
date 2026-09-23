@@ -9,6 +9,7 @@ import {
   probeAiAgentDatabase,
   probeMessageSources,
 } from "../source-locations";
+import { validateTraeStructuredRuntimeEvidence } from "../../source/trae/structured-runtime-evidence";
 
 const temporaryDirectories: string[] = [];
 
@@ -92,20 +93,23 @@ describe("message source map", () => {
     );
   });
 
-  it("keeps current TRAE CN evidence below row-level verification", () => {
+  it("uses the verified V2 runtime profile for TRAE CN 3.3.104", () => {
     const userDataPath = createTraeDataRoot();
     const result = probeMessageSources(userDataPath, "3.3.104");
 
-    assert.strictEqual(result.profileVerification, "unverified");
+    assert.strictEqual(result.profileId, "trae-cn-runtime-v2");
+    assert.strictEqual(result.profileVerification, "verified");
     assert.ok(
       result.locations.every(
-        (location) => location.evidenceLevel === "schema-observed",
+        (location) => location.evidenceLevel === "runtime-readback",
       ),
     );
     assert.deepStrictEqual(result.runtimeReadPath, {
-      serviceMethod: "_aiAgentChatService.getSessionMessages",
+      serviceMethod: "TraeApi.chat.getMessages",
       endpoint: "lite/get_messages",
-      evidenceLevel: "schema-observed",
+      environment: "local",
+      evidenceLevel: "runtime-readback",
+      evidenceFixture: "trae-cn-3.3.104.structured-runtime.json",
     });
   });
 
@@ -147,6 +151,7 @@ describe("message source map", () => {
         runtimeReadback: boolean;
         status: string;
         runtimeEvidenceFixture: string;
+        structuredRuntimeEvidenceFixture: string;
         reason: string;
       };
     };
@@ -159,18 +164,64 @@ describe("message source map", () => {
     }));
 
     assert.deepStrictEqual(locations, fixture.locations);
-    assert.strictEqual(fixture.profileVerification, "unverified");
+    assert.strictEqual(fixture.profileVerification, "verified");
     assert.deepStrictEqual(fixture.verification, {
       rowSampled: false,
       runtimeReadback: true,
-      status: "partial",
+      status: "verified",
       runtimeEvidenceFixture: "trae-cn-3.3.104.runtime.json",
+      structuredRuntimeEvidenceFixture:
+        "trae-cn-3.3.104.structured-runtime.json",
       reason:
-        "Runtime evidence verifies message relationships and tool status transitions, but not message content, reasoning text, tool payloads, database role values, or database joins.",
+        "A real V2 TraeApi.chat.getMessages readback verifies message text, reasoning, tool payloads, relationships, status, and timing. The physical database remains opaque and is not a production source.",
     });
   });
 
-  it("keeps runtime evidence partial and free of raw private values", () => {
+  it("validates the checked-in structured runtime evidence", () => {
+    const fixturePath = path.join(
+      process.cwd(),
+      "fixtures",
+      "source-locations",
+      "trae-cn-3.3.104.structured-runtime.json",
+    );
+    const serialized = fs.readFileSync(fixturePath, "utf8");
+    const fixture = validateTraeStructuredRuntimeEvidence(
+      JSON.parse(serialized),
+    );
+
+    assert.strictEqual(fixture.verification.status, "verified");
+    assert.strictEqual(fixture.counts.messages, 50);
+    assert.deepStrictEqual(fixture.counts.roles, {
+      assistant: 25,
+      user: 25,
+    });
+    assert.strictEqual(fixture.relationship.matches, 25);
+    assert.strictEqual(
+      fixture.textEvidence["planItem.reasoning_content"].nonEmpty,
+      270,
+    );
+    assert.strictEqual(fixture.counts.toolCalls, 1218);
+    assert.strictEqual(fixture.toolSamples.length, 20);
+    assert.strictEqual(
+      fixture.capture.sourceArtifactSha256,
+      "sha256:987c8512e60ebb1d9fd575d24b204c746f6ad000536c57587da1882c4c4f6e3a",
+    );
+
+    for (const forbidden of [
+      "/Users/",
+      "\"message_id\":",
+      "\"turn_id\":",
+      "\"reply_to_message_id\":",
+      "\"params\":",
+      "\"result\":",
+      "output_path",
+      "account_id",
+    ]) {
+      assert.ok(!serialized.includes(forbidden), `leaked ${forbidden}`);
+    }
+  });
+
+  it("keeps legacy runtime-log evidence partial and free of private values", () => {
     const fixturePath = path.join(
       process.cwd(),
       "fixtures",

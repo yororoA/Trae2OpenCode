@@ -2,7 +2,7 @@
 
 > 基线：TRAE CN 3.3.104 -> OpenCode 2.0.12
 >
-> 状态：映射决策已冻结；源正文证据不足，完整迁移路径未启用。
+> 状态：映射决策已按真实 V2 回读更新；实现尚未进入生产迁移阶段。
 
 ## 判定规则
 
@@ -11,33 +11,35 @@
 - **reject-import**：可以离线保留，但写入当前 OpenCode 会造成伪造或已知丢失。
 - **unsupported**：当前版本没有受支持读取路径，不尝试猜测。
 
-证据状态 `partial` 与会话恢复等级 `partial` 是不同概念。前者不能自动授权内容
-映射。当前 profile 为 `unverified`，因此下表中的内容字段均未达到 `map`。
+证据状态与会话恢复等级是不同概念。当前 `trae-cn-runtime-v2` profile 已验证，
+但具体会话仍须按实际字段覆盖率计算 `complete` / `partial`；单个字段缺失时不得
+用 profile 级结论补造。
 
 ## TRAE 到 IR
 
 | 语义 | 当前来源与证据 | 预期 IR | 当前处理 |
 | --- | --- | --- | --- |
-| source session ID | workspace 状态与 runtime session 关系 | `SessionIR.sourceId`、`sourceRefs` | metadata export |
-| project/workspace | `workspace.json`、workspace 状态 | `projectPath`、`sourceRefs` | metadata export；保留原值 |
+| source session ID | runtime `chat_session_id` | `SessionIR.sourceId`、`sourceRefs` | map |
+| project/workspace | `workspace.json`、workspace 状态 | `projectPath`、`sourceRefs` | map；保留原值 |
 | model/Agent 关联 | workspace 状态 | session/message source metadata | diagnostic；未验证消息级语义 |
-| user message identity | runtime assistant `reply_to_message_id` | user event source ref | diagnostic；关系已验证，正文未验证 |
-| user text | 候选 `chat_message.content` / 输入历史 | user event text | unsupported；不能证明输入历史等于完整消息链 |
-| assistant identity | runtime metadata `message_id` | assistant event source ref | diagnostic |
-| message order | runtime `message_index` | event order/source ref | diagnostic；只对已观测样本成立 |
-| turn/reply relation | runtime `turn_id`、`reply_to_message_id` | event relation/source ref | diagnostic |
-| assistant text | 候选 `chat_message.content` | `{ type: "text", text }` | unsupported；无结构化正文 fixture |
-| reasoning text | 候选 `plan_item.thought` | `{ type: "reasoning", text }` | unsupported；正文和分类均未验证 |
-| plan item attachment | runtime history readback | diagnostic/source ref | diagnostic；不能据此生成 reasoning |
-| tool call identity/status | runtime `tool_call_id`，`Running -> Exited` | tool diagnostic | diagnostic；终态成功/失败仅作证据 |
-| tool name/input/output | 候选 `plan_item` 字段 | `{ type: "tool", ... }` | unsupported；payload 和 join 未验证 |
-| assistant completion time | 尚无验证来源 | assistant `completedAt` | reject-import；禁止补造 |
-| message timestamps | 尚无内容级 fixture | event timestamps | diagnostic；禁止按索引推算 |
+| user message identity | runtime `message_id` 与 assistant `reply_to_message_id` | user event source ref | map |
+| user text | runtime `query` / `content` | user event text | map；parser 必须确定字段优先级并保留 hash |
+| assistant identity | runtime `message_id` | assistant event source ref | map |
+| message order | runtime `message_index` | event order/source ref | map |
+| turn/reply relation | runtime `turn_id`、`reply_to_message_id` | event relation/source ref | map |
+| assistant text | runtime assistant `content` envelope | `{ type: "text", text }` | map；保持 envelope 内块顺序 |
+| reasoning text | `plan_item.reasoning_content` | `{ type: "reasoning", text }` | map；空值不生成 block |
+| `plan_item.thought` | runtime plan item | diagnostic/source ref | diagnostic；与 reasoning 的展示语义需单独固定 |
+| tool call identity/status | `plan_item.tool_call_info.id/result.status` | tool call/status | map |
+| tool name/input/output | `tool_call_info.name/params/result.data` | `{ type: "tool", ... }` | map；当前完整样本覆盖 success |
+| tool error | `result.error_message/error_variant` | error tool result | diagnostic；待非空错误 payload fixture |
+| assistant completion time | runtime `chat_end_time` | assistant `completedAt` | map；缺失时仍 reject-import |
+| message timestamps | runtime `created_at`、`chat_start_time`、`chat_end_time` | event/content timestamps | map |
 | attachments/long text | `paste-files/`、`long-text/` 候选路径 | `resources` / content refs | deferred；归属和内容关联未验证 |
 
-若后续通过受支持接口取得脱敏结构化 payload，只有对应 fixture 覆盖的字段才能从
-`diagnostic` 或 `unsupported` 提升为 `map`。数据库 schema 字段名本身不构成提升
-依据。
+`map` 表示证据允许实现字段转换，不表示转换器已经交付。生产 reader 必须使用
+V2 runtime adapter 或等价官方 bridge，并对每个会话重新执行完整性校验。数据库
+schema 字段名和 renderer 日志都不能替代该读取路径。
 
 ## IR 到 OpenCode
 
@@ -59,16 +61,16 @@
 | 能力 | 状态 |
 | --- | --- |
 | 脱敏扫描 storage/profile/路径 | M0 fixture 采集器可用 |
+| 验证 V2 runtime 正文、关系、reasoning/tool/timing | 已完成 |
 | 产品级 session/workspace metadata 与诊断导出 | 规划允许，尚未实现 |
-| 验证 runtime 消息关系与工具状态 | 可用，仅作证据 |
-| 导出真实 user/assistant 正文到 IR | 关闭 |
-| 导出 reasoning/tool payload 到 IR | 关闭 |
-| 将真实 TRAE 会话导入 OpenCode | 关闭 |
+| 导出真实 user/assistant 正文到 IR | 证据允许，M3 尚未实现 |
+| 导出 reasoning/tool payload 到 IR | 证据允许，M3 尚未实现 |
+| 将真实 TRAE 会话导入 OpenCode | M4/M5 尚未实现 |
 | 合成 OpenCode import/export 契约验证 | 已验证，但有未完成消息丢失边界 |
 
 ## 验收结论
 
-M0-5 的字段映射、降级和不支持项已明确。由于尚无一个真实 TRAE 会话达到完整
-消息链恢复条件，M0 总退出条件不通过。按
-[ADR-0006](./adr/0006-runtime-readback-fail-closed.md)，后续只可推进不会暗示
-完整迁移能力的 metadata/diagnostic 导出基础设施；目标写入保持关闭。
+M0-5 的字段映射、降级和不支持项已更新。真实 V2 回读已证明至少一条完整
+user/assistant/reasoning/tool 消息链可恢复，M0 总退出条件通过。按
+[ADR-0006](./adr/0006-runtime-readback-fail-closed.md)，可以进入 reader、IR 和
+目标 adapter 实现；在这些实现及逐会话对账完成前，不宣称生产迁移可用。
