@@ -1,3 +1,10 @@
+export {
+  canonicalizeJson,
+  canonicalizeMigrationBundle,
+  hashCanonicalJson,
+  hashMigrationBundle,
+  parseCanonicalMigrationBundle,
+} from "./canonical.js";
 export { migrationBundleSchema } from "./schema.js";
 export {
   assertMigrationBundle,

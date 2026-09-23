@@ -43,6 +43,7 @@ npm run verify:opencode
 
 - [实现规划与当前验收状态](docs/implementation-plan.md)
 - [Migration Bundle IR v1](docs/ir-schema-v1.md)
+- [IR Golden Fixture 工作流](docs/golden-fixtures.md)
 - [错误、诊断与结构化日志](docs/error-diagnostics.md)
 - [TRAE 消息来源定位](docs/m0-3-source-location.md)
 - [OpenCode 导入验证与限制](docs/m0-4-import-roundtrip.md)
