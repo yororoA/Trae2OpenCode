@@ -8,6 +8,7 @@
     "scripts/verify-platform.ts",
     "scripts/verify-version-contract.ts",
     "scripts/verify-resilience.ts",
-    "scripts/verify-package.ts"
+    "scripts/verify-package.ts",
+    "scripts/verify-live-runtime.ts"
   ]
 }

@@ -36,6 +36,12 @@
 每项报告单独上传 `package-<os>-node-<node>` artifact。
 当前运行结果保存于 `tmp/m7-4-package-report.json`。
 
+CI [35932162689](https://github.com/yororoA/Trae2OpenCode/actions/runs/35932162689)
+（commit `ce990ed`）六任务全部成功，六份安装报告及三份原生目标集成报告均已上传。
+本机完整 `npm run check` 340 项通过。M7 已建立草稿
+[PR #17](https://github.com/yororoA/Trae2OpenCode/pull/17)，暂以 M5 分支为 base，
+等待真实来源验收和 M5 合并后再改向 main。
+
 ## 文档交付
 
 README 已覆盖安装、合成样本 dry-run、数据目录、CDP、导出、目标启动、
@@ -45,3 +51,4 @@ README 已覆盖安装、合成样本 dry-run、数据目录、CDP、导出、�
 
 真实已登录 TRAE → 生产 CDP → IR → OpenCode 的整链验收仍是 M5/M7 合并与
 首个 P0 可用版本的前置条件。三端合成来源与安装成功均不能替代它。
+执行入口及通过条件见[真实来源验收](m5-live-runtime-acceptance.md)。

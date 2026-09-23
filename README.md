@@ -154,6 +154,7 @@ npm run verify:package
 - [IR v1](docs/ir-schema-v1.md)、[Golden fixture](docs/golden-fixtures.md)
 - [只读 CLI / CDP](docs/m5-1-readonly-cli.md)、[dry-run](docs/m5-2-dry-run.md)
 - [manifest 与续跑](docs/m5-3-manifest-resume.md)、[凭据边界](docs/m5-6-sensitive-content.md)
+- [真实来源端到端验收步骤](docs/m5-live-runtime-acceptance.md)
 - [跨平台矩阵](docs/m7-1-platform-matrix.md)、[版本契约](docs/m7-2-version-contract.md)
 - [压力与中断恢复](docs/m7-3-resilience.md)、[打包验收](docs/m7-4-package-installation.md)
 - [TRAE 消息来源](docs/m0-3-source-location.md)、[OpenCode 投影限制](docs/m0-4-import-roundtrip.md)

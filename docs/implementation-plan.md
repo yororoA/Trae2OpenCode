@@ -41,7 +41,7 @@ M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP
 | M4 OpenCode adapter | 已集成，PR #15 | 能力探测、IR 映射、稳定 ID、CLI adapter、路径映射与完整对账；五组 macOS 隔离实机通过 |
 | M5 迁移编排 | M5-1 至 M5-6 已实现 | 只读 CLI、dry-run、manifest、resume、真实 import/verify、显式替换、rollback 与凭据过滤；真实已登录 renderer 端到端待验收 |
 | M6 资源迁移 | P1，未开始 | Skill/MCP 发现、建议配置与复制可独立发布 |
-| M7 兼容与发布 | M7-1 至 M7-4 已实现 | 三系统六任务、当前/相邻版本契约与真实中断 CI 通过；tarball 安装/dry-run 本机通过，新增安装 CI 待确认 |
+| M7 兼容与发布 | M7-1 至 M7-4 已实现，草稿 PR #17 | 三系统六任务、当前/相邻版本契约、真实中断与 tarball 安装/dry-run CI 全部通过 |
 
 当前是 P0 验收候选：生产迁移路径已经实现，已通过合成来源到真实 OpenCode
 的三平台验证。仍缺少已登录 TRAE 经生产 CDP reader 导出并迁移的完整实机证据，
@@ -601,13 +601,15 @@ M5-6 累计 339 项测试通过，已覆盖已识别凭据格式、结构化字�
 | M7-1 | macOS/Windows 集成矩阵 | M5 | 已通过三系统 Node 18.20.8/22；macOS/Windows 默认源目录与三端目标链路通过 |
 | M7-2 | OpenCode 版本契约测试 | M4 | 已通过：2.0.12 原生写入/回读，真实 2.0.11 准确拒写 |
 | M7-3 | 大会话与异常中断测试 | M5 | 已通过三端：512 MiB 堆固定负载、两组真实 kill/resume，无重复 import |
-| M7-4 | 安装包、README、故障排查 | M7-1..3 | 已实现：白名单 tarball、隔离安装/bin/dry-run；本机通过，三端安装 CI 待确认 |
+| M7-4 | 安装包、README、故障排查 | M7-1..3 | 已通过：白名单 tarball、隔离安装/SQLite/bin/dry-run；三端六任务安装 CI 成功 |
 | M7-5 | 可选 SQLite fallback 评估 | M7-2 | 当前原生 import 满足 P0，不立项 |
 
 M7-1/2 的 CI [35930386323](https://github.com/yororoA/Trae2OpenCode/actions/runs/35930386323)
 六任务成功。M7-3 的 CI
 [35930884801](https://github.com/yororoA/Trae2OpenCode/actions/runs/35930884801)
-六任务成功，三份平台报告已上传。完整质量门禁累计 340 项单测。
+六任务成功，三份平台报告已上传。M7-4 的 CI
+[35932162689](https://github.com/yororoA/Trae2OpenCode/actions/runs/35932162689)
+六任务成功，六份安装报告已上传。完整质量门禁累计 340 项单测。
 各项范围和局限见 [平台](m7-1-platform-matrix.md)、
 [版本](m7-2-version-contract.md)、[压力恢复](m7-3-resilience.md)、
 [安装验收](m7-4-package-installation.md)。
@@ -615,6 +617,9 @@ M7-1/2 的 CI [35930386323](https://github.com/yororoA/Trae2OpenCode/actions/run
 P0 最后一项来源验收需用户已登录的 TRAE CN 3.3.104 workbench 开启本机 CDP，
 完成生产 reader 导出、隔离 OpenCode 导入、逐消息回读与重复迁移验证。
 现有正常使用的 TRAE 未开放调试端口；不自动重启用户工作中的应用。
+现已备好 `npm run verify:live` 入口及
+[可复现验收步骤](m5-live-runtime-acceptance.md)。M7 PR #17 暂以 M5 分支为 base，
+待 M5 PR #16 通过来源验收合入 main 后再改向 main。
 
 ## 7. 优先级
 
@@ -693,7 +698,7 @@ P0 最后一项来源验收需用户已登录的 TRAE CN 3.3.104 workbench 开�
 6. 最后处理附件、Skill、MCP；SQLite Writer 保持为可选项。
 
 原始 P0 估算为 20-30 个工程日。当前 M0–M4 已集成，M5/M7 工程工作已实现，
-剩余退出条件为安装 CI 和真实已登录来源端到端验收；不按测试数量折算完成比例。
+剩余退出条件为真实已登录来源端到端验收；不按测试数量折算完成比例。
 
 ## 11. 分支与提交规范
 
