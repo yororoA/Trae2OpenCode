@@ -1,1 +1,4 @@
 tmp/
+node_modules/
+dist/
+fixtures/fixture-report.json

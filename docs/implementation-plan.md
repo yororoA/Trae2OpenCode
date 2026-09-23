@@ -41,6 +41,7 @@
 
 - 恢复 TRAE 从未在本地持久化的隐藏推理。
 - 绕过云端鉴权获取未缓存的会话正文。
+- 支持未经真实 fixture 验证的旧 `memento` 存储 profile。
 - 自动迁移 MCP 凭据、账号令牌或其他 secret。
 - 保证任意 OpenCode 版本的内部 SQLite schema 兼容。
 - 首版提供 GUI。
@@ -211,7 +212,7 @@ trae2opencode rollback --manifest <path>
 | ID | 任务 | 依赖 | 验收 |
 | --- | --- | --- | --- |
 | M0-1 | 建立脱敏 fixture 采集脚本 | 无 | 只保留结构、类型、hash 和测试所需样本 |
-| M0-2 | 覆盖至少两个 TRAE 存储 profile | M0-1 | 旧 `memento` 与 3.3.104 当前结构均有 fixture |
+| M0-2 | 固化 TRAE CN 3.3.104 存储 profile | M0-1 | 当前结构有真实脱敏 fixture；旧 `memento` 标记为未验证并 fail closed |
 | M0-3 | 定位 assistant/reasoning/tool 的真实来源 | M0-2 | 每类字段有来源路径，或明确判定本地不可得 |
 | M0-4 | 验证 OpenCode import round-trip | 无 | 原生消息类型可完整回读 |
 | M0-5 | 固化 ADR 与映射矩阵 | M0-3, M0-4 | 字段映射、降级策略和不支持项评审通过 |
@@ -248,7 +249,7 @@ trae2opencode rollback --manifest <path>
 | M3-4 | reasoning/plan 解析 | M0-3, M3-1 | 仅映射实际持久化内容 |
 | M3-5 | tool call/result 状态机归并 | M0-3, M3-1 | call/result 一一关联，孤儿项有告警 |
 | M3-6 | 图片、文件和长文本附件解析 | M3-2 | 缺失文件、mime、hash 均有记录 |
-| M3-7 | 多 profile 解析器注册表 | M3-1..6 | 未知版本拒绝静默套用旧规则 |
+| M3-7 | profile 解析器注册表 | M3-1..6 | 未验证或未知版本拒绝静默套用规则 |
 | M3-8 | IR 排序、去重与完整性校验 | M3-1..7 | golden fixture 全部通过 |
 
 ### M4：OpenCode 原生导入，4-6 天
@@ -312,6 +313,7 @@ OpenCode import 是实验性能力。M4-6 必须验证实际导入结果，不�
 
 - M3-6 附件迁移
 - M6 Skill/MCP 资源迁移
+- 旧 `memento` profile 的真实 fixture、验证与解析支持
 - 更多 TRAE storage profile
 
 ### P2：仅按实际需求立项
@@ -397,7 +399,7 @@ main
 │
 ├── m0/format-exploration           # M0：格式勘探与决策冻结
 │   ├── m0-1/fixture-collection     #   建立脱敏 fixture 采集脚本
-│   ├── m0-2/storage-profiles       #   覆盖至少两个 TRAE 存储 profile
+│   ├── m0-2/storage-profiles       #   固化 3.3.104 profile，旧 memento 标记未验证
 │   ├── m0-3/source-location        #   定位 assistant/reasoning/tool 真实来源
 │   ├── m0-4/import-roundtrip       #   验证 OpenCode import round-trip
 │   └── m0-5/adr-mapping            #   固化 ADR 与映射矩阵
