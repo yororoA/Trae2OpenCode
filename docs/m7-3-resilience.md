@@ -38,3 +38,7 @@ RSS 每 25ms 和 IPC 请求时采样，数值不是 OS 精确峰值，也不含 
 `tmp/m7-3-resilience-report.json`，CI 三系统 Node 22 任务会重复验收并上传报告。
 
 集成脚本纳入 `tsconfig.integration.json`，随 `npm run check` 做严格类型检查。
+
+CI [35930884801](https://github.com/yororoA/Trae2OpenCode/actions/runs/35930884801)
+（commit `1cae3dc`）六任务全部通过，包含 macOS/Windows/Linux 的 Node 22
+真实压力与进程中断验收，三份平台报告均已上传。

@@ -34,6 +34,16 @@ jobs:
       - name: Run quality gates
         run: npm run check
 
+      - name: Install and verify packed CLI
+        run: npm run verify:package
+
+      - name: Upload package evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ matrix.os }}-node-${{ matrix.node }}
+          path: tmp/m7-4-package-report.json
+          if-no-files-found: error
+
       - name: Install pinned native OpenCode
         if: matrix.node == '22'
         run: npm install --prefix tmp/opencode --no-package-lock --no-save @opencode/cli@2.0.12

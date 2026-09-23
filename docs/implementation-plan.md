@@ -1,6 +1,6 @@
 # Trae2OpenCode 实现规划
 
-> 状态：M0 至 M4 已合入 `main`；M5-1 至 M5-6 已实现，位于 `m5/migration-orchestration`，真实 runtime 端到端验收待完成
+> 状态：M0 至 M4 已合入 `main`；M5-1 至 M5-6 与 M7-1 至 M7-4 已实现，真实已登录 runtime 端到端验收待完成
 > 核验日期：2026-09-24
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
@@ -37,13 +37,15 @@ M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP
 | M2 SQLite 快照 | 已集成 | 已实现 Online Backup、WAL 一致性、完整性校验和自动清理 |
 | M2 能力探测 | 已集成 | 已输出 storage profile、字段覆盖率和 runtime adapter 状态 |
 | M2 recovery grading | 已集成 | 已实现逐会话四级分级、稳定缺失原因和 metadata session discovery |
-| M3 TRAE 读取 | 已集成，PR #14 | 已实现各类 parser、profile 注册、IR 组装与完整性/golden 校验；production runtime bridge 尚未接入 |
+| M3 TRAE 读取 | 已集成，PR #14 | 已实现各类 parser、profile 注册、IR 组装与完整性/golden 校验；production runtime bridge 在 M5 实现 |
 | M4 OpenCode adapter | 已集成，PR #15 | 能力探测、IR 映射、稳定 ID、CLI adapter、路径映射与完整对账；五组 macOS 隔离实机通过 |
 | M5 迁移编排 | M5-1 至 M5-6 已实现 | 只读 CLI、dry-run、manifest、resume、真实 import/verify、显式替换、rollback 与凭据过滤；真实已登录 renderer 端到端待验收 |
-| M6-M7 | 未开始 | 资源迁移、兼容与发布能力待实现 |
+| M6 资源迁移 | P1，未开始 | Skill/MCP 发现、建议配置与复制可独立发布 |
+| M7 兼容与发布 | M7-1 至 M7-4 已实现 | 三系统六任务、当前/相邻版本契约与真实中断 CI 通过；tarball 安装/dry-run 本机通过，新增安装 CI 待确认 |
 
-当前结论不能表述为“迁移工具已可用”。准确状态是：M0 已解除源数据可恢复性
-阻塞，项目可以进入工程实现阶段；目前仍不能执行真实 TRAE 会话迁移。
+当前是 P0 验收候选：生产迁移路径已经实现，已通过合成来源到真实 OpenCode
+的三平台验证。仍缺少已登录 TRAE 经生产 CDP reader 导出并迁移的完整实机证据，
+因此 M5/M7 保持里程碑分支，不能宣称 P0 已完成。尚未发布 npm 包。
 
 ## 2. 目标与边界
 
@@ -235,7 +237,7 @@ trae2opencode rollback --manifest <path>
 - `export`：生成版本化 IR，可在不安装 OpenCode 时使用。
 - `migrate`：校验、导入、回读、对账。
 - `verify`：重新读取目标并与 manifest 对账。
-- `rollback`：只处理本次新建会话，默认要求交互确认。
+- `rollback`：只预览本次新建会话；执行需精确 run ID 和显式独占声明。
 
 ## 6. 里程碑与任务
 
@@ -596,11 +598,23 @@ M5-6 累计 339 项测试通过，已覆盖已识别凭据格式、结构化字�
 
 | ID | 任务 | 依赖 | 验收 |
 | --- | --- | --- | --- |
-| M7-1 | macOS/Windows 集成矩阵 | M5 | 两端默认数据目录通过 |
-| M7-2 | OpenCode 版本契约测试 | M4 | 至少覆盖当前版和一个相邻版本 |
-| M7-3 | 大会话与异常中断测试 | M5 | 不 OOM，可恢复，无重复 |
-| M7-4 | 安装包、README、故障排查 | M7-1..3 | 新机器按文档可完成 dry-run |
-| M7-5 | 可选 SQLite fallback 评估 | M7-2 | 仅在原生 import 无法满足时立项 |
+| M7-1 | macOS/Windows 集成矩阵 | M5 | 已通过三系统 Node 18.20.8/22；macOS/Windows 默认源目录与三端目标链路通过 |
+| M7-2 | OpenCode 版本契约测试 | M4 | 已通过：2.0.12 原生写入/回读，真实 2.0.11 准确拒写 |
+| M7-3 | 大会话与异常中断测试 | M5 | 已通过三端：512 MiB 堆固定负载、两组真实 kill/resume，无重复 import |
+| M7-4 | 安装包、README、故障排查 | M7-1..3 | 已实现：白名单 tarball、隔离安装/bin/dry-run；本机通过，三端安装 CI 待确认 |
+| M7-5 | 可选 SQLite fallback 评估 | M7-2 | 当前原生 import 满足 P0，不立项 |
+
+M7-1/2 的 CI [35930386323](https://github.com/yororoA/Trae2OpenCode/actions/runs/35930386323)
+六任务成功。M7-3 的 CI
+[35930884801](https://github.com/yororoA/Trae2OpenCode/actions/runs/35930884801)
+六任务成功，三份平台报告已上传。完整质量门禁累计 340 项单测。
+各项范围和局限见 [平台](m7-1-platform-matrix.md)、
+[版本](m7-2-version-contract.md)、[压力恢复](m7-3-resilience.md)、
+[安装验收](m7-4-package-installation.md)。
+
+P0 最后一项来源验收需用户已登录的 TRAE CN 3.3.104 workbench 开启本机 CDP，
+完成生产 reader 导出、隔离 OpenCode 导入、逐消息回读与重复迁移验证。
+现有正常使用的 TRAE 未开放调试端口；不自动重启用户工作中的应用。
 
 ## 7. 优先级
 
@@ -666,7 +680,7 @@ M5-6 累计 339 项测试通过，已覆盖已识别凭据格式、结构化字�
 | 运行中的 SQLite/WAL 不一致 | 扫描结果损坏 | 一致性快照，只读解析 |
 | 附件路径失效 | 会话内容不完整 | hash、缺失告警、可选复制 |
 | MCP 配置包含 secret | 凭据泄露 | 永不写入报告或 IR，要求重新绑定 |
-| 大型 tool result 导致内存峰值 | OOM | 流式读取、大小上限、sidecar |
+| 大型 tool result 导致内存峰值 | OOM | 当前采用大小上限及固定压力验收；流式大 bundle/sidecar 尚未实现 |
 
 ## 10. 推荐执行顺序
 
@@ -678,9 +692,8 @@ M5-6 累计 339 项测试通过，已覆盖已识别凭据格式、结构化字�
 5. 增加批量迁移、manifest、resume 和 rollback。
 6. 最后处理附件、Skill、MCP；SQLite Writer 保持为可选项。
 
-原始 P0 估算为 20-30 个工程日。当前完成的是高风险的 M0 勘探，不宜按任务数直接
-折算整体百分比；M2-M5 和 M7 仍包含主要产品实现工作，剩余工期应在 M2 扫描
-契约冻结后重新评估。
+原始 P0 估算为 20-30 个工程日。当前 M0–M4 已集成，M5/M7 工程工作已实现，
+剩余退出条件为安装 CI 和真实已登录来源端到端验收；不按测试数量折算完成比例。
 
 ## 11. 分支与提交规范
 
