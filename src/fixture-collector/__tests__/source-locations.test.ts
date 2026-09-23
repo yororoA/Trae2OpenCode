@@ -1,3 +1,4 @@
+import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -133,6 +134,7 @@ describe("message source map", () => {
       "trae-cn-3.3.104.json",
     );
     const fixture = JSON.parse(fs.readFileSync(fixturePath, "utf8")) as {
+      profileVerification: string;
       locations: Array<{
         contentKind: string;
         availability: string;
@@ -140,6 +142,13 @@ describe("message source map", () => {
         fields: string[];
         evidenceLevel: string;
       }>;
+      verification: {
+        rowSampled: boolean;
+        runtimeReadback: boolean;
+        status: string;
+        runtimeEvidenceFixture: string;
+        reason: string;
+      };
     };
     const locations = getMessageSourceLocations().map((location) => ({
       contentKind: location.contentKind,
@@ -150,5 +159,89 @@ describe("message source map", () => {
     }));
 
     assert.deepStrictEqual(locations, fixture.locations);
+    assert.strictEqual(fixture.profileVerification, "unverified");
+    assert.deepStrictEqual(fixture.verification, {
+      rowSampled: false,
+      runtimeReadback: true,
+      status: "partial",
+      runtimeEvidenceFixture: "trae-cn-3.3.104.runtime.json",
+      reason:
+        "Runtime evidence verifies message relationships and tool status transitions, but not message content, reasoning text, tool payloads, database role values, or database joins.",
+    });
+  });
+
+  it("keeps runtime evidence partial and free of raw private values", () => {
+    const fixturePath = path.join(
+      process.cwd(),
+      "fixtures",
+      "source-locations",
+      "trae-cn-3.3.104.runtime.json",
+    );
+    const serialized = fs.readFileSync(fixturePath, "utf8");
+    const fixture = JSON.parse(serialized) as {
+      verification: { status: string; sessionHash: string };
+      turns: {
+        replyAssociationVerified: boolean;
+        turnAssociationVerified: boolean;
+        samples: Array<{
+          assistantMessageHash: string;
+          userMessageHash: string;
+          turnHash: string;
+          relationVerified: boolean;
+        }>;
+      };
+      tools: {
+        sampledCalls: number;
+        pairedCalls: number;
+        unpairedCalls: number;
+      };
+      privacy: {
+        messageContentIncluded: boolean;
+        rawIdentifiersIncluded: boolean;
+        absolutePathsIncluded: boolean;
+        accountDataIncluded: boolean;
+      };
+      evidenceSha256: string;
+    };
+
+    assert.strictEqual(fixture.verification.status, "partial");
+    assert.match(fixture.verification.sessionHash, /^sha256:[a-f0-9]{64}$/);
+    assert.strictEqual(fixture.turns.replyAssociationVerified, true);
+    assert.strictEqual(fixture.turns.turnAssociationVerified, true);
+    assert.ok(
+      fixture.turns.samples.every(
+        (sample) =>
+          sample.relationVerified &&
+          [sample.assistantMessageHash, sample.userMessageHash, sample.turnHash]
+            .every((value) => /^sha256:[a-f0-9]{64}$/.test(value)),
+      ),
+    );
+    assert.ok(fixture.tools.sampledCalls > 0);
+    assert.strictEqual(fixture.tools.pairedCalls, fixture.tools.sampledCalls);
+    assert.strictEqual(fixture.tools.unpairedCalls, 0);
+    assert.deepStrictEqual(fixture.privacy, {
+      messageContentIncluded: false,
+      rawIdentifiersIncluded: false,
+      absolutePathsIncluded: false,
+      accountDataIncluded: false,
+    });
+
+    const { evidenceSha256, ...reportWithoutDigest } = fixture;
+    const actualDigest = `sha256:${
+      crypto.createHash("sha256")
+        .update(JSON.stringify(reportWithoutDigest))
+        .digest("hex")
+    }`;
+    assert.strictEqual(evidenceSha256, actualDigest);
+
+    for (const forbidden of [
+      "/Users/",
+      "user_message_context",
+      "\"query\"",
+      "output_path",
+      "account_id",
+    ]) {
+      assert.ok(!serialized.includes(forbidden), `leaked ${forbidden}`);
+    }
   });
 });

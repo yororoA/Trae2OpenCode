@@ -80,8 +80,9 @@
   ],
   "verification": {
     "rowSampled": false,
-    "runtimeReadback": false,
-    "status": "unverified",
-    "reason": "The SQLCipher database and lite/get_messages response have not been sampled through a redacted read path."
+    "runtimeReadback": true,
+    "status": "partial",
+    "runtimeEvidenceFixture": "trae-cn-3.3.104.runtime.json",
+    "reason": "Runtime evidence verifies message relationships and tool status transitions, but not message content, reasoning text, tool payloads, database role values, or database joins."
   }
 }

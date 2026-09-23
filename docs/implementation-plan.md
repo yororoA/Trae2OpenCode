@@ -1,7 +1,7 @@
 # Trae2OpenCode 实现规划
 
 > 状态：Draft
-> 核验日期：2026-09-22
+> 核验日期：2026-09-23
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
 ## 1. 结论
@@ -123,6 +123,13 @@ src/
 
 默认不删除任何既有目标数据。回滚只删除本次 manifest 记录且经确认的新会话。
 
+### ADR-006：未验证的运行时内容必须 fail closed
+
+生产迁移只使用受支持的结构化读取接口。renderer log 只能作为脱敏验证证据，
+不能作为迁移源；不直接解密 TRAE 数据库，不补造 assistant 完成时间，也不将
+关系级证据升级为内容级恢复。完整决策见
+[ADR-0006](./adr/0006-runtime-readback-fail-closed.md)。
+
 ## 4. 数据流
 
 ```text
@@ -228,16 +235,21 @@ trae2opencode rollback --manifest <path>
 #### 当前进展（2026-09-23）
 
 - M0-1、M0-2：已固化采集器与 3.3.104 结构 fixture；旧 `memento` 仍未验证。
-- M0-3：来源映射与只读探测已提交（`0598c87`），19 项测试及类型检查通过。
-  当前证据仅为 `schema-observed`，真实消息的角色、顺序、reasoning/tool
-  关联仍需脱敏回读验证；M0-3 尚未通过全部验收，M0 退出条件尚未满足。
+- M0-3：来源映射与只读探测已提交（`0598c87`）。后续真实 runtime 证据已验证
+  user/assistant 身份、消息顺序、turn/reply 关系、
+  plan item 附着和 34 组工具状态转换。正文、reasoning、tool payload、数据库
+  role 值和 join 仍未验证，因此 M0-3 以部分验收、fail closed 结束。详见
+  [M0-3 来源定位](./m0-3-source-location.md)。
 - M0-4：隔离原生 import/export 已验证已完成消息及四类工具状态；未完成
   assistant（缺少 `time.completed`）在回读中整条丢失，会话项目归属与
   更新时间也会被目标重算。详见 [M0-4 验证与限制](./m0-4-import-roundtrip.md)。
   目标端验证成功不能替代 TRAE 源端真实会话验收。
-- 下一步补齐 M0-3 真实脱敏回读，再在 M0-5 固化字段映射、目标时间差异与
-  未完成消息的拒绝写入策略；M0 退出条件满足前不进入完整迁移实现。
-- 开发执行通道暂时使用备用方案，原因与复现方法见
+- M0-5：已固化 [ADR-0006](./adr/0006-runtime-readback-fail-closed.md) 与
+  [字段映射矩阵](./m0-5-mapping-matrix.md)。未知或未验证 profile 只导出
+  metadata/diagnostic；缺少真实完成时间的 assistant 拒绝目标写入。
+- M0 退出条件仍未满足。当前产品目标按约定降级为本地可用数据导出器；取得
+  结构化正文、reasoning 和 tool payload 证据前，不启用完整迁移或目标写入。
+- 开发执行通道曾发生 transport 故障，原因、备用方案与复现方法见
   [开发环境故障排查](./development-troubleshooting.md)。
 
 ### M1：工程骨架与 IR，2-3 天

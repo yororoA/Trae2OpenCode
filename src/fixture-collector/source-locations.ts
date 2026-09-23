@@ -56,8 +56,9 @@ const MAPPED_PRODUCT_VERSIONS = new Set(["3.3.104"]);
 
 /**
  * M0-3 source map derived from the TRAE CN 3.3.104 client and ai-agent
- * executable schemas. It deliberately remains below row-sampled until a
- * redacted runtime readback verifies the relationship on real data.
+ * executable schemas. Runtime evidence verifies projected relationships, but
+ * the physical fields remain below row-sampled until a supported structured
+ * read path verifies their values on real data.
  */
 const MESSAGE_SOURCE_LOCATIONS: readonly MessageSourceLocation[] = [
   {
@@ -75,7 +76,10 @@ const MESSAGE_SOURCE_LOCATIONS: readonly MessageSourceLocation[] = [
       "user_message_context",
     ],
     evidenceLevel: "schema-observed",
-    notes: ["Select rows by message_role; role values are not yet row-sampled."],
+    notes: [
+      "Runtime projection verifies the assistant-to-user reply relationship.",
+      "Database content and message_role values are not row-sampled.",
+    ],
   },
   {
     contentKind: "assistant",
@@ -91,7 +95,10 @@ const MESSAGE_SOURCE_LOCATIONS: readonly MessageSourceLocation[] = [
       "message_index",
     ],
     evidenceLevel: "schema-observed",
-    notes: ["Select rows by message_role; role values are not yet row-sampled."],
+    notes: [
+      "Runtime projection verifies message_index and turn relationships.",
+      "Database content and message_role values are not row-sampled.",
+    ],
   },
   {
     contentKind: "reasoning",
@@ -101,6 +108,7 @@ const MESSAGE_SOURCE_LOCATIONS: readonly MessageSourceLocation[] = [
     evidenceLevel: "schema-observed",
     notes: [
       "The persisted thought field is a candidate reasoning source.",
+      "Runtime history confirms plan-item attachment, not thought text.",
       "Hidden reasoning that was never persisted is not recoverable.",
     ],
   },
@@ -117,7 +125,10 @@ const MESSAGE_SOURCE_LOCATIONS: readonly MessageSourceLocation[] = [
       "tool_status",
     ],
     evidenceLevel: "schema-observed",
-    notes: ["Call/result pairing and status values are not yet row-sampled."],
+    notes: [
+      "Runtime events verify tool-call status transitions.",
+      "Tool payloads and the plan-item join are not row-sampled.",
+    ],
   },
 ];
 
