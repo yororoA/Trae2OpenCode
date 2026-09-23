@@ -71,3 +71,25 @@ V2 session store 识别错误分别出现过 `reportForFallback is not defined` 
 
 该方案仅用于生成验证 fixture。生产 reader 不得依赖 DevTools、`localStorage`
 或 renderer 日志，必须使用已验证 runtime adapter 或等价官方 bridge。
+
+## 2026-09-23：提交后钩子写入被 sandbox 拒绝
+
+### 现象与定位
+
+执行 `git commit` 时，Git 已创建提交并输出提交哈希，随后 TRAE 的全局
+post-commit 钩子尝试写入工作区外的文件：
+
+```text
+TRAE Sandbox Error: hit restricted
+Not allow operate files: /Users/bytedance/.bytesec/commit_hook/commit_result.json
+```
+
+因此命令最终退出码为 1，但 `git status` 和 `git log -1` 均确认提交已经成功。
+该问题不属于仓库内 hook，也不影响后续 `git push`。
+
+### 处理方式
+
+看到此错误后先核对 HEAD、工作区和上游状态，不要直接重复提交。当前 sandbox
+会话中保留全局 hook，不通过 `--no-verify` 绕过检查；提交已存在时直接继续执行
+后续验证与推送。若需要彻底消除误报，应在 TRAE 权限配置中显式允许该 hook
+写入目标路径。
