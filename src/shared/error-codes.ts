@@ -167,6 +167,10 @@ export const ERROR_DEFINITIONS = {
     exitCode: 5,
     message: "The source session cannot be mapped to OpenCode without unverified or missing data.",
   },
+  T2O_OPENCODE_IDENTITY_INVALID: {
+    exitCode: 5,
+    message: "Source identifiers or parent dependencies cannot form a unique OpenCode import plan.",
+  },
   T2O_INTERNAL_UNEXPECTED: {
     exitCode: 1,
     message: "An unexpected internal error occurred.",
