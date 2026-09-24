@@ -143,6 +143,9 @@ TRAE 本身的历史被删除，源数据始终保持只读。
   不再插入 Markdown 分隔线。私有 `reasoning_content` 仍保持独立的 reasoning part。
 - TRAE 的 `exec_command` 会映射为 OpenCode 原生 shell 工具，可展开查看具体命令和
   已持久化的终端输出；原始工具字段仍保存在 metadata 中。
+- 迁移消息使用与 OpenCode 时间线兼容的稳定递增 ID，因此迁移后继续对话、撤销和
+  重做不会让当前窗口丢失历史。超大历史会自动加入少量原生 compaction checkpoint；
+  完整旧消息仍可查看，模型只携带最近 checkpoint 之后的有界上下文。
 - TRAE 未持久化的工具输出或最终 assistant 正文不会被编造。工具记录会保留缺失标识；
   缺失的最终正文会显示明确提示，内部工具 JSON 不会作为聊天正文显示。
 

@@ -66,6 +66,16 @@ macOS 的 `open -a "Trae CN" --args ...` 经 3.3.104 实机确认可能丢弃调
 成功导入必须有回读对账。`partial` 表示来源不完整，不保证任意缺失都能映射。
 凭据检测只覆盖已识别格式、结构和有限嵌套编码；不保证识别所有无标记密码。
 
+### Revert 后时间线空白或请求 invalid
+
+mapping v6 的哈希消息 ID 不满足 OpenCode Desktop 2.0.16 对时间顺序的字符串比较，
+实时 Revert 后可能暂时清空当前窗口；超大历史也可能在首次自动 compaction 时被 provider
+拒绝。mapping v7 使用稳定递增 ID，并为超大历史加入原生 completed-compaction 边界。
+原始时间线仍完整保留。
+
+更新代码后重新执行 `npm run migrate:local` 并按提示安全覆盖。目标会话若已在 OpenCode
+中新增内容，覆盖保护会停止；先保留新增内容，再人工删除旧目标会话并重新迁移。
+
 ## 续跑与删除保护
 
 | 代码 | 处理 |
@@ -74,7 +84,7 @@ macOS 的 `open -a "Trae CN" --args ...` 经 3.3.104 实机确认可能丢弃调
 | `T2O_MIGRATION_BUNDLE_READ_FAILED` | `--input` 读取失败时，先独立验证输入文件；`--resume` 尚未读取或写入目标 |
 | `T2O_MIGRATION_LOCKED` | 同一 manifest 正被使用；结束持有它的迁移进程后重试，不删除运行中的 lock 文件 |
 | `T2O_MIGRATION_PLAN_CHANGED` | 恢复原 IR 与目录/namespace/筛选参数；真实源变化则新建迁移 |
-| `T2O_MIGRATION_TARGET_CHANGED` | 核对 server 数据库、版本、schema 和此前写入内容；动态端口仅在完整目标证据匹配时自动重绑定 |
+| `T2O_MIGRATION_TARGET_CHANGED` | 核对 server 数据库、版本、schema 和此前写入内容；目标全部缺失时可重建，存在但证据不符时仍拒绝 |
 | `T2O_MIGRATION_PARTIAL_WRITE` | 目标未完整对账；保留 manifest 和 IR，根据回读证据处理，不盲目重复导入 |
 | `T2O_MIGRATION_CHILDREN_PROTECTED` | 待删除范围含外来或未选中子会话，禁止级联删除 |
 | `T2O_MIGRATION_EXCLUSIVE_REQUIRED` | 暂停其他目标写入者后才可声明 `--exclusive-target` |
