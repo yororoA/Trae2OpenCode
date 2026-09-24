@@ -121,6 +121,14 @@ export function parseTraeToolCalls(
     const raw = item.tool_call_info;
     // A reasoning-only plan item is not an orphan tool call.
     if (raw === undefined || raw === null) continue;
+    const isEmptyResult = isRuntimeObject(raw) &&
+      isRuntimeObject(raw.result) &&
+      Object.keys(raw.result).length === 0;
+    const isEmptyPlaceholder = isRuntimeObject(raw) &&
+      raw.name === "" &&
+      raw.params === undefined &&
+      (raw.result === undefined || raw.result === null || isEmptyResult);
+    if (isEmptyPlaceholder) continue;
     const hasValidCall =
       isRuntimeObject(raw) &&
       typeof raw.id === "string" && /^[A-Za-z0-9._:-]{1,256}$/.test(raw.id) &&

@@ -70,4 +70,17 @@ describe("createTraeRuntimeReader", () => {
     createTraeRuntimeReader({ ...transport, close() { closed = true; } }).close();
     assert.equal(closed, true);
   });
+
+  it("isolates one stale metadata identity while preserving valid sessions", async () => {
+    const secondId = "session-second";
+    const { reader } = setup([
+      { code: 0, data: { chat_session_id: sessionId, title: "First" } },
+      { code: 1, data: null },
+      { code: 0, data: { chat_session_id: secondId, title: "Second" } },
+    ]);
+    assert.deepEqual(await reader.readMetadata([sessionId, "session-stale", secondId]), [
+      { chat_session_id: sessionId, title: "First" },
+      { chat_session_id: secondId, title: "Second" },
+    ]);
+  });
 });
