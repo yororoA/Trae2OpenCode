@@ -47,6 +47,24 @@ describe("credential inspection boundaries", () => {
     assert.equal(containsCredentials({ [`ghp_${"A".repeat(36)}`]: "safe-value" }), true);
   });
 
+  it("parses valid JSON before scanning its escaped serialization", () => {
+    const safe = {
+      payload: JSON.stringify({
+        authorization: "[REDACTED_SECRET]",
+        password: `\${LOCAL_PASSWORD}`,
+      }),
+    };
+    const serialized = JSON.stringify(safe, null, 2);
+
+    assert.equal(containsCredentials(safe), false);
+    assert.equal(containsCredentials(serialized), false);
+    assert.equal(containsCredentials(JSON.stringify({ password: "synthetic" })), true);
+    assert.equal(
+      containsCredentials('{"password":"synthetic","password":"[REDACTED_SECRET]"}'),
+      true,
+    );
+  });
+
   it("keeps ordinary prose, hashes and explicit unbound references unchanged", () => {
     const safe = {
       text: "Read this file. 中文\nThe token count is 200. A password is required.",

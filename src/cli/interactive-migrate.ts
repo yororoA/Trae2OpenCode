@@ -122,6 +122,19 @@ export function bundleMatchesSession(
   return bundle.sessions.length === 1 && bundle.sessions[0].sourceId === sourceSessionId;
 }
 
+/** Release only an empty leaf so the exporter can claim it exclusively. */
+export async function prepareExportDirectory(directory: string): Promise<boolean> {
+  try {
+    const stat = await fs.lstat(directory);
+    if (!stat.isDirectory() || stat.isSymbolicLink()) return false;
+    if ((await fs.readdir(directory)).length > 0) return false;
+    await fs.rmdir(directory);
+    return true;
+  } catch (error) {
+    return error !== null && typeof error === "object" && "code" in error && error.code === "ENOENT";
+  }
+}
+
 function friendlyCode(outputText: string): string {
   for (const line of outputText.trim().split(/\r?\n/).reverse()) {
     try {
@@ -478,6 +491,10 @@ async function main(): Promise<number> {
     console.log("已发现并校验当前会话的迁移 bundle。");
   } else {
     await fs.mkdir(path.dirname(exportDirectory), { recursive: true, mode: 0o700 });
+    if (!await prepareExportDirectory(exportDirectory)) {
+      console.error("迁移导出目录已被其他文件占用，已停止以避免覆盖数据。");
+      return 4;
+    }
     console.log("正在导出所选会话...");
     const exported = await runCli([
       "export", "--cdp", cdp, "--cdp-target", target.id,

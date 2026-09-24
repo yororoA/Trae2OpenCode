@@ -6,6 +6,7 @@ import type { AssistantEventIR, JsonObject, MigrationBundle, ToolContentIR } fro
 import { assertOpenCodeTransfer } from "../opencode/contract.js";
 import {
   mapOpenCodeSession,
+  MISSING_TOOL_ERROR_TEXT,
   MISSING_TOOL_OUTPUT_TEXT,
 } from "../opencode/mapping.js";
 
@@ -82,6 +83,7 @@ describe("OpenCode IR mapping", () => {
   it("marks a completed tool whose source output was not persisted", () => {
     const bundle = structuredClone(fixture);
     delete tool(bundle).output;
+    delete tool(bundle).completedAt;
     bundle.sessions[0].recovery = "partial";
 
     const { transfer, diagnostics } = map(bundle);
@@ -94,6 +96,7 @@ describe("OpenCode IR mapping", () => {
       true,
     );
     assert.ok(diagnostics.some((item) => item.code === "T2O_OPENCODE_TOOL_OUTPUT_MISSING"));
+    assert.ok(diagnostics.some((item) => item.code === "T2O_OPENCODE_TOOL_COMPLETION_TIME_MISSING"));
   });
 
   it("retains verified running and streaming tools in a completed assistant", () => {
@@ -110,6 +113,53 @@ describe("OpenCode IR mapping", () => {
     }
   });
 
+  it("preserves running payloads and projects unknown tool states without claiming completion", () => {
+    for (const status of ["running", "unknown"] as const) {
+      const bundle = structuredClone(fixture);
+      Object.assign(tool(bundle), {
+        status,
+        output: { retained: true },
+        error: status === "unknown" ? "source error" : undefined,
+      });
+      bundle.sessions[0].recovery = "partial";
+      const { transfer, diagnostics } = map(bundle);
+      const state = (transfer.messages[1].content as JsonObject[])[3].state as JsonObject;
+      const metadata = (state.metadata as JsonObject).trae2opencode as JsonObject;
+
+      assert.equal(state.status, "running");
+      assert.equal(metadata.sourceStatus, status);
+      assert.deepEqual(metadata.sourceOutput, { retained: true });
+      assert.equal(metadata.sourceError, status === "unknown" ? "source error" : undefined);
+      assert.ok(diagnostics.some((item) => item.code === (
+        status === "unknown"
+          ? "T2O_OPENCODE_TOOL_STATUS_PROJECTED"
+          : "T2O_OPENCODE_RUNNING_TOOL_PAYLOAD_PRESERVED"
+      )));
+    }
+  });
+
+  it("maps failed tools to the native error state while preserving output", () => {
+    for (const sourceError of ["source error", { code: 7 }, undefined]) {
+      const bundle = structuredClone(fixture);
+      Object.assign(tool(bundle), { status: "error", error: sourceError, output: { retained: true } });
+      if (sourceError === undefined) delete tool(bundle).error;
+      bundle.sessions[0].recovery = "partial";
+      const { transfer, diagnostics } = map(bundle);
+      const state = (transfer.messages[1].content as JsonObject[])[3].state as JsonObject;
+      const error = state.error as JsonObject;
+      const metadata = (state.metadata as JsonObject).trae2opencode as JsonObject;
+
+      assert.equal(state.status, "error");
+      assert.equal(error.type, "TRAE_TOOL_ERROR");
+      assert.equal(error.message, sourceError === undefined
+        ? MISSING_TOOL_ERROR_TEXT
+        : typeof sourceError === "string" ? sourceError : canonicalizeJson(sourceError));
+      assert.deepEqual(state.content, [{ type: "text", text: canonicalizeJson({ retained: true }) }]);
+      assert.equal(metadata.sourceErrorMissing, sourceError === undefined ? true : undefined);
+      assert.ok(diagnostics.some((item) => item.code === "T2O_OPENCODE_TOOL_ERROR_PRESERVED"));
+    }
+  });
+
   it("rejects missing real timestamps and unfinished assistant states", () => {
     const mutations = [
       (b: MigrationBundle) => { delete b.sessions[0].createdAt; },
@@ -118,7 +168,6 @@ describe("OpenCode IR mapping", () => {
       (b: MigrationBundle) => { assistant(b).status = "running"; },
       (b: MigrationBundle) => { assistant(b).status = "unknown"; },
       (b: MigrationBundle) => { delete tool(b).createdAt; },
-      (b: MigrationBundle) => { delete tool(b).completedAt; },
     ];
     for (const mutate of mutations) {
       const bundle = structuredClone(fixture);
@@ -127,13 +176,9 @@ describe("OpenCode IR mapping", () => {
     }
   });
 
-  it("rejects unsupported tool payloads, errors and states without dropping data", () => {
+  it("rejects tool payload shapes that the target cannot represent", () => {
     const mutations = [
       (t: ToolContentIR) => { t.input = "not-an-object"; },
-      (t: ToolContentIR) => { t.error = "source error"; },
-      (t: ToolContentIR) => { t.status = "error"; },
-      (t: ToolContentIR) => { t.status = "unknown"; },
-      (t: ToolContentIR) => { t.status = "running"; },
       (t: ToolContentIR) => { t.status = "streaming"; t.input = ""; },
     ];
     for (const mutate of mutations) {
@@ -157,13 +202,19 @@ describe("OpenCode IR mapping", () => {
     }
   });
 
-  it("blocks related errors and unverified tool error warnings but isolates other sessions", () => {
+  it("projects allowlisted source failures only for partial sessions", () => {
     const bundle = structuredClone(fixture);
     bundle.diagnostics = [{
       id: "issue", code: "T2O_TRAE_TOOL_ERROR_UNVERIFIED", severity: "warning",
       message: "synthetic", subject: { type: "session", sourceId: "session-synthetic" }, sourceRefs: [],
     }];
     assert.throws(() => map(bundle), expectedRejection);
+    bundle.sessions[0].recovery = "partial";
+    assert.doesNotThrow(() => map(bundle));
+    assert.deepEqual(
+      ((map(bundle).transfer.info.metadata as JsonObject).trae2opencode as JsonObject).projectedSourceCodes,
+      ["T2O_TRAE_TOOL_ERROR_UNVERIFIED"],
+    );
     bundle.diagnostics[0].subject!.sourceId = "another-session";
     assert.doesNotThrow(() => map(bundle));
     bundle.diagnostics[0].severity = "error";
@@ -171,7 +222,7 @@ describe("OpenCode IR mapping", () => {
     assert.throws(() => map(bundle), expectedRejection);
   });
 
-  it("rejects duplicate message ids, missing mappings and broken reply/order graphs", () => {
+  it("rejects duplicate message ids and projects broken replies only for partial sessions", () => {
     assert.throws(() => map(undefined, { messageIds: new Map() }), expectedRejection);
     assert.throws(() => map(undefined, { messageIds: new Map([
       ["user-synthetic", "msg_same"], ["assistant-synthetic", "msg_same"],
@@ -179,6 +230,16 @@ describe("OpenCode IR mapping", () => {
     const bundle = structuredClone(fixture);
     assistant(bundle).replyToSourceId = "missing-user";
     assert.throws(() => map(bundle), expectedRejection);
+    bundle.sessions[0].recovery = "partial";
+    const projected = map(bundle);
+    const metadata =
+      (projected.transfer.messages[1].metadata as JsonObject).trae2opencode as JsonObject;
+    assert.equal(metadata.replyToSourceId, undefined);
+    assert.equal(metadata.unresolvedReplyToSourceId, "missing-user");
+    assert.equal(metadata.replyReferenceStatus, "unresolved");
+    assert.ok(projected.diagnostics.some(
+      (item) => item.code === "T2O_OPENCODE_REPLY_REFERENCE_UNRESOLVED",
+    ));
     assistant(bundle).replyToSourceId = "user-synthetic";
     assistant(bundle).order = 1;
     assert.throws(() => map(bundle), expectedRejection);

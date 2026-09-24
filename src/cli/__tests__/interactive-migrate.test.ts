@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import * as fs from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
 import { describe, it } from "node:test";
 import { readBundleFile } from "../../migration/bundle-file.js";
 import type { TraeSessionMetadata } from "../../source/trae/session-metadata.js";
@@ -9,6 +12,7 @@ import {
   formatMetadataStatus,
   localServerUrl,
   parseChoiceIndex,
+  prepareExportDirectory,
   resolveMigrationDirectories,
 } from "../interactive-migrate.js";
 
@@ -114,5 +118,24 @@ describe("interactive migration helpers", () => {
 
     assert.equal(bundleMatchesSession(bundle, sourceSessionId), true);
     assert.equal(bundleMatchesSession(bundle, "different-session"), false);
+  });
+
+  it("releases only an empty export directory", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "trae2opencode-interactive-"));
+    const absent = path.join(root, "absent");
+    const empty = path.join(root, "empty");
+    const occupied = path.join(root, "occupied");
+    await fs.mkdir(empty);
+    await fs.mkdir(occupied);
+    await fs.writeFile(path.join(occupied, "private.txt"), "content");
+    try {
+      assert.equal(await prepareExportDirectory(absent), true);
+      assert.equal(await prepareExportDirectory(empty), true);
+      assert.equal(await fs.stat(empty).catch(() => undefined), undefined);
+      assert.equal(await prepareExportDirectory(occupied), false);
+      assert.equal(await fs.readFile(path.join(occupied, "private.txt"), "utf8"), "content");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
   });
 });
