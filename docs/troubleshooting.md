@@ -24,6 +24,10 @@ SQLite native addon、schema、preview、dry-run 和 IR 导出再读。运行需
 
 | 代码/状态 | 含义与下一步 |
 | --- | --- |
+| `T2O_MIGRATION_BUNDLE_NOT_FOUND` | `--input` 指向的文件不存在；先执行 `pwd`、`ls -lh <input>`，确认相对路径是相对于当前终端目录 |
+| `T2O_MIGRATION_BUNDLE_TOO_LARGE` | bundle 超过 128 MiB；重新导出时使用 `--session` 缩小范围，或拆成多个 bundle 分别迁移 |
+| `T2O_MIGRATION_BUNDLE_INVALID_JSON` | bundle 不是完整 JSON；检查导出是否中断，使用原始导出副本重新生成 |
+| `T2O_MIGRATION_BUNDLE_READ_FAILED` | 其他文件读取失败；检查文件权限、文件是否在迁移过程中被替换，以及父目录是否可读 |
 | `T2O_TRAE_ROOT_NOT_FOUND` | 用 `--trae-root` 指定产品数据目录或 User；检查目录可读 |
 | `T2O_TRAE_PLATFORM_UNSUPPORTED` | Linux 本地发现不支持；在 macOS/Windows 导出后使用 `--input` |
 | `T2O_TRAE_VERSION_UNAVAILABLE` | 用 `--product-file` 指向已安装 TRAE CN 的 product.json |
@@ -67,6 +71,7 @@ macOS 的 `open -a "Trae CN" --args ...` 经 3.3.104 实机确认可能丢弃调
 | 代码 | 处理 |
 | --- | --- |
 | `T2O_MIGRATION_EXPORT_FAILED` | output 必须是新目录且父目录存在，不覆盖上次导出 |
+| `T2O_MIGRATION_BUNDLE_READ_FAILED` | `--input` 读取失败时，先独立验证输入文件；`--resume` 尚未读取或写入目标 |
 | `T2O_MIGRATION_LOCKED` | 同一 manifest 正被使用；结束持有它的迁移进程后重试，不删除运行中的 lock 文件 |
 | `T2O_MIGRATION_PLAN_CHANGED` | 恢复原 IR 与目录/namespace/筛选参数；真实源变化则新建迁移 |
 | `T2O_MIGRATION_TARGET_CHANGED` | 核对 server 端口、数据库和此前写入内容；不要改 manifest 绕过校验 |

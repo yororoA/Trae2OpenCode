@@ -13,7 +13,12 @@ export async function readBundleFile(filename: string): Promise<MigrationBundle>
   try {
     file = await fs.open(filename, "r");
     const stat = await file.stat();
-    if (!stat.isFile() || stat.size > MAX_BUNDLE_BYTES) throw new Error("Invalid size");
+    if (!stat.isFile()) {
+      throw new Trae2OpenCodeError("T2O_MIGRATION_BUNDLE_READ_FAILED");
+    }
+    if (stat.size > MAX_BUNDLE_BYTES) {
+      throw new Trae2OpenCodeError("T2O_MIGRATION_BUNDLE_TOO_LARGE");
+    }
     const bytes = Buffer.alloc(stat.size + 1);
     let offset = 0;
     while (offset < bytes.length) {
@@ -22,11 +27,19 @@ export async function readBundleFile(filename: string): Promise<MigrationBundle>
       offset += read.bytesRead;
     }
     if (offset !== stat.size) throw new Error("File changed");
-    const value: unknown = JSON.parse(bytes.subarray(0, offset).toString("utf8"));
+    let value: unknown;
+    try {
+      value = JSON.parse(bytes.subarray(0, offset).toString("utf8"));
+    } catch (error) {
+      throw new Trae2OpenCodeError("T2O_MIGRATION_BUNDLE_INVALID_JSON", { cause: error });
+    }
     assertNoCredentials(value);
     return assertMigrationBundle(value);
   } catch (error) {
     if (error instanceof Trae2OpenCodeError) throw error;
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      throw new Trae2OpenCodeError("T2O_MIGRATION_BUNDLE_NOT_FOUND");
+    }
     throw new Trae2OpenCodeError("T2O_MIGRATION_BUNDLE_READ_FAILED");
   } finally { await file?.close(); }
 }
