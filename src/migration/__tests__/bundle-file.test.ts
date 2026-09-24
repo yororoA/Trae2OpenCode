@@ -36,9 +36,25 @@ describe("bundle files", () => {
     assert.doesNotMatch(JSON.stringify(summary), /private|persisted|Read this file|中文/);
   });
 
-  it("rejects malformed files without exposing input or filesystem errors", async () => {
-    await assert.rejects(readBundleFile("/private-missing-bundle"), { code: "T2O_MIGRATION_BUNDLE_READ_FAILED" });
+  it("distinguishes missing and malformed files without exposing paths", async () => {
+    await assert.rejects(readBundleFile("/private-missing-bundle"), { code: "T2O_MIGRATION_BUNDLE_NOT_FOUND" });
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "t2o-invalid-bundle-"));
+    try {
+      const file = path.join(root, "invalid.json");
+      await fs.writeFile(file, "{not-json");
+      await assert.rejects(readBundleFile(file), { code: "T2O_MIGRATION_BUNDLE_INVALID_JSON" });
+    } finally { await fs.rm(root, { recursive: true, force: true }); }
     await assert.rejects(readBundleFile("fixtures/ir/v1/invalid-unknown-field.json"), { code: "T2O_IR_SCHEMA_INVALID" });
+  });
+
+  it("rejects a bundle above the 128 MiB input limit before reading it", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "t2o-large-bundle-"));
+    try {
+      const file = path.join(root, "large.json");
+      const handle = await fs.open(file, "w");
+      try { await handle.truncate(128 * 1024 * 1024 + 1); } finally { await handle.close(); }
+      await assert.rejects(readBundleFile(file), { code: "T2O_MIGRATION_BUNDLE_TOO_LARGE" });
+    } finally { await fs.rm(root, { recursive: true, force: true }); }
   });
 
   it("rejects credentials anywhere in a bundle before export or summary without mutating source data", async () => {

@@ -561,7 +561,7 @@ M4 已通过 PR #15 合入 `main`，合并提交为 `e80d744`；里程碑 CI 通
 | M5-3 | manifest、checkpoint、resume | M4 | 已实现：持久化先于写入、原子 checkpoint、失败隔离、恢复与 verify |
 | M5-4 | 冲突与幂等策略 | M5-3 | 已实现：默认 skip，旧 manifest + 完整 hash + 显式独占声明保护替换 |
 | M5-5 | rollback | M5-3 | 已实现：默认预览、本轮归属/hash/子会话保护、显式确认与中断恢复 |
-| M5-6 | 敏感信息过滤 | M1-3 | 已实现：已识别凭据阻断 IR 导出/目标写入，日志/报告/fixture 输出前过滤 |
+| M5-6 | 敏感信息过滤 | M1-3 | 已实现：默认拒写；实时交互导出可对内容字段脱敏并降级为 partial，标识/路径仍拒写 |
 
 M5-1 累计 265 项测试通过，CLI 实机发现 62 个会话、25 个项目；无 runtime 时
 明确标记 metadata-only。接口与验证边界见 [M5-1 只读 CLI](./m5-1-readonly-cli.md)。
@@ -584,7 +584,9 @@ verify 校验已回滚 ID 不存在。详见 [M5-5 回滚](./m5-5-rollback.md)�
 M5-6 累计 339 项测试通过，已覆盖已识别凭据格式、结构化字段、嵌套编码、
 动态 key、日志与所有 JSON fixture。隔离实机确认凭据 transfer 未写入目标、
 凭据 export 未创建目录，正常正文完整导入并对账。未知编码/无标记密码不在
-检测保证内。详见 [M5-6 凭据边界](./m5-6-sensitive-content.md)。
+检测保证内。后续交互入口增加显式内容字段脱敏：保留来源 hash、降级为 partial，
+不可安全改写的标识/路径继续拒绝。详见
+[M5-6 凭据边界](./m5-6-sensitive-content.md)。
 
 M5 真实来源验收累计 344 项测试通过；已登录 TRAE CN 3.3.104 经生产 CDP
 读取后，partial 会话的 4 条消息、2 个 text 和 2 个 completed tool 原生导入

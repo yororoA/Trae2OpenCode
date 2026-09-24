@@ -118,6 +118,25 @@ describe("runCli", () => {
     }
   });
 
+  it("restricts credential redaction to live exports", async () => {
+    for (const args of [
+      ["migrate", "--redact-credentials"],
+      [
+        "export",
+        "--input",
+        "fixtures/ir/v1/valid-trae-assembled.json",
+        "--output",
+        "private-output",
+        "--redact-credentials",
+      ],
+    ]) {
+      const output = captureIO();
+      assert.equal(await runCli([...args, "--json"], output.io, "9.8.7"), 2);
+      assert.equal(JSON.parse(output.stderr()).code, "T2O_CLI_INVALID_ARGUMENTS");
+      assert.doesNotMatch(output.stderr(), /private-output/);
+    }
+  });
+
   it("parses a TRAE root override without exposing the path", async () => {
     const output = captureIO();
     const privateRoot = "/Users/private/Library/Application Support/Trae CN";

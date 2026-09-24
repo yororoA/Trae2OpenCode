@@ -1,68 +1,62 @@
 # Trae2OpenCode
 
-将可恢复的 TRAE 会话转换为版本化 IR，通过 OpenCode 原生导入，并逐会话核对
-消息、reasoning、工具输入输出及 hash。提供只读盘点、dry-run、断点续跑和回滚。
+把可恢复的 TRAE 会话迁移到 OpenCode，并在写入后逐项回读核对。日常使用只需要：
 
-**P0 工程与实机验收已完成并合入 main；尚未发布 npm 包。**
-三端目标/打包矩阵和真实已登录 TRAE 经生产 CDP reader 到隔离 OpenCode 的
-端到端验收均已通过。真实样本为准确标记的 partial 会话，覆盖 text/tool；
-reasoning 的真实来源与目标往返仍由拆分证据覆盖。
-具体记录见[实现规划](docs/implementation-plan.md)和
-[真实来源验收报告](docs/m5-7-live-runtime-e2e.md)。
+1. 打开要迁移会话所在的 TRAE 项目窗口。
+2. 在本仓库根目录运行 `npm run migrate:local`。
+3. 按编号选择窗口和会话，等待“迁移完成”或“迁移续跑完成”。
 
-## 支持范围
+工具会自动导出、脱敏、检查兼容性、导入、回读核验，并在中断后安全续跑。不会要求输入
+workbench ID 或 session ID。
 
-| 项目 | 当前范围 |
+> **首次使用请按 [操作手册](docs/operation-manual.md) 完成准备。**
+> 特别是 macOS 必须从终端以调试参数启动 TRAE，否则工具无法读取完整消息正文。
+
+## 适用范围
+
+| 组件 | 要求 |
 | --- | --- |
-| TRAE 来源 | TRAE CN **3.3.104**，已登录且启用本机 CDP 的 V2 renderer |
-| OpenCode 写入 | **2.0.12**，CLI 与 server 版本、transfer schema 均需通过探测 |
-| 相邻目标版本 | 2.0.11 已验证为准确拒写，不在兼容范围内 |
-| macOS / Windows | 默认数据目录、SQLite 快照、合成 runtime → 原生目标验收通过 |
-| Linux | 支持 `--input` 离线 IR 与目标链路；不支持本地 TRAE 发现 |
-| Node.js | engines ≥18.18；CI 覆盖 18.20.8 / 22，建议新安装使用 22 |
+| TRAE 来源 | TRAE CN **3.3.104**，已登录，并以本机 CDP 端口 `9222` 启动 |
+| OpenCode 目标 | **2.0.12** |
+| 系统 | macOS、Windows 可直接读取本机 TRAE；Linux 只支持导入已导出的 bundle |
+| Node.js | `>=18.18`，推荐 Node.js 22 |
 
-默认只迁移 `complete` / `partial`。缺少已验证消息来源、assistant 真实完成时间
-或目标映射证据时会阻止该会话。附件尚不提供通用复制保证；Skill/MCP 资源迁移属于
-后续 M6。未知 TRAE profile 和 OpenCode 版本拒绝套用规则。
+附件、Skill 与 MCP 资源不在当前迁移范围内。未知的 TRAE 或 OpenCode 版本会被拒绝，
+而不是按未经验证的规则写入数据。
 
-## 安装与离线 dry-run
+## 快速开始
 
-从候选分支构建 tarball，再安装到独立目录；下列命令可逐行用于 macOS shell、
-Linux shell 或 Windows PowerShell。需要 Node.js、npm、Git：
+### 1. 获取项目并安装依赖
 
-```text
-git clone --branch m7/compatibility-release https://github.com/yororoA/Trae2OpenCode.git
+本项目尚未发布到 npm。克隆仓库后，进入仓库根目录安装依赖：
+
+```sh
+git clone https://github.com/yororoA/Trae2OpenCode.git
 cd Trae2OpenCode
 npm ci
-npm run check
-npm pack
-mkdir ../t2o-local
-cd ../t2o-local
-npm init -y
-npm install ../Trae2OpenCode/trae2opencode-1.0.0.tgz
-npm exec --offline -- trae2opencode --version
-npm exec --offline -- trae2opencode migrate --input ./node_modules/trae2opencode/fixtures/ir/v1/valid-trae-assembled.json --dry-run --fallback-directory "$PWD" --json
 ```
 
-最后一步使用包内的**合成样本**，预期 `ready=1`、`blocked=0`、`excluded=0`、
-`target.probed=false`，不会连接 TRAE 或 OpenCode。它验证安装与映射，不代表真实
-数据已经迁移。tarball 包含编译后的 CLI、固定契约 schema、合成样本及文档。
+确认本地环境可用：
 
-下文将 `npm exec --offline -- trae2opencode` 简写为 `trae2opencode`。
-也可用 `npm install -g <tarball绝对路径>` 安装此本地产物。
+```sh
+node --version
+npm run check
+```
 
-## 从 TRAE 导出
+### 2. 安装 OpenCode 2.0.12
 
-先执行 `trae2opencode doctor --json`。默认发现位置：
+```sh
+npm install -g @opencode/cli@2.0.12
+opencode --version
+```
 
-- macOS：`~/Library/Application Support/Trae CN/User`，随后尝试 `Trae/User`。
-- Windows：`%APPDATA%`、`%LOCALAPPDATA%` 下的 `Trae CN/User` 与 `Trae/User`。
-- 自定义目录用 `--trae-root <产品数据目录或User目录>`，自定义安装用
-  `--product-file <TRAE CN安装目录中的product.json>`。
+看到版本为 `2.0.12` 后即可继续。`migrate:local` 会先尝试连接本机
+`http://127.0.0.1:4096`；不可用时会临时启动仅监听本机的 `4097` 服务，并在迁移结束后关闭。
+因此通常不需要手动启动 OpenCode server。
 
-读取消息正文需要已登录的 TRAE renderer。保存工作并自行完全退出 TRAE 后，
-从 macOS 系统“终端”直接启动应用主程序；`open -a ... --args` 在当前版本可能
-丢弃调试参数：
+### 3. 以调试模式启动 TRAE
+
+保存工作并完全退出 TRAE，再从终端启动。macOS 示例：
 
 ```sh
 "/Applications/Trae CN.app/Contents/MacOS/Electron" \
@@ -70,99 +64,96 @@ npm exec --offline -- trae2opencode migrate --input ./node_modules/trae2opencode
   --remote-debugging-port=9222
 ```
 
-Windows 在 TRAE CN 安装目录的可执行文件后加同样两个参数。确认历史会话可见，
-再运行以下命令；工具不会替你重启应用：
+不要使用 `open -a ... --args`：当前 TRAE 版本可能忽略其中的调试参数。
+启动后登录 TRAE，打开包含目标会话的项目窗口，并确认能在历史面板看到这些会话。
 
-```text
-trae2opencode scan --cdp http://127.0.0.1:9222 --json
-trae2opencode preview --cdp http://127.0.0.1:9222 --session <源会话ID> --json
-trae2opencode export --cdp http://127.0.0.1:9222 --session <源会话ID> --output ./trae-export --json
+### 4. 运行一键迁移
+
+在仓库根目录运行：
+
+```sh
+npm run migrate:local
 ```
 
-有多个 workbench 时，从 `http://127.0.0.1:9222/json/list` 获取所需窗口的 `id`，
-额外传 `--cdp-target <id>`。只接受显式 loopback HTTP 地址和端口。
-不传 `--cdp` 仍能盘点元数据，但不能据此宣称正文可恢复。
-
-`scan` / `preview` 只输出数量、ID、hash 和诊断码。导出的
-`trae-export/migration-bundle.json` **包含私人正文**；输出目录必须不存在，
-其父目录必须已存在。源数据库使用一致性只读快照，不修改源会话。
-
-## 迁移、对账与续跑
-
-安装固定目标版本；安装包名称是 `@opencode/cli`：
+程序会显示可用的 TRAE 窗口和该窗口所属项目的会话。输入列表中的**编号**即可：
 
 ```text
-npm install -g @opencode/cli@2.0.12
-opencode --version
-opencode serve --hostname 127.0.0.1 --port 4096
+发现多个 TRAE workbench，请选择：
+  1. Trae2OpenCode
+  2. another-project
+请输入 workbench 编号：1
+
+请选择要迁移的 TRAE 会话：
+  1. 修复迁移流程 · complete · 2026/09/24 15:30:00
+  2. 阅读 README · partial · 2026/09/24 14:20:00
+请输入会话编号：1
 ```
 
-将 server 保持运行，在另一终端执行。先用 dry-run 检查 `ready/blocked/excluded`
-和诊断码，再执行导入：
+随后工具依次完成：
+
+1. 导出所选会话。
+2. 自动剥离正文、标题和工具 payload 中已识别的凭据。
+3. 在真正写入前检查迁移完整性和 OpenCode 兼容性。
+4. 导入到 OpenCode，并回读消息、reasoning、工具记录和 hash。
+5. 成功后保留最新迁移记录，清理同一会话已被替代的旧终态记录。
+
+### 5. 确认结果
+
+成功时终端会显示以下之一：
 
 ```text
-trae2opencode migrate --input ./trae-export/migration-bundle.json --dry-run --server http://127.0.0.1:4096 --fallback-directory "$PWD" --json
-trae2opencode migrate --input ./trae-export/migration-bundle.json --server http://127.0.0.1:4096 --fallback-directory "$PWD" --output ./migration-run --json
-trae2opencode verify --manifest ./migration-run/migration-manifest.json --server http://127.0.0.1:4096 --json
+迁移完成，结果已写入：.../migration-run/session-.../
 ```
-
-原项目存在时沿用该项目；否则 `--fallback-directory` 指定现有目录的绝对路径
-（`"$PWD"` 在上述 shell / PowerShell 中表示当前目录），
-或用 `--path-map <源绝对根路径=目标绝对根路径>` 精确映射。路径含空格需整体加引号。
-不会自动创建项目目录。目标可执行文件可通过 `--binary <原生可执行文件绝对路径>`
-指定，Windows 使用安装目录中的 `bin/opencode.exe`，避免 `.cmd` shim。
-
-若 server 设置了认证，在运行 CLI 的终端提供同一
-`OPENCODE_SERVER_PASSWORD`，可选 `OPENCODE_SERVER_USERNAME`；凭据不放进 URL。
-迁移会执行原生 import，再完整回读对账。重复迁移默认跳过已有目标 ID。
-查看 `hasFailures` 与逐会话状态，不将 `skipped/excluded` 计为本轮导入。
-
-中断后保留同一 IR、同一 server 数据和端口、同一映射/筛选参数，以原 manifest 续跑：
 
 ```text
-trae2opencode migrate --input ./trae-export/migration-bundle.json --server http://127.0.0.1:4096 --fallback-directory "$PWD" --resume ./migration-run/migration-manifest.json --json
+迁移续跑完成，已有会话已校验。
 ```
 
-manifest 不含消息正文，不能独立恢复数据。替换旧的工具会话需旧 manifest、未改变
-的完整回读 hash 和显式独占声明，见[替换规则](docs/m5-4-idempotency-replacement.md)。
+然后在 OpenCode 中打开对应项目，检查会话标题、消息数量和最近一轮内容。迁移完成不代表
+TRAE 本身的历史被删除，源数据始终保持只读。
 
-## 回滚
+完整的逐步说明、失败处理、续跑和回滚见 [操作手册](docs/operation-manual.md)。
 
-默认只预览本轮可删除的会话：
+## 使用前应了解的限制
 
-```text
-trae2opencode rollback --manifest ./migration-run/migration-manifest.json --server http://127.0.0.1:4096 --json
-```
+- 必须打开目标会话所属项目的 TRAE workbench。窗口可在后台或最小化，但不能关闭；
+  完整消息正文由该窗口的 renderer 提供。空白新窗口没有项目上下文，不能用于迁移。
+- 同一个 workbench 中会列出该项目的全部本地会话，不限于当前前台会话。关闭的项目窗口
+  对应会话当前只能发现部分元数据，不能安全迁移完整内容。
+- 单个 bundle 最大为 `128 MiB`。超过限制时需选择更小的会话。
+- 发现可安全定位的凭据会替换为 `[REDACTED_SECRET]`，会话标记为 `partial`；
+  若凭据位于 ID、路径或来源定位等不可安全改写字段，迁移会停止。
+- TRAE 未持久化的工具输出或最终 assistant 正文不会被编造。工具记录会保留缺失标识；
+  缺失的最终正文会显示明确提示，内部工具 JSON 不会作为聊天正文显示。
 
-核对预览中的 `runId` 和范围，暂停其他目标写入者后，用
-`--confirm <runId> --exclusive-target` 执行。回滚保护已改变的内容和外来子会话；
-开始后该 manifest 不再允许迁移续跑。替换前的旧内容没有备份，不能靠回滚恢复。
-详见[回滚与恢复](docs/m5-5-rollback.md)。
+## 迁移产物与隐私
 
-## 开发与验证
+每次成功迁移会在仓库根目录生成：
 
-```text
-npm ci
-npm run check
-npm run verify:package
-```
+| 目录 | 用途 | 是否含会话正文 |
+| --- | --- | --- |
+| `trae-export/` | 最新 bundle，用于重新映射和续跑 | 是 |
+| `migration-run/` | manifest、回读证据和迁移状态 | 否 |
 
-`check` 执行 lint、340 项单元测试、类型检查、构建和 CLI smoke。
-`verify:package` 从 tarball 安装到隔离目录，验证 bin、schema、离线 dry-run 和
-导出再读取。三系统 CI 的两个 Node 版本均执行安装验收；Node 22 另执行原生
-目标、相邻版本拒写及 512 MiB 堆下的大会话/真实进程中断恢复。
+这两个目录均为本地私人数据，已经在 `.gitignore` 中忽略，**不要提交、共享或上传**。
+工具只自动清理由当前 verified 版本替代的旧终态目录；失败、进行中或无法确认安全性的记录
+会保留，供续跑或排查使用。
 
-## 文档
+## 常见情况
 
-- [实现规划与验收矩阵](docs/implementation-plan.md)
-- [安装与迁移故障排查](docs/troubleshooting.md)
-- [IR v1](docs/ir-schema-v1.md)、[Golden fixture](docs/golden-fixtures.md)
-- [只读 CLI / CDP](docs/m5-1-readonly-cli.md)、[dry-run](docs/m5-2-dry-run.md)
-- [manifest 与续跑](docs/m5-3-manifest-resume.md)、[凭据边界](docs/m5-6-sensitive-content.md)
-- [真实来源端到端验收步骤](docs/m5-live-runtime-acceptance.md)
-- [真实来源端到端验收报告](docs/m5-7-live-runtime-e2e.md)
-- [跨平台矩阵](docs/m7-1-platform-matrix.md)、[版本契约](docs/m7-2-version-contract.md)
-- [压力与中断恢复](docs/m7-3-resilience.md)、[打包验收](docs/m7-4-package-installation.md)
-- [TRAE 消息来源](docs/m0-3-source-location.md)、[OpenCode 投影限制](docs/m0-4-import-roundtrip.md)
-- [运行时回读决策](docs/adr/0006-runtime-readback-fail-closed.md)
+| 终端提示 | 处理 |
+| --- | --- |
+| `无法发现 TRAE workbench` | 完全退出后，用上面的终端命令重新启动 TRAE；确认目标项目窗口已打开。 |
+| `所选 workbench 没有可迁移的本地会话` | 选择正确的项目窗口，并在 TRAE 中打开该项目后再运行。 |
+| `无法自动启动 OpenCode` | 安装并确认 `@opencode/cli@2.0.12`，再运行命令。 |
+| `所选会话包含当前无法无损映射的内容` | 工具尚未写入 OpenCode。保留产物并查看[故障排查](docs/troubleshooting.md)。 |
+| `迁移 bundle 超过 128 MiB` | 选择更小的会话；不要修改 bundle 来绕过限制。 |
+
+## 高级操作与文档
+
+- [操作手册：从准备到验证、续跑与回滚](docs/operation-manual.md)
+- [故障排查与错误码](docs/troubleshooting.md)
+- [离线 CLI、dry-run、导入与回读](docs/m5-1-readonly-cli.md)、[迁移记录与续跑](docs/m5-3-manifest-resume.md)
+- [凭据处理边界](docs/m5-6-sensitive-content.md)、[回滚与恢复](docs/m5-5-rollback.md)
+- [实现规划与验收矩阵](docs/implementation-plan.md)、[真实来源验收报告](docs/m5-7-live-runtime-e2e.md)
 - [开发环境故障排查](docs/development-troubleshooting.md)

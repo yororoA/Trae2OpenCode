@@ -37,9 +37,20 @@ describe("TRAE bundle collection", () => {
     const transport: TraeRuntimeTransport = {
       productVersion: "3.3.104", close() {},
       async invoke(method) {
-        return { code: 0, data: method === "getSession"
-          ? { chat_session_id: "session-synthetic", title: "Synthetic", created_at: 1700000000000, updated_at: 1700000005000 }
-          : { items: fixture.messageReads[0].value } };
+        return { code: 0, data: method === "listSessions"
+          ? {
+            items: [{
+              chat_session_id: "session-synthetic",
+              session_type: "side_chat",
+              title: "Synthetic",
+              created_at: 1700000000000,
+              updated_at: 1700000005000,
+            }],
+            total: 1,
+          }
+          : method === "getSession"
+            ? { chat_session_id: "session-synthetic", title: "Synthetic", created_at: 1700000000000, updated_at: 1700000005000 }
+            : { items: fixture.messageReads[0].value } };
       },
     };
     try {
@@ -50,6 +61,16 @@ describe("TRAE bundle collection", () => {
       assert.equal(live.sessions[0].recovery, "complete");
       assert.equal(live.sessions[0].events.length, 2);
       assert.equal(live.sessions[0].projectPath, root);
+      assert.equal((await collectTraeBundle({
+        ...options,
+        session: "session-synthetic",
+        transport,
+      })).sessions.length, 1);
+      await assert.rejects(collectTraeBundle({
+        ...options,
+        session: "session-not-listed",
+        transport,
+      }), { code: "T2O_MIGRATION_SELECTION_EMPTY" });
       assert.equal(selectBundle(live, { session: "session-synthetic", project: root }).sessions.length, 1);
       assert.throws(() => selectBundle(live, { session: "not-found" }), { code: "T2O_MIGRATION_SELECTION_EMPTY" });
       const failed = await collectTraeBundle({ ...options, transport: {
@@ -64,6 +85,21 @@ describe("TRAE bundle collection", () => {
           return result;
         },
       } }), { code: "T2O_SENSITIVE_CONTENT_REQUIRES_REBINDING" });
+      const redacted = await collectTraeBundle({
+        ...options,
+        redactCredentials: true,
+        transport: {
+          ...transport,
+          async invoke(method, args) {
+            const result = await transport.invoke(method, args) as { code: number; data: Record<string, unknown> };
+            if (method === "getSession") result.data.title = "apiKey=synthetic-value";
+            return result;
+          },
+        },
+      });
+      assert.equal(redacted.sessions[0].title, 'apiKey="[REDACTED_SECRET]"');
+      assert.equal(redacted.sessions[0].recovery, "partial");
+      assert.ok(redacted.diagnostics.some((item) => item.code === "T2O_SENSITIVE_CONTENT_REDACTED"));
       await assert.rejects(collectTraeBundle({ ...options, productVersion: "3.3.105" }),
         { code: "T2O_TRAE_PROFILE_VERSION_UNSUPPORTED" });
     } finally { await fs.rm(root, { recursive: true, force: true }); }

@@ -13,7 +13,9 @@ export function isOwnedByRun(
 ): boolean {
   const metadata = transfer.info.metadata;
   const marker = isRecord(metadata) ? metadata.trae2opencode : undefined;
+  const supportedMappingVersion = isRecord(marker) &&
+    (marker.mappingVersion === 1 || marker.mappingVersion === 2 || marker.mappingVersion === 3);
   return transfer.info.id === item.targetId && isRecord(marker) &&
     marker.migrationRunId === manifest.runId && marker.sourceSessionId === item.sourceId &&
-    marker.mappingVersion === 1 && item.attempts > 0;
+    supportedMappingVersion && item.attempts > 0;
 }

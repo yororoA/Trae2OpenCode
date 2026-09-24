@@ -34,7 +34,9 @@ describe("TRAE CDP transport", () => {
     sockets.on("connection", (socket) => socket.on("message", (raw) => {
       const message = JSON.parse(raw.toString());
       expressions.push(message.params.expression);
-      const value = expressions.length === 1 ? "3.3.104" : { code: 0, data: { items: [] } };
+      const value = expressions.length === 1
+        ? { productVersion: "3.3.104", workspaceStorageId: "a".repeat(32) }
+        : { code: 0, data: { items: [] } };
       socket.send(JSON.stringify({ id: message.id, result: { result: { value } } }));
     }));
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -46,12 +48,19 @@ describe("TRAE CDP transport", () => {
       const transport = await connectTraeRuntime(`http://127.0.0.1:${port}`, "a");
       try {
         assert.equal(transport.productVersion, "3.3.104");
+        assert.equal(transport.workspaceStorageId, "a".repeat(32));
         assert.match(expressions[0], /new URL\("\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/", location\.href\)/);
+        assert.match(expressions[0], /resolveConfiguration/);
+        assert.deepEqual(await transport.invoke("listSessions", { page_size: 100 }),
+          { code: 0, data: { items: [] } });
+        assert.match(expressions[1], /getOrCreateProjectId/);
+        assert.match(expressions[1], /local_project_id/);
+        assert.match(expressions[1], /session_type: "side_chat"/);
         assert.deepEqual(await transport.invoke("getMessages", { chat_session_id: '";throw 1;//', env: "remote" }),
           { code: 0, data: { items: [] } });
-        assert.ok(expressions[1].includes(JSON.stringify({ chat_session_id: '";throw 1;//', env: "local" })));
-        assert.match(expressions[1], /TraeApiPort/);
-        assert.doesNotMatch(expressions[1], /localStorage|executeCommand|sendMessage/);
+        assert.ok(expressions[2].includes(JSON.stringify({ chat_session_id: '";throw 1;//', env: "local" })));
+        assert.match(expressions[2], /TraeApiPort/);
+        assert.doesNotMatch(expressions[2], /localStorage|executeCommand|sendMessage/);
       } finally { transport.close(); }
     } finally {
       for (const socket of sockets.clients) socket.terminate();

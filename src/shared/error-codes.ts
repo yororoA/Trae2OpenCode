@@ -53,7 +53,19 @@ export const ERROR_DEFINITIONS = {
   },
   T2O_MIGRATION_BUNDLE_READ_FAILED: {
     exitCode: 4,
-    message: "The migration bundle could not be read within the supported size limit.",
+    message: "The migration bundle could not be read.",
+  },
+  T2O_MIGRATION_BUNDLE_NOT_FOUND: {
+    exitCode: 4,
+    message: "The migration bundle file was not found; check the --input path.",
+  },
+  T2O_MIGRATION_BUNDLE_TOO_LARGE: {
+    exitCode: 4,
+    message: "The migration bundle exceeds the supported 128 MiB size limit; export fewer sessions.",
+  },
+  T2O_MIGRATION_BUNDLE_INVALID_JSON: {
+    exitCode: 3,
+    message: "The migration bundle is not valid JSON.",
   },
   T2O_MIGRATION_EXPORT_FAILED: {
     exitCode: 4,

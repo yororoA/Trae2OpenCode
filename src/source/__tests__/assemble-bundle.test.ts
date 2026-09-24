@@ -145,7 +145,7 @@ describe("assembleTraeMigrationBundle", () => {
     assert.equal(bundle.sessions[0].recovery, "partial");
   });
 
-  it("scopes workspace resource failures to sessions in that workspace", () => {
+  it("does not attribute workspace-only resource failures to every session", () => {
     const options = input();
     const second = structuredClone(options.metadata.sessions[0]);
     second.sourceSessionId = "session-other";
@@ -163,9 +163,36 @@ describe("assembleTraeMigrationBundle", () => {
     const bundle = assembleTraeMigrationBundle(options);
     const issue = bundle.diagnostics.find((diagnostic) =>
       diagnostic.code === "T2O_TRAE_RESOURCE_SCAN_FAILED");
+    assert.deepEqual(issue?.subject, { type: "bundle" });
+    assert.equal(issue?.severity, "warning");
+    assert.ok(selectBundle(bundle, { session: "session-synthetic" }).diagnostics
+      .some((diagnostic) => diagnostic.code === "T2O_TRAE_RESOURCE_SCAN_FAILED"));
+  });
+
+  it("keeps resource failures with exact session evidence blocking that session only", () => {
+    const options = input();
+    const second = structuredClone(options.metadata.sessions[0]);
+    second.sourceSessionId = "session-other";
+    second.workspaceStorageIds = ["workspace-other"];
+    second.sources = second.sources.map((source) => ({
+      ...source, workspaceStorageId: "workspace-other",
+    }));
+    options.metadata.sessions.push(second);
+    options.resources.issues.push({
+      code: "T2O_TRAE_RESOURCE_REFERENCE_INVALID",
+      severity: "error",
+      message: "A TRAE resource reference is invalid or outside its workspace.",
+      workspaceStorageId: "workspace-other",
+      sourceSessionId: "session-other",
+    });
+
+    const bundle = assembleTraeMigrationBundle(options);
+    const issue = bundle.diagnostics.find((diagnostic) =>
+      diagnostic.code === "T2O_TRAE_RESOURCE_REFERENCE_INVALID");
     assert.deepEqual(issue?.subject, { type: "session", sourceId: "session-other" });
+    assert.equal(issue?.severity, "error");
     assert.equal(selectBundle(bundle, { session: "session-synthetic" }).diagnostics
-      .some((diagnostic) => diagnostic.code === "T2O_TRAE_RESOURCE_SCAN_FAILED"), false);
+      .some((diagnostic) => diagnostic.code === "T2O_TRAE_RESOURCE_REFERENCE_INVALID"), false);
   });
 
   it("guards product versions, count evidence and contradictory session reads", () => {
@@ -220,6 +247,20 @@ describe("assembleTraeMigrationBundle", () => {
     const bundle = assembleTraeMigrationBundle(options);
     assert.equal(bundle.sessions[0].recovery, "partial");
     assert.ok(bundle.diagnostics.some((diagnostic) => diagnostic.code === "T2O_IR_CONTENT_INCOMPLETE"));
+  });
+
+  it("marks a completed tool without persisted output as partial", () => {
+    const options = input();
+    delete toolResult(options).data;
+    const bundle = assembleTraeMigrationBundle(options);
+    const assistant = bundle.sessions[0].events[1];
+    assert.equal(assistant.type, "assistant");
+    const tool = assistant.content.find((block) => block.type === "tool");
+    assert.ok(tool?.type === "tool");
+    assert.equal(tool.output, undefined);
+    assert.equal(bundle.sessions[0].recovery, "partial");
+    assert.ok(bundle.diagnostics.some((diagnostic) =>
+      diagnostic.code === "T2O_IR_CONTENT_INCOMPLETE"));
   });
 
   it("matches the reviewed parser-to-IR golden fixture", () => {

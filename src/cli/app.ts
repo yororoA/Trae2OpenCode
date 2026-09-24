@@ -89,6 +89,8 @@ Options:
       --session <id>  Select one source session
       --project <path>
                       Select sessions by source project
+      --redact-credentials
+                      Replace credential-like values in exported content fields
       --server <url> Check a local OpenCode server
       --binary <path>
                       OpenCode executable (default: opencode)
@@ -190,6 +192,7 @@ export async function runCli(
         replace: { type: "string" },
         confirm: { type: "string" },
         "exclusive-target": { type: "boolean" },
+        "redact-credentials": { type: "boolean" },
       },
     });
   } catch (cause) {
@@ -282,6 +285,7 @@ export async function runCli(
         manifest: stringOption("manifest"), resume: stringOption("resume"),
         replace: stringOption("replace"), exclusiveTarget: parsed.values["exclusive-target"] === true,
         confirm: stringOption("confirm"),
+        redactCredentials: parsed.values["redact-credentials"] === true,
       });
       assertNoCredentials(result);
       io.stdout(`${JSON.stringify(result, null, useJson ? undefined : 2)}\n`);

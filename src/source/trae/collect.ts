@@ -2,6 +2,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { MigrationBundle } from "../../ir/types.js";
+import { redactMigrationBundleCredentials } from "../../migration/redact-credentials.js";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
 import { assertNoCredentials } from "../../shared/sensitive.js";
 import { assembleTraeMigrationBundle, type TraeSessionMessageRead } from "./assemble-bundle.js";
@@ -10,7 +11,10 @@ import { VERIFIED_TRAE_PRODUCT_VERSION } from "./profile-definitions.js";
 import { runtimeHash } from "./reasoning-plan.js";
 import { scanTraeResources } from "./resources.js";
 import { createTraeRuntimeReader, type TraeRuntimeTransport } from "./runtime-reader.js";
-import { readTraeSessionMetadata } from "./session-metadata.js";
+import {
+  readTraeSessionMetadata,
+  type TraeSessionMetadataReport,
+} from "./session-metadata.js";
 import { readTraeUserMessages } from "./user-messages.js";
 import { resolveTraeWorkspaces } from "./workspace-resolution.js";
 
@@ -38,6 +42,7 @@ export interface CollectTraeOptions extends TraeRootDiscoveryOptions {
   collectedAt?: string;
   session?: string;
   project?: string;
+  redactCredentials?: boolean;
 }
 
 export function selectBundle(bundle: MigrationBundle, selection: { session?: string; project?: string }): MigrationBundle {
@@ -58,6 +63,27 @@ export function selectBundle(bundle: MigrationBundle, selection: { session?: str
   return { ...bundle, sessions, projects, diagnostics };
 }
 
+function selectMetadataSession(
+  report: TraeSessionMetadataReport,
+  sourceSessionId: string,
+): TraeSessionMetadataReport {
+  const sessions = report.sessions.filter((session) => session.sourceSessionId === sourceSessionId);
+  const workspaceIds = new Set(sessions.flatMap((session) => session.workspaceStorageIds));
+  const issues = report.issues.filter((issue) =>
+    issue.sourceSessionId !== undefined
+      ? issue.sourceSessionId === sourceSessionId
+      : issue.workspaceStorageId !== undefined
+        ? workspaceIds.has(issue.workspaceStorageId)
+        : true);
+  const sourceCounts = Object.fromEntries(
+    Object.keys(report.sourceCounts).map((kind) => [kind, 0]),
+  ) as TraeSessionMetadataReport["sourceCounts"];
+  for (const session of sessions) {
+    for (const source of session.sources) sourceCounts[source.kind] += 1;
+  }
+  return { ...report, sessions, issues, sourceCounts };
+}
+
 export async function collectTraeBundle(options: CollectTraeOptions): Promise<MigrationBundle> {
   if (options.productVersion !== VERIFIED_TRAE_PRODUCT_VERSION) {
     throw new Trae2OpenCodeError("T2O_TRAE_PROFILE_VERSION_UNSUPPORTED");
@@ -67,10 +93,26 @@ export async function collectTraeBundle(options: CollectTraeOptions): Promise<Mi
   if (reader && reader.productVersion !== options.productVersion) {
     throw new Trae2OpenCodeError("T2O_TRAE_PROFILE_VERSION_UNSUPPORTED");
   }
-  const metadata = await readTraeSessionMetadata({
+  if (reader && options.session) {
+    const listed = await reader.readSessionList();
+    const belongsToCurrentProject = listed.some((item) =>
+      item !== null && typeof item === "object" &&
+      (item as Record<string, unknown>).chat_session_id === options.session);
+    if (!belongsToCurrentProject) {
+      throw new Trae2OpenCodeError("T2O_MIGRATION_SELECTION_EMPTY");
+    }
+  }
+  const metadataReport = await readTraeSessionMetadata({
     root, productVersion: options.productVersion,
     ...(reader ? { runtimeMetadataProvider: ({ sourceSessionIds }) => reader.readMetadata(sourceSessionIds) } : {}),
+    ...(reader && options.session ? {
+      runtimeSessionIds: [options.session],
+      runtimeWorkspaceStorageId: options.transport?.workspaceStorageId,
+    } : {}),
   });
+  const metadata = options.session
+    ? selectMetadataSession(metadataReport, options.session)
+    : metadataReport;
   const workspaces = resolveTraeWorkspaces(root);
   const cache = await readTraeUserMessages({ root, productVersion: options.productVersion, sourceSessionIds: [] });
   const resources = scanTraeResources(root, options.productVersion, cache.queryCacheEntries);
@@ -102,6 +144,9 @@ export async function collectTraeBundle(options: CollectTraeOptions): Promise<Mi
     });
   }
   const selected = selectBundle(bundle, options);
+  if (options.redactCredentials) {
+    return redactMigrationBundleCredentials(selected).bundle;
+  }
   assertNoCredentials(selected);
   return selected;
 }
