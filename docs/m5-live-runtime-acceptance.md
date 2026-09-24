@@ -9,10 +9,13 @@ M7 的合成来源/真实目标/打包矩阵均通过；尚缺生产 reader 对�
 ## 准备
 
 1. 保存工作，自行完全退出 TRAE CN。
-2. macOS 重新启动：
+2. 从 macOS 系统“终端”直接启动主程序。不要使用 `open -a ... --args`，当前
+   版本经实机确认会启动应用但丢弃 Chromium 调试参数：
 
    ```sh
-   open -a "Trae CN" --args --remote-debugging-address=127.0.0.1 --remote-debugging-port=9222
+   "/Applications/Trae CN.app/Contents/MacOS/Electron" \
+     --remote-debugging-address=127.0.0.1 \
+     --remote-debugging-port=9222
    ```
 
 3. 保持登录，确认历史会话可见。`http://127.0.0.1:9222/json/list` 应包含

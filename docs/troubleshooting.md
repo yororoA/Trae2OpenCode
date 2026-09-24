@@ -33,8 +33,11 @@ SQLite native addon、schema、preview、dry-run 和 IR 导出再读。运行需
 | `metadata-only` | 只发现索引/元数据；未获取可验证正文，默认不迁移 |
 | `T2O_MIGRATION_SELECTION_EMPTY` | 所选源会话或项目不在本地候选中；先 scan 获取 sourceId |
 
-启动参数只在新的 TRAE 主进程上生效。保存工作、完全退出应用后按 README 重新
-启动，访问 `/json/list` 确认 workbench；只开新窗口通常仍复用旧进程。
+启动参数只在新的 TRAE 主进程上生效。保存工作、完全退出应用后按 README 从
+主程序直接启动，访问 `/json/list` 确认 workbench；只开新窗口通常仍复用旧进程。
+macOS 的 `open -a "Trae CN" --args ...` 经 3.3.104 实机确认可能丢弃调试参数：
+进程已重启但命令行没有参数，端口也不监听。此时改用
+`/Applications/Trae CN.app/Contents/MacOS/Electron` 的绝对路径。
 程序不会自动重启 TRAE。不通过 renderer 日志、数据库解密或伪造消息补齐正文。
 
 `--input` 不能与 `--cdp/--cdp-target/--trae-root/--product-file` 混用。

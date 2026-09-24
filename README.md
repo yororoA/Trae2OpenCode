@@ -59,10 +59,13 @@ npm exec --offline -- trae2opencode migrate --input ./node_modules/trae2opencode
   `--product-file <TRAE CN安装目录中的product.json>`。
 
 读取消息正文需要已登录的 TRAE renderer。保存工作并自行完全退出 TRAE 后，
-以本机调试端口启动。macOS 示例：
+从 macOS 系统“终端”直接启动应用主程序；`open -a ... --args` 在当前版本可能
+丢弃调试参数：
 
 ```sh
-open -a "Trae CN" --args --remote-debugging-address=127.0.0.1 --remote-debugging-port=9222
+"/Applications/Trae CN.app/Contents/MacOS/Electron" \
+  --remote-debugging-address=127.0.0.1 \
+  --remote-debugging-port=9222
 ```
 
 Windows 在 TRAE CN 安装目录的可执行文件后加同样两个参数。确认历史会话可见，
