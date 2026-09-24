@@ -9,6 +9,8 @@
 工具会自动导出、脱敏、检查兼容性、导入、回读核验，并在中断后安全续跑。不会要求输入
 workbench ID 或 session ID。
 
+项目网站：[Trae2OpenCode](https://yororoa.github.io/Trae2OpenCode/)
+
 > **首次使用请按 [操作手册](docs/operation-manual.md) 完成准备。**
 > 特别是 macOS 必须从终端以调试参数启动 TRAE，否则工具无法读取完整消息正文。
 
