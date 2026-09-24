@@ -4,7 +4,10 @@ import { describe, it } from "node:test";
 import { canonicalizeJson, hashCanonicalJson } from "../../ir/canonical.js";
 import type { AssistantEventIR, JsonObject, MigrationBundle, ToolContentIR } from "../../ir/types.js";
 import { assertOpenCodeTransfer } from "../opencode/contract.js";
-import { mapOpenCodeSession } from "../opencode/mapping.js";
+import {
+  mapOpenCodeSession,
+  MISSING_TOOL_OUTPUT_TEXT,
+} from "../opencode/mapping.js";
 
 const fixture = JSON.parse(readFileSync(new URL(
   "../../../fixtures/ir/v1/valid-trae-assembled.json", import.meta.url,
@@ -76,6 +79,23 @@ describe("OpenCode IR mapping", () => {
     }
   });
 
+  it("marks a completed tool whose source output was not persisted", () => {
+    const bundle = structuredClone(fixture);
+    delete tool(bundle).output;
+    bundle.sessions[0].recovery = "partial";
+
+    const { transfer, diagnostics } = map(bundle);
+    const state = (transfer.messages[1].content as JsonObject[])[3].state as JsonObject;
+
+    assert.deepEqual(state.content, [{ type: "text", text: MISSING_TOOL_OUTPUT_TEXT }]);
+    assert.equal((state.metadata as JsonObject).trae2opencode !== undefined, true);
+    assert.equal(
+      ((state.metadata as JsonObject).trae2opencode as JsonObject).sourceOutputMissing,
+      true,
+    );
+    assert.ok(diagnostics.some((item) => item.code === "T2O_OPENCODE_TOOL_OUTPUT_MISSING"));
+  });
+
   it("retains verified running and streaming tools in a completed assistant", () => {
     for (const status of ["running", "streaming"] as const) {
       const bundle = structuredClone(fixture);
@@ -110,7 +130,6 @@ describe("OpenCode IR mapping", () => {
   it("rejects unsupported tool payloads, errors and states without dropping data", () => {
     const mutations = [
       (t: ToolContentIR) => { t.input = "not-an-object"; },
-      (t: ToolContentIR) => { delete t.output; },
       (t: ToolContentIR) => { t.error = "source error"; },
       (t: ToolContentIR) => { t.status = "error"; },
       (t: ToolContentIR) => { t.status = "unknown"; },

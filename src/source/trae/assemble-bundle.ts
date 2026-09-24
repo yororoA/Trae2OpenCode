@@ -196,26 +196,9 @@ export function assembleTraeMigrationBundle(options: AssembleTraeBundleOptions):
     add(issue, session ? metadataRefs(session) : []);
   }
   for (const issue of options.workspaces.issues) add(issue);
-  const sessionIdsByWorkspace = new Map<string, string[]>();
-  for (const session of metadata.values()) {
-    for (const workspaceStorageId of session.workspaceStorageIds) {
-      const ids = sessionIdsByWorkspace.get(workspaceStorageId) ?? [];
-      ids.push(session.sourceSessionId);
-      sessionIdsByWorkspace.set(workspaceStorageId, ids);
-    }
-  }
   for (const issue of options.resources.issues) {
-    const sessionIds = issue.sourceSessionId
-      ? [issue.sourceSessionId]
-      : issue.workspaceStorageId
-        ? sessionIdsByWorkspace.get(issue.workspaceStorageId) ?? []
-        : [];
-    if (sessionIds.length === 0) add(issue);
-    else {
-      for (const sourceSessionId of sessionIds) {
-        add({ ...issue, sourceSessionId }, [], sourceSessionId);
-      }
-    }
+    if (issue.sourceSessionId) add(issue, [], issue.sourceSessionId);
+    else add({ ...issue, severity: "warning" });
   }
 
   const projectsByPath = new Map<string, ProjectIR>();
@@ -308,7 +291,9 @@ export function assembleTraeMigrationBundle(options: AssembleTraeBundleOptions):
     for (const event of events) {
       if (event.type !== "assistant") continue;
       const incompleteTool = event.content.some((block) =>
-        block.type === "tool" && block.status !== "completed" && block.status !== "error");
+        block.type === "tool" &&
+        (block.status !== "completed" && block.status !== "error" ||
+          block.status === "completed" && block.output === undefined));
       if (event.status !== "completed" || incompleteTool) {
         warn("T2O_IR_CONTENT_INCOMPLETE", "An assistant message or tool has no verified terminal state.", sourceId, event.sourceRefs);
       }

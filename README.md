@@ -53,8 +53,8 @@ npm exec --offline -- trae2opencode migrate --input ./node_modules/trae2opencode
 
 ## 一键迁移（推荐）
 
-确认 TRAE CN 已登录并开启本机 `9222` CDP，OpenCode server 已运行在
-`http://127.0.0.1:4096` 后，在项目目录执行：
+确认 TRAE CN 已登录并开启本机 `9222` CDP，且已安装 OpenCode `2.0.12`，然后在
+项目目录执行：
 
 ```sh
 npm run migrate:local
@@ -71,6 +71,11 @@ npm run migrate:local
 5. 自动执行首次迁移，或发现已有 manifest 时自动续跑。
 6. 自动通过 OpenCode 原生 import、回读和 hash 对账。
 
+程序会优先使用 `http://127.0.0.1:4096`。如果默认服务未启动或当前终端无法通过
+其认证，会临时启动一个仅监听 `127.0.0.1:4097` 的 OpenCode 服务，迁移结束后
+自动关闭。固定备用端口确保同一 manifest 可以安全续跑。
+显式设置 `T2O_OPENCODE_SERVER` 时不会自动替换该服务。
+
 如果存在多个 workbench 或超过单 bundle 大小限制，程序会在交互界面中明确提示，
 不会猜选窗口、猜选会话或静默丢失内容。迁移产物写入 `trae-export/` 和
 `migration-run/` 下按所选会话区分的目录；这两个目录包含私人会话数据，不应提交到
@@ -78,6 +83,8 @@ Git。重复选择同一会话时会复用并校验对应 bundle，选择其他�
 发生凭据脱敏时会输出明确提示、把恢复等级降为 `partial` 并记录
 `T2O_SENSITIVE_CONTENT_REDACTED`；对账针对脱敏后的 bundle。若疑似凭据位于
 session/message ID、项目路径或来源定位等不能安全改写的字段，迁移仍会停止。
+TRAE 若将工具标记为 completed 但没有持久化 output，会保留该工具调用、写入明确的
+缺失输出占位符并按 `partial` 迁移，不把缺失值伪装成真实输出。
 
 ## 从 TRAE 导出
 
@@ -180,7 +187,7 @@ npm run check
 npm run verify:package
 ```
 
-`check` 执行 lint、340 项单元测试、类型检查、构建和 CLI smoke。
+`check` 执行 lint、单元测试、类型检查、构建和 CLI smoke。
 `verify:package` 从 tarball 安装到隔离目录，验证 bin、schema、离线 dry-run 和
 导出再读取。三系统 CI 的两个 Node 版本均执行安装验收；Node 22 另执行原生
 目标、相邻版本拒写及 512 MiB 堆下的大会话/真实进程中断恢复。

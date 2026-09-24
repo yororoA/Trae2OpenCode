@@ -32,6 +32,9 @@ export interface OpenCodeMapping {
   diagnostics: Diagnostic[];
 }
 
+export const MISSING_TOOL_OUTPUT_TEXT =
+  "[TRAE tool completed without persisted output]";
+
 function diagnostic(session: SessionIR, code: string, message: string, field?: string): Diagnostic {
   return {
     id: hashCanonicalJson({ session: session.sourceId, code, field: field ?? null }),
@@ -76,7 +79,12 @@ function hasErrorPayload(value: JsonValue | undefined): boolean {
   return typeof value !== "object" || Object.keys(value).length > 0;
 }
 
-function mapContent(block: AssistantContentIR, session: SessionIR, field: string): JsonObject {
+function mapContent(
+  block: AssistantContentIR,
+  session: SessionIR,
+  field: string,
+  diagnostics: Diagnostic[],
+): JsonObject {
   if (!hasVerifiedRuntimeRefs(block.sourceRefs, session.sourceId)) reject(session, `${field}.sourceRefs`);
   const time = block.createdAt === undefined ? undefined : {
     created: block.createdAt,
@@ -100,15 +108,26 @@ function mapContent(block: AssistantContentIR, session: SessionIR, field: string
       if (block.output !== undefined) reject(session, `${field}.output`);
       state = { status: "running", input: block.input as JsonObject, metadata: {} };
     } else {
-      if (block.output === undefined || block.completedAt === undefined) reject(session, `${field}.output/completedAt`);
-      const isText = typeof block.output === "string";
-      const text = isText ? block.output as string : canonicalizeJson(block.output);
+      if (block.completedAt === undefined) reject(session, `${field}.completedAt`);
+      const sourceOutputMissing = block.output === undefined;
+      const output = sourceOutputMissing ? MISSING_TOOL_OUTPUT_TEXT : block.output;
+      const isText = typeof output === "string";
+      const text = isText ? output as string : canonicalizeJson(output as JsonValue);
+      if (sourceOutputMissing) {
+        diagnostics.push(diagnostic(
+          session,
+          "T2O_OPENCODE_TOOL_OUTPUT_MISSING",
+          "TRAE marked a tool completed without persisting output; the target contains an explicit placeholder.",
+          `${field}.output`,
+        ));
+      }
       state = {
         status: "completed", input: block.input as JsonObject,
         content: [{ type: "text", text }],
         metadata: { trae2opencode: {
           outputEncoding: isText ? "text" : "canonical-json",
-          outputSha256: hashCanonicalJson(block.output),
+          outputSha256: hashCanonicalJson(output as JsonValue),
+          ...(sourceOutputMissing ? { sourceOutputMissing: true } : {}),
         } },
       };
     }
@@ -186,7 +205,8 @@ export function mapOpenCodeSession(
       agent: "trae-import-unknown",
       model: { id: "unknown", providerID: "trae-import-unknown" },
       ...(event.status === "error" ? { finish: "error" } : {}),
-      content: event.content.map((block, i) => mapContent(block, session, `${field}.content[${i}]`)),
+      content: event.content.map((block, i) =>
+        mapContent(block, session, `${field}.content[${i}]`, diagnostics)),
     };
   });
   const transfer: OpenCodeTransfer = {

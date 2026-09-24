@@ -7,6 +7,7 @@ import {
   bundleMatchesSession,
   cliJsonResult,
   formatMetadataStatus,
+  localServerUrl,
   parseChoiceIndex,
   resolveMigrationDirectories,
 } from "../interactive-migrate.js";
@@ -39,6 +40,14 @@ describe("interactive migration helpers", () => {
       { ready: 1, blocked: 0 },
     );
     assert.equal(cliJsonResult("progress only"), undefined);
+  });
+
+  it("extracts only a loopback OpenCode server URL", () => {
+    assert.equal(
+      localServerUrl("opencode server listening on http://127.0.0.1:43127"),
+      "http://127.0.0.1:43127",
+    );
+    assert.equal(localServerUrl("http://example.test:43127"), undefined);
   });
 
   it("labels metadata status without presenting it as final recovery", () => {
@@ -76,14 +85,23 @@ describe("interactive migration helpers", () => {
 
   it("uses stable opaque directories per selected session", () => {
     const root = "/tmp/trae2opencode";
-    const first = resolveMigrationDirectories(root, "session-a");
-    const same = resolveMigrationDirectories(root, "session-a");
+    const sourceSessionId = "private-source-session-a";
+    const first = resolveMigrationDirectories(root, sourceSessionId);
+    const same = resolveMigrationDirectories(root, sourceSessionId);
     const second = resolveMigrationDirectories(root, "session-b");
+    const updated = resolveMigrationDirectories(
+      root,
+      sourceSessionId,
+      undefined,
+      undefined,
+      2_000,
+    );
 
     assert.deepEqual(first, same);
     assert.notEqual(first.exportDirectory, second.exportDirectory);
+    assert.notEqual(first.exportDirectory, updated.exportDirectory);
     assert.match(first.exportDirectory, /trae-export\/session-[a-f0-9]{16}$/);
-    assert.doesNotMatch(first.exportDirectory, /session-a/);
+    assert.doesNotMatch(first.exportDirectory, new RegExp(sourceSessionId));
     assert.deepEqual(
       resolveMigrationDirectories(root, "session-a", "/tmp/export", "/tmp/run"),
       { exportDirectory: "/tmp/export", runDirectory: "/tmp/run" },
