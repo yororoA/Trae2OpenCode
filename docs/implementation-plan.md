@@ -1,6 +1,6 @@
 # Trae2OpenCode 实现规划
 
-> 状态：M0 至 M4 已合入 `main`；M5-1 至 M5-6 已实现，位于 `m5/migration-orchestration`，真实 runtime 端到端验收待完成
+> 状态：M0 至 M4 已合入 `main`；M5-1 至 M5-6 与真实 runtime 端到端验收已完成，PR #16 待合入
 > 核验日期：2026-09-24
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
@@ -37,13 +37,14 @@ M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP
 | M2 SQLite 快照 | 已集成 | 已实现 Online Backup、WAL 一致性、完整性校验和自动清理 |
 | M2 能力探测 | 已集成 | 已输出 storage profile、字段覆盖率和 runtime adapter 状态 |
 | M2 recovery grading | 已集成 | 已实现逐会话四级分级、稳定缺失原因和 metadata session discovery |
-| M3 TRAE 读取 | 已集成，PR #14 | 已实现各类 parser、profile 注册、IR 组装与完整性/golden 校验；production runtime bridge 尚未接入 |
+| M3 TRAE 读取 | 已集成，PR #14 | 已实现各类 parser、profile 注册、IR 组装与完整性/golden 校验；production runtime bridge 在 M5 接入 |
 | M4 OpenCode adapter | 已集成，PR #15 | 能力探测、IR 映射、稳定 ID、CLI adapter、路径映射与完整对账；五组 macOS 隔离实机通过 |
-| M5 迁移编排 | M5-1 至 M5-6 已实现 | 只读 CLI、dry-run、manifest、resume、真实 import/verify、显式替换、rollback 与凭据过滤；真实已登录 renderer 端到端待验收 |
+| M5 迁移编排 | 已完成，PR #16 | 编排、安全能力与已登录 renderer → 隔离 OpenCode 端到端验收通过 |
 | M6-M7 | 未开始 | 资源迁移、兼容与发布能力待实现 |
 
-当前结论不能表述为“迁移工具已可用”。准确状态是：M0 已解除源数据可恢复性
-阻塞，项目可以进入工程实现阶段；目前仍不能执行真实 TRAE 会话迁移。
+M5 的生产迁移路径和实机验收已完成，等待 PR #16 合入 main。真实可写样本为
+准确标记的 partial 会话，覆盖 text/tool；reasoning 为 M0 真实来源与 M4/M7
+目标往返的拆分证据，不宣称单一实机会话整链覆盖。尚未发布 npm 包。
 
 ## 2. 目标与边界
 
@@ -552,7 +553,7 @@ M4 已通过 PR #15 合入 `main`，合并提交为 `e80d744`；里程碑 CI 通
 
 | ID | 任务 | 依赖 | 验收 |
 | --- | --- | --- | --- |
-| M5-1 | `doctor/scan/preview/export` | M2, M3 | 已实现并通过本机只读验收；CDP 真实正文端到端验证待完成 |
+| M5-1 | `doctor/scan/preview/export` | M2, M3 | 已实现并通过本机只读及已登录 CDP 正文端到端验收 |
 | M5-2 | `migrate --dry-run` | M4 | 已实现：共享 transfer 计划、目录策略、恢复筛选与脱敏统计 |
 | M5-3 | manifest、checkpoint、resume | M4 | 已实现：持久化先于写入、原子 checkpoint、失败隔离、恢复与 verify |
 | M5-4 | 冲突与幂等策略 | M5-3 | 已实现：默认 skip，旧 manifest + 完整 hash + 显式独占声明保护替换 |
@@ -581,6 +582,11 @@ M5-6 累计 339 项测试通过，已覆盖已识别凭据格式、结构化字�
 动态 key、日志与所有 JSON fixture。隔离实机确认凭据 transfer 未写入目标、
 凭据 export 未创建目录，正常正文完整导入并对账。未知编码/无标记密码不在
 检测保证内。详见 [M5-6 凭据边界](./m5-6-sensitive-content.md)。
+
+M5 真实来源验收累计 344 项测试通过；已登录 TRAE CN 3.3.104 经生产 CDP
+读取后，partial 会话的 4 条消息、2 个 text 和 2 个 completed tool 原生导入
+OpenCode 2.0.12，expected/actual 计数和 hash 一致。resume 与重复跳过通过，
+实际 import 1 次。详见 [真实端到端报告](./m5-7-live-runtime-e2e.md)。
 
 ### M6：资源迁移，4-7 天，可独立发布
 

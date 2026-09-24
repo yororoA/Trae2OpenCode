@@ -43,8 +43,11 @@
   `metadata-only`；绝对用户路径泄漏为 0。
 - 本机 `doctor --json`：SQLite 3.49.2、TRAE CN 3.3.104，
   runtime `unavailable`；未指定 OpenCode server 时明确 `probed: false`。
-- 完整真实会话经新 CDP transport 读取及导入的端到端验证仍待已登录 renderer
-  连接；协议模拟和隔离初始实例不替代该项验收。
+- 已登录 TRAE CN 3.3.104 的生产 CDP reader 已完成端到端验收。选中的
+  非敏感 partial 会话包含 4 条消息、2 个 text 和 2 个 completed tool；
+  原生导入、完整 hash 对账、resume 和重复跳过均通过，实际 import 1 次。
+  实机发现和拆分 reasoning 覆盖边界见
+  [M5 真实端到端报告](./m5-7-live-runtime-e2e.md)。
 
 ## 单测流程记录
 
