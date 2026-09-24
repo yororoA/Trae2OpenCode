@@ -34,7 +34,7 @@
     "verify:resilience": "node --max-old-space-size=512 --import tsx scripts/verify-resilience.ts",
     "verify:package": "tsx scripts/verify-package.ts",
     "verify:live": "tsx scripts/verify-live-runtime.ts",
-    "migrate:local": "npm run build && zsh scripts/migrate-local.zsh",
+    "migrate:local": "zsh scripts/migrate-local.zsh",
     "prepack": "node scripts/prepare-package.mjs",
     "build": "tsc",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.integration.json",
