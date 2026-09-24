@@ -455,7 +455,8 @@ M2 最终累计 98 项单元测试、lint、TypeScript typecheck、build、CLI s
    477 条，保留 511 个来源引用，未产生解析诊断。
 9. M3-3 已实现 `parseTraeRuntimeAssistantMessages`，严格校验 assistant 身份、
    turn/reply、顺序、状态与真实时间，并按已验证的 general、proposal 和 chat
-   summary 语义投影正文；reasoning 与普通 plan thought 留给 M3-4。
+   语义投影正文；chat / solo agent 的全部非空 plan thought 作为进度正文按顺序
+   保留，最终 summary 随后输出，`reasoning_content` 仍留给 M3-4。
 10. M3-3 已实现 `scanTraeLongTextResources`，只接受严格三级 UTF-8 `.txt`
     布局；query cache 关联必须精确命中同一 workspace 的 long-text 路径，不按
     basename、scope、entry ID 或内容 hash 猜测归属。
@@ -465,7 +466,8 @@ M2 最终累计 98 项单元测试、lint、TypeScript typecheck、build、CLI s
 12. M3-3 不等于 production runtime bridge 已完成。M3-4、M3-5 仍需实现
     reasoning/plan 与 tool 状态机；当前累计 127 项单元测试。
 13. M3-4 已完成持久化 reasoning 与 plan 来源解析，空值不补造、冲突 ID
-    fail closed，普通 thought 仅保留 hash/长度与诊断。累计 134 项测试，详见
+    fail closed；已映射为 chat / solo agent 进度正文的 thought 不重复进入
+    reasoning，其他 task thought 仅保留 hash/长度与诊断。详见
     [M3-4 验证](./m3-4-reasoning-plan.md)。
 14. M3-5 已完成按 call ID 的工具终态归并、payload 保留、冲突拒绝和孤儿诊断。
     非空错误 payload 明确标记待内容验证；累计 142 项测试，详见

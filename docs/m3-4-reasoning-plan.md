@@ -8,9 +8,10 @@
 空白、原始数组位置与字段 hash；空值不生成内容，不从 thought 补造 reasoning。
 TRAE UI 对首个 plan reasoning 的展示提升不生成第二份内容。
 
-plan item 以源 ID 去重；同 ID 同 hash 合并，冲突 ID 全部排除并告警。普通
-thought 只保留长度、locator 和 hash，未映射时产生诊断；已经映射为 chat 正文
-的 thought 不重复告警。未知块类型有诊断，未知产品版本拒绝解析。
+plan item 以源 ID 去重；同 ID 同 hash 合并，冲突 ID 全部排除并告警。
+chat / solo agent 的非空 thought 作为已持久化进度正文映射，不重复告警；
+其他 task 类型的 thought 只保留长度、locator 和 hash，未映射时产生诊断。
+未知块类型有诊断，未知产品版本拒绝解析。
 不将 tool 执行时间解释为 reasoning 时间。
 
 证据为 M0 structured-runtime fixture（1,218 个 plan item、270 个非空

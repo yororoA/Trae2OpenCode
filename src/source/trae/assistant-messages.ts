@@ -380,9 +380,8 @@ function parseChatTaskContent(
   messages: unknown[],
 ): AssistantContentResult {
   let valid = true;
-  let foundFirstPlanItem = false;
-  let firstThought: TraeAssistantText | null = null;
-  let summary: TraeAssistantText | null = null;
+  const thoughts: Array<{ entryIndex: number; text: TraeAssistantText }> = [];
+  let summary: { entryIndex: number; text: TraeAssistantText } | null = null;
 
   for (const [entryIndex, value] of messages.entries()) {
     if (!isRecord(value)) {
@@ -400,32 +399,39 @@ function parseChatTaskContent(
       continue;
     }
 
-    if (!foundFirstPlanItem) {
-      foundFirstPlanItem = true;
-      const thought = value.plan_item.thought;
-      const hasValidThought =
-        thought === undefined ||
-        thought === null ||
-        typeof thought === "string";
-      if (!hasValidThought) valid = false;
-      firstThought = createText(
-        thought,
-        `content.messages[${entryIndex}].plan_item.thought`,
-      );
-    }
+    const thought = value.plan_item.thought;
+    const hasValidThought =
+      thought === undefined ||
+      thought === null ||
+      typeof thought === "string";
+    if (!hasValidThought) valid = false;
+    const progressText = createText(
+      thought,
+      `content.messages[${entryIndex}].plan_item.thought`,
+    );
+    if (progressText) thoughts.push({ entryIndex, text: progressText });
+
     const responseSummary = parseToolSummary(value.plan_item);
     if (responseSummary) {
-      summary = createText(
+      const text = createText(
         responseSummary,
         `content.messages[${entryIndex}].plan_item.tool_call_info.params.summary`,
       );
+      if (text) summary = { entryIndex, text };
     }
   }
 
-  const selectedText = summary ?? firstThought;
+  const textBlocks = thoughts
+    .filter(({ text }) => text.text !== summary?.text.text)
+    .map(({ entryIndex, text }) => ({ entryIndex, rank: 0, text }));
+  if (summary) {
+    textBlocks.push({ entryIndex: summary.entryIndex, rank: 1, text: summary.text });
+  }
   return {
     valid,
-    textBlocks: selectedText ? [selectedText] : [],
+    textBlocks: textBlocks
+      .sort((left, right) => left.entryIndex - right.entryIndex || left.rank - right.rank)
+      .map(({ text }) => text),
   };
 }
 
