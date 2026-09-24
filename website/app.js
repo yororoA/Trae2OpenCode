@@ -72,6 +72,7 @@ const translations = {
     "footer.copy": "开放源码的 TRAE 会话迁移工具。",
     "footer.readme": "项目说明",
     "footer.help": "故障排查",
+    "footer.license": "ISC 许可证",
   },
   en: {
     "a11y.skip": "Skip to main content",
@@ -146,6 +147,7 @@ const translations = {
     "footer.copy": "An open-source TRAE session migration tool.",
     "footer.readme": "README",
     "footer.help": "Troubleshooting",
+    "footer.license": "ISC License",
   },
 };
 

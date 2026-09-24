@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://yororoa.github.io/Trae2OpenCode/sitemap.xml
+Sitemap: https://trae2opencode.yororoice.top/sitemap.xml

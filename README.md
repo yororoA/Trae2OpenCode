@@ -9,7 +9,7 @@
 工具会自动导出、脱敏、检查兼容性、导入、回读核验，并在中断后安全续跑。不会要求输入
 workbench ID 或 session ID。
 
-项目网站：[Trae2OpenCode](https://yororoa.github.io/Trae2OpenCode/)
+项目网站：[Trae2OpenCode](https://trae2opencode.yororoice.top/)
 
 > **首次使用请按 [操作手册](docs/operation-manual.md) 完成准备。**
 > 特别是 macOS 必须从终端以调试参数启动 TRAE，否则工具无法读取完整消息正文。
@@ -184,3 +184,7 @@ TRAE 本身的历史被删除，源数据始终保持只读。
 - [凭据处理边界](docs/m5-6-sensitive-content.md)、[回滚与恢复](docs/m5-5-rollback.md)
 - [实现规划与验收矩阵](docs/implementation-plan.md)、[真实来源验收报告](docs/m5-7-live-runtime-e2e.md)
 - [开发环境故障排查](docs/development-troubleshooting.md)
+
+## 许可证
+
+Copyright © 2026 yororoA。本项目采用 [ISC License](LICENSE)。

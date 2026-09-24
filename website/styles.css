@@ -1398,6 +1398,27 @@ svg {
   color: var(--green);
 }
 
+.footer-legal {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.footer-legal p {
+  margin: 0;
+}
+
+.footer-legal a {
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--line-dark);
+}
+
+.footer-legal a:hover {
+  color: var(--green);
+}
+
 .reveal {
   opacity: 0;
   transform: translateY(24px);
@@ -1729,6 +1750,10 @@ svg {
     grid-template-columns: 1fr;
     gap: 24px;
     align-items: start;
+  }
+
+  .footer-legal {
+    align-items: flex-start;
   }
 }
 

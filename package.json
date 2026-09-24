@@ -42,7 +42,7 @@
     "check": "npm run lint && npm test && npm run typecheck && npm run build && npm run smoke"
   },
   "keywords": [],
-  "author": "",
+  "author": "yororoA",
   "license": "ISC",
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
