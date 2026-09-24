@@ -5,7 +5,7 @@ import { isRuntimeObject, runtimeHash } from "./reasoning-plan.js";
 export interface TraeRuntimeTransport {
   productVersion: string;
   workspaceStorageId?: string;
-  invoke(method: "getSession" | "getMessages", params: Record<string, unknown>): Promise<unknown>;
+  invoke(method: "listSessions" | "getSession" | "getMessages", params: Record<string, unknown>): Promise<unknown>;
   close(): void;
 }
 
@@ -36,6 +36,56 @@ export function createTraeRuntimeReader(transport: TraeRuntimeTransport, limits:
   };
   return {
     productVersion: transport.productVersion,
+    async readSessionList(): Promise<unknown[]> {
+      const items: unknown[] = [];
+      const ids = new Map<string, string>();
+      const tokens = new Set<string>();
+      let pageToken: string | undefined;
+      let expectedTotal: number | undefined;
+      let bytes = 0;
+      for (let page = 0; page < maxPages; page++) {
+        const result = await transport.invoke("listSessions", {
+          page_size: 100,
+          ...(pageToken ? { page_token: pageToken } : {}),
+        });
+        bytes += Buffer.byteLength(JSON.stringify(result) ?? "", "utf8");
+        if (bytes > maxBytes) throw new Trae2OpenCodeError("T2O_TRAE_RUNTIME_LIMIT");
+        const data = dataFrom(result);
+        if (!Array.isArray(data.items)) invalid();
+        if (data.total !== undefined) {
+          if (!Number.isSafeInteger(data.total) || (data.total as number) < 0 ||
+            (expectedTotal !== undefined && data.total !== expectedTotal)) invalid();
+          expectedTotal = data.total as number;
+        }
+        for (const item of data.items) {
+          const validIdentity = isRuntimeObject(item) &&
+            typeof item.chat_session_id === "string" &&
+            item.session_type === "side_chat";
+          if (!validIdentity) invalid();
+          const id = item.chat_session_id as string;
+          assertId(id);
+          const hash = runtimeHash(item);
+          const previous = ids.get(id);
+          if (previous !== undefined && previous !== hash) invalid();
+          if (previous === undefined) {
+            ids.set(id, hash);
+            items.push(item);
+          }
+        }
+        const next = data.next_page_token;
+        if (next === undefined || next === null || next === "") {
+          if (data.has_more === true ||
+            (expectedTotal !== undefined && items.length !== expectedTotal)) invalid();
+          return items;
+        }
+        const validNext = typeof next === "string" && next.length <= 4096 &&
+          !tokens.has(next) && data.items.length > 0 && data.has_more !== false;
+        if (!validNext) invalid();
+        tokens.add(next as string);
+        pageToken = next as string;
+      }
+      throw new Trae2OpenCodeError("T2O_TRAE_RUNTIME_LIMIT");
+    },
     async readMetadata(sourceSessionIds: readonly string[]): Promise<unknown[]> {
       const records: unknown[] = [];
       let failures = 0;

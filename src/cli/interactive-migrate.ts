@@ -7,12 +7,10 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { MigrationBundle } from "../ir/types.js";
 import { readBundleFile } from "../migration/bundle-file.js";
-import { detectTraeVersion } from "../source/trae/collect.js";
-import { requireTraeRoot } from "../source/trae/path-discovery.js";
 import { connectTraeRuntime } from "../source/trae/runtime-cdp.js";
 import { createTraeRuntimeReader } from "../source/trae/runtime-reader.js";
 import {
-  readTraeSessionMetadata,
+  parseTraeRuntimeSessionMetadata,
   type TraeSessionMetadata,
 } from "../source/trae/session-metadata.js";
 
@@ -103,14 +101,6 @@ export function buildSessionChoices(
         : session.updatedAt,
     };
   });
-}
-
-export function sessionsForWorkspace(
-  sessions: readonly TraeSessionMetadata[],
-  workspaceStorageId: string,
-): TraeSessionMetadata[] {
-  return sessions.filter((session) =>
-    session.workspaceStorageIds.includes(workspaceStorageId));
 }
 
 export function bundleMatchesSession(
@@ -262,22 +252,17 @@ async function chooseSession(
   target: WorkbenchTarget,
   cdp: string,
 ): Promise<string> {
-  const root = requireTraeRoot();
-  const productVersion = await detectTraeVersion();
-  const localReport = await readTraeSessionMetadata({ root, productVersion });
   const transport = await connectTraeRuntime(cdp, target.id);
   try {
     const reader = createTraeRuntimeReader(transport);
     if (!transport.workspaceStorageId) throw new Error("TRAE_WORKSPACE_ID_UNAVAILABLE");
-    const workspaceSessions = sessionsForWorkspace(
-      localReport.sessions,
-      transport.workspaceStorageId,
+    const records = await reader.readSessionList();
+    const runtimeReport = parseTraeRuntimeSessionMetadata(
+      { items: records },
+      transport.productVersion,
     );
-    if (workspaceSessions.length === 0) throw new Error("TRAE_WORKSPACE_SESSIONS_EMPTY");
-    const records = await reader.readMetadata(
-      workspaceSessions.map((session) => session.sourceSessionId),
-    );
-    const choices = buildSessionChoices(workspaceSessions, records);
+    const choices = buildSessionChoices(runtimeReport.sessions, records);
+    if (choices.length === 0) throw new Error("TRAE_WORKSPACE_SESSIONS_EMPTY");
     const requested = process.env.T2O_TRAE_SESSION;
     if (requested) {
       const selected = choices.find((choice) => choice.id === requested);

@@ -63,8 +63,8 @@ npm run migrate:local
 程序会交互式完成全部选择，不需要用户输入 workbench ID 或 session ID：
 
 1. 列出当前可用的 TRAE workbench，按编号选择窗口。
-2. 读取该窗口的 workspace ID，只列出该 workspace 本地索引中的会话名称、
-   元数据状态和更新时间，按编号选择会话。
+2. 通过该窗口的 renderer 获取当前项目 ID，并分页读取与 TRAE 历史面板相同的
+   会话列表；显示会话名称、元数据状态和更新时间，按编号选择会话。
 3. 自动导出 bundle，并检查大小、凭据和字段完整性；消息正文或工具 payload
    中的疑似凭据会替换为 `[REDACTED_SECRET]`。
 4. 自动 dry-run；无法无损映射时在写入 OpenCode 前停止。

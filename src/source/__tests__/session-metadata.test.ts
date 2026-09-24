@@ -244,6 +244,35 @@ describe("parseTraeRuntimeSessionMetadata", () => {
 });
 
 describe("readTraeSessionMetadata", () => {
+  it("adds runtime-only sessions and associates them with the selected workspace", async () => {
+    const root = createRoot();
+    const requests: string[][] = [];
+
+    const report = await readTraeSessionMetadata({
+      root,
+      productVersion: "3.3.104",
+      runtimeSessionIds: ["session-runtime-only"],
+      runtimeWorkspaceStorageId: "workspace-selected",
+      runtimeMetadataProvider({ sourceSessionIds }) {
+        requests.push([...sourceSessionIds]);
+        return {
+          items: [{
+            chat_session_id: "session-runtime-only",
+            title: "Runtime history",
+            created_at: 1_000,
+            updated_at: 2_000,
+          }],
+        };
+      },
+    });
+
+    assert.deepEqual(requests, [["session-runtime-only"]]);
+    assert.equal(report.sessions.length, 1);
+    assert.equal(report.sessions[0].title, "Runtime history");
+    assert.deepEqual(report.sessions[0].workspaceStorageIds, ["workspace-selected"]);
+    assert.equal(report.sourceCounts["runtime-metadata"], 1);
+  });
+
   it("discovers local candidates and enriches them through a runtime provider", async () => {
     const root = createRoot();
     createWorkspaceState(root, "workspace-a", {

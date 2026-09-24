@@ -5,6 +5,11 @@ import { createTraeRuntimeReader, type TraeRuntimeTransport } from "../trae/runt
 const sessionId = "session-runtime";
 const message = (id: string) => ({ chat_session_id: sessionId, message_id: id, content: "正文" });
 const page = (items: unknown[], next_page_token?: unknown) => ({ code: 0, data: { items, next_page_token } });
+const listedSession = (id: string) => ({
+  chat_session_id: id,
+  session_type: "side_chat",
+  title: id,
+});
 function setup(pages: unknown[]) {
   const requests: Record<string, unknown>[] = [];
   const transport: TraeRuntimeTransport = {
@@ -16,6 +21,46 @@ function setup(pages: unknown[]) {
 }
 
 describe("createTraeRuntimeReader", () => {
+  it("paginates and deduplicates the current project session list", async () => {
+    const { reader, requests } = setup([
+      { code: 0, data: {
+        items: [listedSession("session-a"), listedSession("session-b")],
+        next_page_token: "more",
+        total: 3,
+      } },
+      { code: 0, data: {
+        items: [listedSession("session-b"), listedSession("session-c")],
+        total: 3,
+      } },
+    ]);
+
+    assert.deepEqual(await reader.readSessionList(), [
+      listedSession("session-a"),
+      listedSession("session-b"),
+      listedSession("session-c"),
+    ]);
+    assert.deepEqual(requests, [
+      { page_size: 100 },
+      { page_size: 100, page_token: "more" },
+    ]);
+  });
+
+  it("rejects malformed or incomplete project session lists", async () => {
+    for (const pages of [
+      [{ code: 1, data: { items: [] } }],
+      [{ code: 0, data: { items: [{ chat_session_id: "session-a", session_type: "other" }] } }],
+      [{ code: 0, data: { items: [listedSession("session-a")], total: 2 } }],
+      [
+        { code: 0, data: { items: [listedSession("session-a")], next_page_token: "loop" } },
+        { code: 0, data: { items: [listedSession("session-b")], next_page_token: "loop" } },
+      ],
+    ]) {
+      await assert.rejects(setup(pages).reader.readSessionList(), {
+        code: "T2O_TRAE_RUNTIME_READ_INVALID",
+      });
+    }
+  });
+
   it("uses local pagination, deduplicates overlap, and counts the complete read", async () => {
     const { reader, requests } = setup([page([message("b"), message("c")], "older"), page([message("a"), message("b")])]);
     const result = await reader.readMessages(sessionId);

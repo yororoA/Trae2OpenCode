@@ -9,7 +9,6 @@ import {
   formatMetadataStatus,
   parseChoiceIndex,
   resolveMigrationDirectories,
-  sessionsForWorkspace,
 } from "../interactive-migrate.js";
 
 function session(
@@ -73,24 +72,6 @@ describe("interactive migration helpers", () => {
         updatedAt: undefined,
       },
     ]);
-  });
-
-  it("shows only sessions indexed by the selected workbench workspace", () => {
-    const sessions = [
-      session("session-a", "complete", ["workspace-a"]),
-      session("session-b", "partial", ["workspace-b"]),
-      session("session-shared", "complete", ["workspace-a", "workspace-b"]),
-      session("session-global", "complete"),
-    ];
-
-    assert.deepEqual(
-      sessionsForWorkspace(sessions, "workspace-a").map((item) => item.sourceSessionId),
-      ["session-a", "session-shared"],
-    );
-    assert.deepEqual(
-      sessionsForWorkspace(sessions, "workspace-b").map((item) => item.sourceSessionId),
-      ["session-b", "session-shared"],
-    );
   });
 
   it("uses stable opaque directories per selected session", () => {

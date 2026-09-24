@@ -49,7 +49,8 @@ const rendererApi = `
     throw new Error("Unsupported product");
   const module = await import(new URL("node_modules/@byted-icube/ai-modules-chat/dist/index.mjs", root).href);
   const api = module.__webpack_require__(8594).XT.tryResolve(Symbol.for("TraeApiPort"));
-  if (!api?.chat?.getMessages || !api?.chat?.getSession) throw new Error("Runtime not ready");
+  if (!api?.chat?.listSessions || !api?.chat?.getMessages || !api?.chat?.getSession)
+    throw new Error("Runtime not ready");
 `;
 
 async function connectSocket(url: URL) {
@@ -120,8 +121,24 @@ export async function connectTraeRuntime(endpoint: string, targetId?: string): P
       productVersion: runtime.productVersion,
       workspaceStorageId: runtime.workspaceStorageId,
       async invoke(method, params) {
-        if (method !== "getSession" && method !== "getMessages") throw unavailable();
+        if (method !== "listSessions" && method !== "getSession" && method !== "getMessages") {
+          throw unavailable();
+        }
         const payload = JSON.stringify({ ...params, env: "local" });
+        if (method === "listSessions") {
+          return client.evaluate(`(async () => { ${rendererApi}
+            const registry = module.__webpack_require__(32143).mc.getInstance();
+            const service = registry.resolve(module.__webpack_require__(48996).R);
+            const localProjectId = await service.getOrCreateProjectId();
+            if (typeof localProjectId !== "string" || !/^[A-Za-z0-9._:-]{8,128}$/.test(localProjectId))
+              throw new Error("Project unavailable");
+            return api.chat.listSessions({
+              ...${payload},
+              local_project_id: localProjectId,
+              session_type: "side_chat",
+            });
+          })()`);
+        }
         return client.evaluate(`(async () => { ${rendererApi}
           return api.chat[${JSON.stringify(method)}](${payload});
         })()`);

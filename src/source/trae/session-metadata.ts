@@ -78,6 +78,8 @@ export interface ReadTraeSessionMetadataOptions {
   root: DiscoveredTraeRoot;
   productVersion: string;
   runtimeMetadataProvider?: TraeRuntimeSessionMetadataProvider;
+  runtimeSessionIds?: readonly string[];
+  runtimeWorkspaceStorageId?: string;
   temporaryRoot?: string;
 }
 
@@ -889,9 +891,10 @@ export async function readTraeSessionMetadata(
   const snapshot = collectSnapshotCandidates(options.root);
   const candidates = [...workspace.candidates, ...snapshot.candidates];
   const issues = [...workspace.issues, ...snapshot.issues];
-  const sourceSessionIds = [
-    ...new Set(candidates.map((candidate) => candidate.sourceSessionId)),
-  ].sort();
+  const sourceSessionIds = [...new Set(
+    options.runtimeSessionIds ??
+      candidates.map((candidate) => candidate.sourceSessionId),
+  )].sort();
 
   if (options.runtimeMetadataProvider) {
     for (
@@ -919,7 +922,15 @@ export async function readTraeSessionMetadata(
           );
           return false;
         });
-        candidates.push(...accepted);
+        candidates.push(...accepted.map((candidate) => ({
+          ...candidate,
+          source: {
+            ...candidate.source,
+            ...(options.runtimeWorkspaceStorageId
+              ? { workspaceStorageId: options.runtimeWorkspaceStorageId }
+              : {}),
+          },
+        })));
         issues.push(...runtime.issues);
       } catch {
         issues.push(

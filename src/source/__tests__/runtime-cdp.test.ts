@@ -51,11 +51,16 @@ describe("TRAE CDP transport", () => {
         assert.equal(transport.workspaceStorageId, "a".repeat(32));
         assert.match(expressions[0], /new URL\("\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/", location\.href\)/);
         assert.match(expressions[0], /resolveConfiguration/);
+        assert.deepEqual(await transport.invoke("listSessions", { page_size: 100 }),
+          { code: 0, data: { items: [] } });
+        assert.match(expressions[1], /getOrCreateProjectId/);
+        assert.match(expressions[1], /local_project_id/);
+        assert.match(expressions[1], /session_type: "side_chat"/);
         assert.deepEqual(await transport.invoke("getMessages", { chat_session_id: '";throw 1;//', env: "remote" }),
           { code: 0, data: { items: [] } });
-        assert.ok(expressions[1].includes(JSON.stringify({ chat_session_id: '";throw 1;//', env: "local" })));
-        assert.match(expressions[1], /TraeApiPort/);
-        assert.doesNotMatch(expressions[1], /localStorage|executeCommand|sendMessage/);
+        assert.ok(expressions[2].includes(JSON.stringify({ chat_session_id: '";throw 1;//', env: "local" })));
+        assert.match(expressions[2], /TraeApiPort/);
+        assert.doesNotMatch(expressions[2], /localStorage|executeCommand|sendMessage/);
       } finally { transport.close(); }
     } finally {
       for (const socket of sockets.clients) socket.terminate();
