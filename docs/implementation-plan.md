@@ -1,6 +1,6 @@
 # Trae2OpenCode 实现规划
 
-> 状态：M0 至 M5 已合入 `main`；M7 工程及实机验收已完成，PR #17 待合入
+> 状态：P0（M0 至 M5、M7-1 至 M7-4）已完成并合入 `main`
 > 核验日期：2026-09-24
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
@@ -41,12 +41,12 @@ M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP
 | M4 OpenCode adapter | 已集成，PR #15 | 能力探测、IR 映射、稳定 ID、CLI adapter、路径映射与完整对账；五组 macOS 隔离实机通过 |
 | M5 迁移编排 | 已集成，PR #16 | 编排、安全能力与已登录 renderer → 隔离 OpenCode 端到端验收通过 |
 | M6 资源迁移 | P1，未开始 | Skill/MCP 发现、建议配置与复制可独立发布 |
-| M7 兼容与发布 | M7-1 至 M7-4 已实现，草稿 PR #17 | 三系统六任务、当前/相邻版本契约、真实中断与 tarball 安装/dry-run CI 全部通过 |
+| M7 兼容与发布 | 已集成，PR #17 | 三系统六任务、当前/相邻版本契约、真实中断与 tarball 安装/dry-run CI 全部通过 |
 
 P0 工程与实机验收已完成：除合成来源到真实 OpenCode 的三平台矩阵外，
 已登录 TRAE 经生产 CDP reader 导出、原生导入、回读、resume 和重复跳过均通过。
 真实可写样本为 partial，覆盖 text/tool；reasoning 为 M0 真实来源与 M4/M7
-目标往返的拆分证据，不宣称单一实机会话整链覆盖。当前等待 M7 PR #17 合入；
+目标往返的拆分证据，不宣称单一实机会话整链覆盖。P0 已集成到 main；
 尚未发布 npm 包。
 
 ## 2. 目标与边界
@@ -625,8 +625,7 @@ P0 最后一项来源验收已使用已登录的 TRAE CN 3.3.104 workbench 完�
 生产 reader 导出、隔离 OpenCode 导入、逐消息回读、resume 与重复迁移均通过。
 过程中修复了实际 workbench 路径/应用根、metadata 失败隔离、`solo_agent`
 正文投影、空工具占位和跨 workspace 资源诊断归属。详见
-[M5-7 报告](m5-7-live-runtime-e2e.md)。M5 PR #16 已合入 main；
-M7 PR #17 改向 main 并通过最终 CI 后即可合入。
+[M5-7 报告](m5-7-live-runtime-e2e.md)。M5 PR #16 与 M7 PR #17 均已合入 main。
 
 ## 7. 优先级
 
@@ -704,8 +703,8 @@ M7 PR #17 改向 main 并通过最终 CI 后即可合入。
 5. 增加批量迁移、manifest、resume 和 rollback。
 6. 最后处理附件、Skill、MCP；SQLite Writer 保持为可选项。
 
-原始 P0 估算为 20-30 个工程日。当前 M0–M7 的 P0 工程与验收已完成，
-剩余交付操作为通过最终 CI 后合入 M7；不按测试数量折算完成比例。
+原始 P0 估算为 20-30 个工程日。当前 M0–M7 的 P0 工程、验收与 main 集成
+均已完成；M6 资源迁移保留为 P1，不按测试数量折算完成比例。
 
 ## 11. 分支与提交规范
 

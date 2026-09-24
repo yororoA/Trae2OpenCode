@@ -51,7 +51,7 @@ user、assistant text 和 tool，执行 IR 导出/再读、目录映射、原生
   诊断保留，使用隔离 fallback 目录。
 - verified=1，created=1，重复运行 skipped=1，实际 import=1；完整 hash 对账一致。
 - reasoning=0，按下述覆盖边界准确记录，未冒充本次实机覆盖。
-- M5 PR #16 已合入 main；M7 PR #17 在最终门禁通过后合入。
+- M5 PR #16 与 M7 PR #17 均已通过最终门禁并合入 main。
 
 未获取端口、未登录、所选数据缺少 text/tool 或映射被阻止时，继续保留待验收状态，
 不以压力测试、安装成功或 M0 的脱敏结构报告代替本项。若真实迁移样本没有
