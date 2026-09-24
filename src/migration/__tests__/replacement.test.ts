@@ -79,6 +79,28 @@ describe("explicit tool-owned replacement", () => {
     assert.notEqual(result.runId, (await readManifest(previous)).runId);
   }));
 
+  it("rebinds an unchanged previous run before authorizing replacement", () => setup(async (ctx) => {
+    const { root, plan, api, previous, deleted } = ctx;
+    const nextHash = jsonHash("next-endpoint");
+    api.describe = async () => ({
+      endpointHash: nextHash,
+      fingerprint: jsonHash("next-fingerprint"),
+      schemaHash: jsonHash("target"),
+      binaryVersion: "2.0.12",
+      serverVersion: "2.0.12",
+    });
+    plan.sessions[0].transfer!.info.title = "Updated after service restart";
+    const result = await migrate(plan, api, {
+      outputDirectory: path.join(root, "second"),
+      replaceManifest: previous,
+      exclusiveTarget: true,
+    });
+    assert.equal(result.verified, 2);
+    assert.equal(result.replaced, 2);
+    assert.equal((await readManifest(previous)).target.endpointHash, nextHash);
+    assert.deepEqual(deleted, plan.sessions.map((item) => item.targetId).reverse());
+  }));
+
   it("requires explicit exclusive use before reading a target", () => setup(async ({ root, plan, api, previous, deleted }) => {
     api.describe = async () => { assert.fail("No reads before acknowledgement"); };
     await assert.rejects(migrate(plan, api, { outputDirectory: path.join(root, "second"), replaceManifest: previous }),

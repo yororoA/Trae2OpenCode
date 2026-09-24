@@ -436,6 +436,7 @@ export function localServerUrl(outputText: string): string | undefined {
 export type OpenCodeServiceDescriptor = {
   url: string;
   password: string;
+  version: string;
 };
 
 export function parseOpenCodeServiceDescriptor(value: unknown): OpenCodeServiceDescriptor | undefined {
@@ -443,11 +444,15 @@ export function parseOpenCodeServiceDescriptor(value: unknown): OpenCodeServiceD
   const descriptor = value as Record<string, unknown>;
   const url = typeof descriptor.url === "string" ? localServerUrl(descriptor.url) : undefined;
   const password = typeof descriptor.password === "string" ? descriptor.password : undefined;
-  if (url === undefined || url !== descriptor.url || descriptor.version !== OPENCODE_VERSION ||
+  const version = typeof descriptor.version === "string" &&
+      /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(descriptor.version)
+    ? descriptor.version
+    : undefined;
+  if (url === undefined || url !== descriptor.url || version === undefined ||
     password === undefined || password.length < 8 || password.length > 512) {
     return undefined;
   }
-  return { url, password };
+  return { url, password, version };
 }
 
 async function canAccessOpenCodeServer(
@@ -545,22 +550,17 @@ async function startManagedOpenCodeServer(): Promise<{
       if (failed || child.exitCode !== null || child.signalCode !== null) break;
       try {
         const descriptor: unknown = JSON.parse(await fs.readFile(descriptorFile, "utf8"));
-        if (descriptor !== null && typeof descriptor === "object" && !Array.isArray(descriptor)) {
-          const value = descriptor as Record<string, unknown>;
-          const url = typeof value.url === "string" ? localServerUrl(value.url) : undefined;
-          const password = typeof value.password === "string" ? value.password : undefined;
-          if (typeof url === "string" && url === value.url && value.version === OPENCODE_VERSION &&
-            password !== undefined && password.length >= 8 && password.length <= 512 &&
-            await canAccessOpenCodeServer(url, password)) {
-            return {
-              url,
-              password,
-              async close() {
-                await stopManagedServer(child);
-                await fs.rm(stateDirectory, { recursive: true, force: true });
-              },
-            };
-          }
+        const service = parseOpenCodeServiceDescriptor(descriptor);
+        if (service?.version === OPENCODE_VERSION &&
+          await canAccessOpenCodeServer(service.url, service.password)) {
+          return {
+            url: service.url,
+            password: service.password,
+            async close() {
+              await stopManagedServer(child);
+              await fs.rm(stateDirectory, { recursive: true, force: true });
+            },
+          };
         }
       } catch {
         // The descriptor is created atomically after the service starts.
@@ -954,14 +954,20 @@ async function main(): Promise<number> {
   let managedServer: Awaited<ReturnType<typeof startManagedOpenCodeServer>> | undefined;
   let serverPassword = process.env.OPENCODE_SERVER_PASSWORD;
   try {
-    if (!process.env.T2O_OPENCODE_SERVER &&
-      !await canAccessOpenCodeServer(server, serverPassword)) {
+    if (!process.env.T2O_OPENCODE_SERVER) {
       const discovered = await discoverOpenCodeService();
       if (discovered) {
+        if (discovered.version !== OPENCODE_VERSION) {
+          console.error(
+            `检测到正在运行的 OpenCode ${discovered.version}，当前仅支持 ${OPENCODE_VERSION}。` +
+            "请完全退出 OpenCode 桌面端或停止该服务后重试。",
+          );
+          return 4;
+        }
         server = discovered.url;
         serverPassword = discovered.password;
         console.log("已连接当前 OpenCode 2.0.12 本机服务。");
-      } else {
+      } else if (!await canAccessOpenCodeServer(server, serverPassword)) {
         console.log("默认 OpenCode 服务不可访问，正在临时启动本机服务...");
         try {
           managedServer = await startManagedOpenCodeServer();

@@ -74,7 +74,7 @@ macOS 的 `open -a "Trae CN" --args ...` 经 3.3.104 实机确认可能丢弃调
 | `T2O_MIGRATION_BUNDLE_READ_FAILED` | `--input` 读取失败时，先独立验证输入文件；`--resume` 尚未读取或写入目标 |
 | `T2O_MIGRATION_LOCKED` | 同一 manifest 正被使用；结束持有它的迁移进程后重试，不删除运行中的 lock 文件 |
 | `T2O_MIGRATION_PLAN_CHANGED` | 恢复原 IR 与目录/namespace/筛选参数；真实源变化则新建迁移 |
-| `T2O_MIGRATION_TARGET_CHANGED` | 核对 server 端口、数据库和此前写入内容；不要改 manifest 绕过校验 |
+| `T2O_MIGRATION_TARGET_CHANGED` | 核对 server 数据库、版本、schema 和此前写入内容；动态端口仅在完整目标证据匹配时自动重绑定 |
 | `T2O_MIGRATION_PARTIAL_WRITE` | 目标未完整对账；保留 manifest 和 IR，根据回读证据处理，不盲目重复导入 |
 | `T2O_MIGRATION_CHILDREN_PROTECTED` | 待删除范围含外来或未选中子会话，禁止级联删除 |
 | `T2O_MIGRATION_EXCLUSIVE_REQUIRED` | 暂停其他目标写入者后才可声明 `--exclusive-target` |
@@ -85,7 +85,8 @@ macOS 的 `open -a "Trae CN" --args ...` 经 3.3.104 实机确认可能丢弃调
 manifest 时不会覆盖。多选迁移逐会话隔离执行，一个会话失败不会停止后续会话。
 
 中断后 OS 会释放 manifest 的 SQLite 排他锁；用同一 manifest 续跑即可。
-端点 hash 不是数据库身份；保留同一个 server 数据目录和端口，不在中途切库。
+端点 hash 不是数据库身份；服务可重启并更换动态端口，但必须保留同一个数据目录，且
+已有成功会话未经修改。不要在中途切库。
 Windows 不承诺 POSIX `0700/0600` 权限位的 ACL 效果，应使用自己的受限目录。
 manifest 校验和用于发现损坏，不是数字签名。
 

@@ -152,20 +152,54 @@ describe("migration executor", () => {
     assert.deepEqual((await readManifest(filename)).sessions[0].codes, ["T2O_MIGRATION_TARGET_CHANGED"]);
   }));
 
-  it("rejects a changed source plan, endpoint, or edited successful target", () => setup(async ({ plan, fake, filename, outputDirectory }) => {
+  it("rebinds an endpoint-only change after exact target proof", () => setup(async ({ plan, fake, filename, outputDirectory }) => {
+    await migrate(plan, fake.api, { outputDirectory });
+    const reboundDescriptor = {
+      ...descriptor,
+      endpointHash: hashCanonicalJson("other-endpoint"),
+      fingerprint: hashCanonicalJson("other-fingerprint"),
+    };
+    fake.api.describe = async () => structuredClone(reboundDescriptor);
+    const resumed = await migrate(plan, fake.api, { resumeManifest: filename });
+    assert.equal(resumed.verified, 1);
+    assert.equal(fake.imports.length, 1);
+    assert.deepEqual((await readManifest(filename)).target, reboundDescriptor);
+    assert.equal((await verifyMigration(filename, fake.api)).hasFailures, false);
+  }));
+
+  it("rejects a changed source plan, target contract, or edited successful target", () => setup(async ({ plan, fake, filename, outputDirectory }) => {
     await migrate(plan, fake.api, { outputDirectory });
     const changed = structuredClone(plan);
     changed.irHash = hashCanonicalJson("changed");
     await assert.rejects(migrate(changed, fake.api, { resumeManifest: filename }), { code: "T2O_MIGRATION_PLAN_CHANGED" });
-    const describeTarget = fake.api.describe;
-    fake.api.describe = async () => ({ ...descriptor, endpointHash: hashCanonicalJson("other") });
+    fake.api.describe = async () => ({
+      ...descriptor,
+      schemaHash: hashCanonicalJson("other-schema"),
+      fingerprint: hashCanonicalJson("other-contract"),
+    });
     await assert.rejects(migrate(plan, fake.api, { resumeManifest: filename }), { code: "T2O_MIGRATION_TARGET_CHANGED" });
     await assert.rejects(verifyMigration(filename, fake.api), { code: "T2O_MIGRATION_TARGET_CHANGED" });
-    fake.api.describe = describeTarget;
+    fake.api.describe = async () => structuredClone(descriptor);
     fake.sessions.get(plan.sessions[0].targetId)!.messages[0].text = "new user content";
     await assert.rejects(migrate(plan, fake.api, { resumeManifest: filename }), { code: "T2O_MIGRATION_TARGET_CHANGED" });
     assert.equal((await verifyMigration(filename, fake.api)).hasFailures, true);
     assert.equal(fake.imports.length, 1);
+  }));
+
+  it("rejects endpoint rebinding without an exact verified target", () => setup(async ({ plan, fake, filename, outputDirectory }) => {
+    fake.api.importSession = async () => {
+      throw new Trae2OpenCodeError("T2O_OPENCODE_IMPORT_FAILED");
+    };
+    assert.equal((await migrate(plan, fake.api, { outputDirectory })).hasFailures, true);
+    fake.api.describe = async () => ({
+      ...descriptor,
+      endpointHash: hashCanonicalJson("other-endpoint"),
+      fingerprint: hashCanonicalJson("other-fingerprint"),
+    });
+    await assert.rejects(
+      migrate(plan, fake.api, { resumeManifest: filename }),
+      { code: "T2O_MIGRATION_TARGET_CHANGED" },
+    );
   }));
 
   it("stops all writes when the importing checkpoint cannot be saved", () => setup(async ({ plan, fake, filename, outputDirectory }) => {

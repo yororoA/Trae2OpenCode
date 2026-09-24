@@ -30,8 +30,10 @@ CLI 输出机器可读报告；存在 failed、blocked、pending 或 importing �
 - 每个 run 使用随机 UUID；目标 metadata 带有 run ID、源会话 ID 和映射版本。
 - manifest v1 记录源指纹、IR/计划 hash、目标地址 hash、版本、schema hash、
   源目标映射、计划/实际类型计数与 hash、尝试次数和本次创建标记。
-- 目标描述符是地址与契约指纹。OpenCode 当前没有暴露稳定数据库身份；更换端口
-  会拒绝续跑，相同端口背后的不同库不能只靠该指纹区分。
+- 目标描述符记录地址与契约指纹。OpenCode 当前没有暴露稳定数据库身份；动态端口
+  改变时，只有版本和 schema 不变，且至少一个 verified 会话同时通过 run 所有权、
+  expected 快照和 deletion hash 核验，才会持久化新端点并续跑。尚无成功会话时拒绝
+  重绑定；相同端口背后的不同库仍不能只靠端点指纹区分。
 - 续跑在写入前核验已 verified 的会话，缺失、所有权不符或被修改均停止写入。
   首次写入前切换同地址数据库、或尚无成功会话的 run 不能依赖此检查识别换库。
 - 导入前必须先保存 importing checkpoint。会话已写入但进程/响应丢失时，续跑

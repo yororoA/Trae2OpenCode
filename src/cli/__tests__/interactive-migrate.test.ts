@@ -130,7 +130,7 @@ describe("interactive migration helpers", () => {
     assert.equal(environment.OPENCODE_USERNAME, undefined);
   });
 
-  it("accepts only authenticated OpenCode 2.0.12 loopback service descriptors", () => {
+  it("parses authenticated loopback descriptors before checking their version", () => {
     assert.deepEqual(parseOpenCodeServiceDescriptor({
       url: "http://127.0.0.1:49374",
       version: "2.0.12",
@@ -138,15 +138,25 @@ describe("interactive migration helpers", () => {
     }), {
       url: "http://127.0.0.1:49374",
       password: "long-enough-password",
+      version: "2.0.12",
     });
     assert.equal(parseOpenCodeServiceDescriptor({
       url: "http://remote.test:49374",
       version: "2.0.12",
       password: "long-enough-password",
     }), undefined);
-    assert.equal(parseOpenCodeServiceDescriptor({
+    assert.deepEqual(parseOpenCodeServiceDescriptor({
       url: "http://127.0.0.1:49374",
       version: "2.0.16",
+      password: "long-enough-password",
+    }), {
+      url: "http://127.0.0.1:49374",
+      password: "long-enough-password",
+      version: "2.0.16",
+    });
+    assert.equal(parseOpenCodeServiceDescriptor({
+      url: "http://127.0.0.1:49374",
+      version: "\u001b[31m2.0.16",
       password: "long-enough-password",
     }), undefined);
   });
