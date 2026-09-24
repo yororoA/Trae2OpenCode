@@ -108,6 +108,69 @@ function encodedToolValue(value: JsonValue): {
   };
 }
 
+type ToolPresentation = {
+  name: string;
+  input: JsonObject;
+  output?: JsonValue;
+  metadata: JsonObject;
+};
+
+function projectToolPresentation(block: Extract<AssistantContentIR, { type: "tool" }>): ToolPresentation {
+  const sourceInput = block.input as JsonObject;
+  if (block.name !== "exec_command" || typeof sourceInput.cmd !== "string") {
+    return {
+      name: block.name,
+      input: sourceInput,
+      ...(block.output === undefined ? {} : { output: block.output }),
+      metadata: {},
+    };
+  }
+
+  const { cmd, command: sourceCommand, ...inputFields } = sourceInput;
+  const input: JsonObject = { ...inputFields, command: cmd };
+  const metadata: JsonObject = {
+    sourceToolName: block.name,
+    sourceCommandField: "cmd",
+    ...(sourceCommand === undefined ? {} : { sourceInputCommand: sourceCommand }),
+  };
+  const sourceOutput = block.output;
+  if (!isRecord(sourceOutput)) {
+    return {
+      name: "shell",
+      input,
+      ...(sourceOutput === undefined ? {} : { output: sourceOutput }),
+      metadata,
+    };
+  }
+
+  const visibleOutputField = typeof sourceOutput.stdout === "string"
+    ? "stdout"
+    : typeof sourceOutput.output === "string"
+      ? "output"
+      : undefined;
+  if (!visibleOutputField) {
+    return { name: "shell", input, output: sourceOutput, metadata };
+  }
+  const visibleOutput = sourceOutput[visibleOutputField] as string;
+  const mirroredOutputFields = ["stdout", "output"].filter((field) =>
+    sourceOutput[field] === visibleOutput);
+  const sourceOutputRemainder = Object.fromEntries(
+    Object.entries(sourceOutput).filter(([field]) => !mirroredOutputFields.includes(field)),
+  ) as JsonObject;
+  return {
+    name: "shell",
+    input,
+    output: visibleOutput,
+    metadata: {
+      ...metadata,
+      visibleOutputField,
+      mirroredOutputFields,
+      sourceOutputRemainder,
+      sourceOutputSha256: hashCanonicalJson(sourceOutput),
+    },
+  };
+}
+
 function mapContent(
   block: AssistantContentIR,
   session: SessionIR,
@@ -141,15 +204,24 @@ function mapContent(
     };
   }
   if (!isRecord(block.input)) reject(session, `${field}.input`);
+  const presentation = projectToolPresentation(block);
   if (block.status === "running" || block.status === "unknown") {
     const hasPreservedPayload = block.output !== undefined || hasErrorPayload(block.error);
+    const outputProjectedToShell = presentation.name === "shell" &&
+      typeof presentation.metadata.visibleOutputField === "string";
     const metadata: JsonObject = block.status === "unknown" || hasPreservedPayload
       ? { trae2opencode: {
         sourceStatus: block.status,
-        ...(block.output === undefined ? {} : { sourceOutput: block.output }),
+        ...(block.output === undefined || outputProjectedToShell ? {} : { sourceOutput: block.output }),
         ...(hasErrorPayload(block.error) ? { sourceError: block.error as JsonValue } : {}),
+        ...presentation.metadata,
       } }
-      : {};
+      : Object.keys(presentation.metadata).length > 0
+        ? { trae2opencode: presentation.metadata }
+        : {};
+    if (presentation.name === "shell" && typeof presentation.output === "string") {
+      metadata.output = presentation.output;
+    }
     if (block.status === "unknown") {
       diagnostics.push(diagnostic(
         session,
@@ -166,8 +238,8 @@ function mapContent(
       ));
     }
     return {
-      type: "tool", id: block.callId, name: block.name, time,
-      state: { status: "running", input: block.input as JsonObject, metadata },
+      type: "tool", id: block.callId, name: presentation.name, time,
+      state: { status: "running", input: presentation.input, metadata },
     };
   }
   if (block.status === "error") {
@@ -175,7 +247,7 @@ function mapContent(
     const error = encodedToolValue(sourceErrorMissing
       ? MISSING_TOOL_ERROR_TEXT
       : block.error as JsonValue);
-    const output = block.output === undefined ? undefined : encodedToolValue(block.output);
+    const output = presentation.output === undefined ? undefined : encodedToolValue(presentation.output);
     diagnostics.push(diagnostic(
       session,
       "T2O_OPENCODE_TOOL_ERROR_PRESERVED",
@@ -183,13 +255,14 @@ function mapContent(
       `${field}.status`,
     ));
     return {
-      type: "tool", id: block.callId, name: block.name, time,
+      type: "tool", id: block.callId, name: presentation.name, time,
       state: {
         status: "error",
-        input: block.input as JsonObject,
+        input: presentation.input,
         error: { type: "TRAE_TOOL_ERROR", message: error.text },
         ...(output ? { content: [{ type: "text", text: output.text }] } : {}),
         metadata: { trae2opencode: {
+          ...presentation.metadata,
           errorEncoding: error.encoding,
           errorSha256: error.sha256,
           ...(sourceErrorMissing ? { sourceErrorMissing: true } : {}),
@@ -202,10 +275,10 @@ function mapContent(
     };
   }
   if (hasErrorPayload(block.error)) reject(session, `${field}.error`);
-  const sourceOutputMissing = block.output === undefined;
+  const sourceOutputMissing = presentation.output === undefined;
   const outputValue: JsonValue = sourceOutputMissing
     ? MISSING_TOOL_OUTPUT_TEXT
-    : block.output as JsonValue;
+    : presentation.output as JsonValue;
   const output = encodedToolValue(outputValue);
   if (sourceOutputMissing) {
     diagnostics.push(diagnostic(
@@ -224,11 +297,12 @@ function mapContent(
     ));
   }
   return {
-    type: "tool", id: block.callId, name: block.name, time,
+    type: "tool", id: block.callId, name: presentation.name, time,
     state: {
-      status: "completed", input: block.input as JsonObject,
+      status: "completed", input: presentation.input,
       content: [{ type: "text", text: output.text }],
       metadata: { trae2opencode: {
+        ...presentation.metadata,
         outputEncoding: output.encoding,
         outputSha256: output.sha256,
         ...(sourceOutputMissing ? { sourceOutputMissing: true } : {}),
@@ -390,7 +464,7 @@ export function mapOpenCodeSession(
       time: { created: session.createdAt, updated: session.updatedAt },
       location: { directory: options.directory },
       metadata: { trae2opencode: {
-        mappingVersion: 3, sourceSessionId: session.sourceId,
+        mappingVersion: 4, sourceSessionId: session.sourceId,
         sourceSessionSha256: hashCanonicalJson(session as unknown as JsonValue),
         unknownSourceFields: ["cost", "tokens", "agent", "model"],
         resourceCount: session.resources.length,

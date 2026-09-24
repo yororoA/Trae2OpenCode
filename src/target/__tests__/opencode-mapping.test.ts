@@ -61,6 +61,69 @@ describe("OpenCode IR mapping", () => {
     assert.deepEqual(transfer.messages[1].model, { id: "unknown", providerID: "trae-import-unknown" });
   });
 
+  it("projects TRAE exec commands to expandable native shell tools without losing source fields", () => {
+    const bundle = structuredClone(fixture);
+    Object.assign(tool(bundle), {
+      name: "exec_command",
+      input: {
+        cmd: "git status --short",
+        workdir: "/synthetic/project",
+        yield_time_ms: 10_000,
+      },
+      output: {
+        stdout: "clean\n",
+        output: "clean\n",
+        exit_code: 0,
+        status: "Exited",
+      },
+    });
+
+    const { transfer } = map(bundle);
+    const part = (transfer.messages[1].content as JsonObject[])[3];
+    const state = part.state as JsonObject;
+    const metadata = (state.metadata as JsonObject).trae2opencode as JsonObject;
+
+    assert.equal(part.name, "shell");
+    assert.deepEqual(state.input, {
+      command: "git status --short",
+      workdir: "/synthetic/project",
+      yield_time_ms: 10_000,
+    });
+    assert.deepEqual(state.content, [{ type: "text", text: "clean\n" }]);
+    assert.equal(metadata.sourceToolName, "exec_command");
+    assert.equal(metadata.sourceCommandField, "cmd");
+    assert.equal(metadata.visibleOutputField, "stdout");
+    assert.deepEqual(metadata.mirroredOutputFields, ["stdout", "output"]);
+    assert.deepEqual(metadata.sourceOutputRemainder, { exit_code: 0, status: "Exited" });
+    assert.equal(metadata.sourceOutputSha256, hashCanonicalJson(tool(bundle).output!));
+    assert.equal(metadata.outputEncoding, "text");
+    assert.equal(metadata.outputSha256, hashCanonicalJson("clean\n"));
+  });
+
+  it("keeps running TRAE exec command output expandable through shell metadata", () => {
+    const bundle = structuredClone(fixture);
+    Object.assign(tool(bundle), {
+      name: "exec_command",
+      status: "running",
+      input: { cmd: "npm test", workdir: "/synthetic/project" },
+      output: { stdout: "still running\n", output: "still running\n", status: "Running" },
+    });
+    bundle.sessions[0].recovery = "partial";
+
+    const { transfer } = map(bundle);
+    const part = (transfer.messages[1].content as JsonObject[])[3];
+    const state = part.state as JsonObject;
+    const metadata = state.metadata as JsonObject;
+    const source = metadata.trae2opencode as JsonObject;
+
+    assert.equal(part.name, "shell");
+    assert.equal(state.status, "running");
+    assert.deepEqual(state.input, { command: "npm test", workdir: "/synthetic/project" });
+    assert.equal(metadata.output, "still running\n");
+    assert.equal(source.sourceOutput, undefined);
+    assert.deepEqual(source.sourceOutputRemainder, { status: "Running" });
+  });
+
   it("does not mutate source inputs or share tool input objects with callers", () => {
     const bundle = structuredClone(fixture);
     const before = structuredClone(bundle);

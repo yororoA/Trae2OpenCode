@@ -18,7 +18,7 @@ import {
 import { OPENCODE_VERSION } from "../target/opencode/contract.js";
 
 const MAX_BUNDLE_BYTES = 128 * 1024 * 1024;
-const INTERACTIVE_EXPORT_REVISION = 7;
+const INTERACTIVE_EXPORT_REVISION = 8;
 const MANAGED_OPENCODE_PORT = 4097;
 const ARTIFACT_DIRECTORY = /^session-[a-f0-9]{16}$/;
 const WORKBENCH_URL =
