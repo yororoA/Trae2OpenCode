@@ -490,6 +490,12 @@ async function discoverOpenCodeService(): Promise<OpenCodeServiceDescriptor | un
         JSON.parse(await fs.readFile(filename, "utf8")),
       );
       if (descriptor && await canAccessOpenCodeServer(descriptor.url, descriptor.password)) {
+        // #region debug-point A:reachable-service-descriptor
+        await fs.readFile(path.join(process.cwd(), ".dbg/resume-target-mismatch.env"), "utf8").then(async (content) => {
+          const debugUrl = content.match(/^DEBUG_SERVER_URL=(.+)$/m)?.[1];
+          if (debugUrl) await fetch(debugUrl, { method: "POST", body: JSON.stringify({ sessionId: "resume-target-mismatch", runId: "post-fix", hypothesisId: "A", location: "interactive-migrate:discover-service", msg: "[DEBUG] Reachable OpenCode service descriptor found", data: { version: descriptor.version }, ts: Date.now() }) });
+        }).catch(() => {});
+        // #endregion
         return descriptor;
       }
     } catch {
@@ -958,6 +964,12 @@ async function main(): Promise<number> {
       const discovered = await discoverOpenCodeService();
       if (discovered) {
         if (discovered.version !== OPENCODE_VERSION) {
+          // #region debug-point A:unsupported-active-service
+          await fs.readFile(path.join(process.cwd(), ".dbg/resume-target-mismatch.env"), "utf8").then(async (content) => {
+            const debugUrl = content.match(/^DEBUG_SERVER_URL=(.+)$/m)?.[1];
+            if (debugUrl) await fetch(debugUrl, { method: "POST", body: JSON.stringify({ sessionId: "resume-target-mismatch", runId: "post-fix", hypothesisId: "A", location: "interactive-migrate:service-selection", msg: "[DEBUG] Active OpenCode service blocks managed fallback", data: { discoveredVersion: discovered.version, supportedVersion: OPENCODE_VERSION }, ts: Date.now() }) });
+          }).catch(() => {});
+          // #endregion
           console.error(
             `检测到正在运行的 OpenCode ${discovered.version}，当前仅支持 ${OPENCODE_VERSION}。` +
             "请完全退出 OpenCode 桌面端或停止该服务后重试。",
@@ -980,6 +992,12 @@ async function main(): Promise<number> {
       }
     }
 
+    // #region debug-point B:chosen-target-endpoint
+    await fs.readFile(path.join(process.cwd(), ".dbg/resume-target-mismatch.env"), "utf8").then(async (content) => {
+      const debugUrl = content.match(/^DEBUG_SERVER_URL=(.+)$/m)?.[1];
+      if (debugUrl) await fetch(debugUrl, { method: "POST", body: JSON.stringify({ sessionId: "resume-target-mismatch", runId: "post-fix", hypothesisId: "B", location: "interactive-migrate:target-selection", msg: "[DEBUG] OpenCode target selected", data: { explicit: process.env.T2O_OPENCODE_SERVER !== undefined, managed: managedServer !== undefined, port: new URL(server).port }, ts: Date.now() }) });
+    }).catch(() => {});
+    // #endregion
     const migrationTarget = createMigrationTarget({
       serverUrl: server,
       password: serverPassword,

@@ -70,6 +70,12 @@ async function requireOrRebindTarget(
   target: MigrationTarget,
   store: ManifestStore,
 ): Promise<void> {
+  // #region debug-point B:target-descriptor-comparison
+  await fs.readFile(path.join(process.cwd(), ".dbg/resume-target-mismatch.env"), "utf8").then(async (content) => {
+    const debugUrl = content.match(/^DEBUG_SERVER_URL=(.+)$/m)?.[1];
+    if (debugUrl) await fetch(debugUrl, { method: "POST", body: JSON.stringify({ sessionId: "resume-target-mismatch", runId: "post-fix", hypothesisId: "B", location: "executor:require-or-rebind", msg: "[DEBUG] Comparing current and manifest target descriptors", data: { exactMatch: jsonHash(manifest.target) === jsonHash(descriptor), endpointChanged: manifest.target.endpointHash !== descriptor.endpointHash, binaryVersionMatch: manifest.target.binaryVersion === descriptor.binaryVersion, serverVersionMatch: manifest.target.serverVersion === descriptor.serverVersion, schemaMatch: manifest.target.schemaHash === descriptor.schemaHash }, ts: Date.now() }) });
+  }).catch(() => {});
+  // #endregion
   if (jsonHash(manifest.target) === jsonHash(descriptor)) return;
   if (!isEndpointOnlyChange(manifest.target, descriptor)) {
     throw new Trae2OpenCodeError("T2O_MIGRATION_TARGET_CHANGED");
@@ -80,6 +86,12 @@ async function requireOrRebindTarget(
   let matched = false;
   for (const item of candidates) {
     const actual = await target.readSession(item.targetId);
+    // #region debug-point C:rebind-candidate-evidence
+    await fs.readFile(path.join(process.cwd(), ".dbg/resume-target-mismatch.env"), "utf8").then(async (content) => {
+      const debugUrl = content.match(/^DEBUG_SERVER_URL=(.+)$/m)?.[1];
+      if (debugUrl) await fetch(debugUrl, { method: "POST", body: JSON.stringify({ sessionId: "resume-target-mismatch", runId: "post-fix", hypothesisId: "C", location: "executor:rebind-candidate", msg: "[DEBUG] Evaluated endpoint rebind evidence", data: { candidateCount: candidates.length, actualPresent: actual !== null, owned: actual ? isOwnedByRun(actual, manifest, item) : false, snapshotMatches: actual ? equalSnapshot(snapshot(actual), item.expected!) : false, deletionHashMatches: actual ? jsonHash(actual) === item.deletionHash : false }, ts: Date.now() }) });
+    }).catch(() => {});
+    // #endregion
     if (actual && isOwnedByRun(actual, manifest, item) &&
       equalSnapshot(snapshot(actual), item.expected!) &&
       jsonHash(actual) === item.deletionHash) {
@@ -87,6 +99,12 @@ async function requireOrRebindTarget(
       break;
     }
   }
+  // #region debug-point E:rebind-decision
+  await fs.readFile(path.join(process.cwd(), ".dbg/resume-target-mismatch.env"), "utf8").then(async (content) => {
+    const debugUrl = content.match(/^DEBUG_SERVER_URL=(.+)$/m)?.[1];
+    if (debugUrl) await fetch(debugUrl, { method: "POST", body: JSON.stringify({ sessionId: "resume-target-mismatch", runId: "post-fix", hypothesisId: "E", location: "executor:rebind-decision", msg: "[DEBUG] Endpoint rebind evidence decision", data: { candidateCount: candidates.length, matched }, ts: Date.now() }) });
+  }).catch(() => {});
+  // #endregion
   if (!matched) throw new Trae2OpenCodeError("T2O_MIGRATION_TARGET_CHANGED");
   manifest.target = structuredClone(descriptor);
   await store.save(manifest);
