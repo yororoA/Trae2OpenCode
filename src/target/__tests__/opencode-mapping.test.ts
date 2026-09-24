@@ -6,6 +6,7 @@ import type { AssistantEventIR, JsonObject, MigrationBundle, ToolContentIR } fro
 import { assertOpenCodeTransfer } from "../opencode/contract.js";
 import {
   mapOpenCodeSession,
+  MAX_CONTINUATION_CONTEXT_BYTES,
   MISSING_ASSISTANT_TEXT,
   MISSING_TOOL_ERROR_TEXT,
   MISSING_TOOL_OUTPUT_TEXT,
@@ -16,7 +17,7 @@ const fixture = JSON.parse(readFileSync(new URL(
 ), "utf8")) as MigrationBundle;
 const options = {
   sessionId: "ses_mapping",
-  messageIds: new Map([["user-synthetic", "msg_user"], ["assistant-synthetic", "msg_assistant"]]),
+  messageIds: new Map([["user-synthetic", "msg_0001_user"], ["assistant-synthetic", "msg_0002_assistant"]]),
   directory: "/synthetic/target",
 };
 const map = (bundle = structuredClone(fixture), overrides = {}) =>
@@ -30,7 +31,8 @@ describe("OpenCode IR mapping", () => {
     const { transfer, diagnostics } = map();
     assertOpenCodeTransfer(transfer);
     assert.equal(transfer.info.title, fixture.sessions[0].title);
-    assert.deepEqual(transfer.messages.map((message) => message.id), ["msg_user", "msg_assistant"]);
+    assert.deepEqual(transfer.messages.map((message) => message.id),
+      ["msg_0001_user", "msg_0002_assistant"]);
     assert.equal(transfer.messages[0].text, "Read this file. 中文\n");
     const content = transfer.messages[1].content as JsonObject[];
     assert.deepEqual(content.map((block) => block.type), ["reasoning", "text", "reasoning", "tool", "text"]);
@@ -59,6 +61,115 @@ describe("OpenCode IR mapping", () => {
       [{ completedAt: 1700000002000 }, { createdAt: 1700000001001 }]);
     assert.deepEqual(meta.unknownSourceFields, ["agent", "model"]);
     assert.deepEqual(transfer.messages[1].model, { id: "unknown", providerID: "trae-import-unknown" });
+  });
+
+  it("folds task progress as reasoning and keeps the final response as text", () => {
+    const bundle = structuredClone(fixture);
+    const event = assistant(bundle);
+    const progressText = event.content[1];
+    assert.equal(progressText?.type, "text");
+    progressText!.sourceRefs[0].locator = {
+      type: "runtime-field",
+      value: 'runtime:getMessages#message["assistant-synthetic"].content.messages[0].plan_item.thought',
+    };
+    const finalText = event.content.at(-1);
+    assert.equal(finalText?.type, "text");
+    finalText!.sourceRefs[0].locator = {
+      type: "runtime-field",
+      value: 'runtime:getMessages#message["assistant-synthetic"].content.messages[2].plan_item.tool_call_info.params.summary',
+    };
+
+    const content = map(bundle).transfer.messages[1].content as JsonObject[];
+    assert.deepEqual(content.map((block) => block.type),
+      ["reasoning", "reasoning", "reasoning", "tool", "text"]);
+    assert.equal(content[1].text, "Opening text.\n");
+    assert.equal(content.at(-1)?.text, "Final response.\n");
+    assert.equal(content.some((block) => block.type === "text" && block.text === "---"), false);
+
+    event.content = [finalText!];
+    const summaryOnly = map(bundle).transfer.messages[1].content as JsonObject[];
+    assert.deepEqual(summaryOnly, [{ type: "text", text: "Final response.\n" }]);
+  });
+
+  it("adds a native compaction checkpoint when imported context is too large", () => {
+    const bundle = structuredClone(fixture);
+    const text = assistant(bundle).content.find((block) => block.type === "text");
+    assert.ok(text?.type === "text");
+    text.text = "x".repeat(MAX_CONTINUATION_CONTEXT_BYTES + 1);
+
+    const { transfer, diagnostics } = map(bundle);
+    assert.deepEqual(transfer.messages.map((message) => message.type),
+      ["user", "assistant", "compaction"]);
+    const boundary = transfer.messages[2];
+    assert.equal(boundary.id, "msg_0002_assistant_compact");
+    assert.equal(boundary.status, "completed");
+    assert.equal(boundary.reason, "manual");
+    assert.equal(Buffer.byteLength(String(boundary.summary), "utf8") <= 17 * 1024, true);
+    assert.ok(diagnostics.some((item) =>
+      item.code === "T2O_OPENCODE_CONTINUATION_BOUNDARY"));
+  });
+
+  it("projects TRAE exec commands to expandable native shell tools without losing source fields", () => {
+    const bundle = structuredClone(fixture);
+    Object.assign(tool(bundle), {
+      name: "exec_command",
+      input: {
+        cmd: "git status --short",
+        workdir: "/synthetic/project",
+        yield_time_ms: 10_000,
+      },
+      output: {
+        stdout: "clean\n",
+        output: "clean\n",
+        exit_code: 0,
+        status: "Exited",
+      },
+    });
+
+    const { transfer } = map(bundle);
+    const part = (transfer.messages[1].content as JsonObject[])[3];
+    const state = part.state as JsonObject;
+    const metadata = (state.metadata as JsonObject).trae2opencode as JsonObject;
+
+    assert.equal(part.name, "shell");
+    assert.deepEqual(state.input, {
+      command: "git status --short",
+      workdir: "/synthetic/project",
+      yield_time_ms: 10_000,
+    });
+    assert.deepEqual(state.content, [{ type: "text", text: "clean\n" }]);
+    assert.equal(metadata.sourceToolName, "exec_command");
+    assert.equal(metadata.sourceCommandField, "cmd");
+    assert.equal(metadata.visibleOutputField, "stdout");
+    assert.deepEqual(metadata.mirroredOutputFields, ["stdout", "output"]);
+    assert.deepEqual(metadata.sourceOutputRemainder, { exit_code: 0, status: "Exited" });
+    assert.equal(metadata.sourceOutputSha256, hashCanonicalJson(tool(bundle).output!));
+    assert.equal(metadata.outputEncoding, "text");
+    assert.equal(metadata.outputSha256, hashCanonicalJson("clean\n"));
+  });
+
+  it("keeps running TRAE exec command output expandable through shell metadata", () => {
+    const bundle = structuredClone(fixture);
+    Object.assign(tool(bundle), {
+      name: "exec_command",
+      status: "running",
+      input: { cmd: "npm test", workdir: "/synthetic/project" },
+      output: { stdout: "still running\n", output: "still running\n", status: "Running" },
+    });
+    bundle.sessions[0].recovery = "partial";
+
+    const { transfer } = map(bundle);
+    const part = (transfer.messages[1].content as JsonObject[])[3];
+    const state = part.state as JsonObject;
+    const metadata = state.metadata as JsonObject;
+    const source = metadata.trae2opencode as JsonObject;
+
+    assert.equal(part.name, "shell");
+    assert.equal(state.status, "running");
+    assert.deepEqual(state.input, { command: "npm test", workdir: "/synthetic/project" });
+    assert.equal(metadata.output, "still running\n");
+    assert.equal(source.sourceOutput, undefined);
+    assert.deepEqual(source.sourceOutputRemainder, { status: "Running" });
   });
 
   it("does not mutate source inputs or share tool input objects with callers", () => {
@@ -274,6 +385,9 @@ describe("OpenCode IR mapping", () => {
     assert.throws(() => map(undefined, { messageIds: new Map() }), expectedRejection);
     assert.throws(() => map(undefined, { messageIds: new Map([
       ["user-synthetic", "msg_same"], ["assistant-synthetic", "msg_same"],
+    ]) }), expectedRejection);
+    assert.throws(() => map(undefined, { messageIds: new Map([
+      ["user-synthetic", "msg_0002"], ["assistant-synthetic", "msg_0001"],
     ]) }), expectedRejection);
     const bundle = structuredClone(fixture);
     assistant(bundle).replyToSourceId = "missing-user";

@@ -1,20 +1,20 @@
 # M4-1：OpenCode 版本与原生导入契约探测
 
-日期：2026-09-24。当前支持 OpenCode 2.0.12。
+日期：2026-09-24。当前支持 OpenCode 2.0.12 和 2.0.16。
 
 ## 探测契约
 
 `probeOpenCodeCapabilities` 只执行 `--version`、`GET /api/info` 和
-`GET /openapi.json`，不创建目标会话。CLI 与实际服务端版本必须同时为
-2.0.12。OpenAPI 的 `info.version` 为 HTTP 接口版本 `0.0.1`，不能用作
-产品版本门禁。
+`GET /openapi.json`，不创建目标会话。CLI 与实际服务端版本必须分别位于
+`2.0.12`、`2.0.16` 显式白名单内；两个版本之间的混合连接也经过真实往返验证。
+OpenAPI 的 `info.version` 为 HTTP 接口版本 `0.0.1`，不能用作产品版本门禁。
 
 开启写入资格前同时检查：
 
 - 原生 import POST 与 export GET 存在。
 - import 请求与 export 响应封装匹配已验证格式。
 - `SessionTransfer.Data` 可达的全部 schema 与 M0 固化证据匹配。
-- 不接受外部 `$ref`、缺失 schema 或未知/相邻版本。
+- 不接受外部 `$ref`、缺失 schema 或白名单外版本。
 
 schema 对象 key 顺序不影响比较，不相关 API/schema 变化不阻断已验证能力。
 可达 schema 中新增可选字段也需要重新验证，不会自行扩大支持范围。
@@ -56,6 +56,7 @@ schema 漂移、循环/外部引用、CLI/服务版本不一致、缺失能力�
 
 - 三个测试文件分别首轮通过，合计 21 项。
 - 完整测试累计 207 项；提交前执行 `npm run check`。
-- macOS OpenCode 2.0.12 实机探测通过，CLI/服务版本一致，schema hash 匹配。
+- macOS OpenCode 2.0.12 与 2.0.16 实机探测通过，schema hash 匹配；2.0.12 CLI
+  连接 2.0.16 server 的隔离 import/export 往返也通过。
 - 确认隔离数据库已创建于本次私有目录，退出后临时目录已移除。
 - 未导入真实 TRAE 数据；production runtime bridge 与映射/导入流程继续推进。

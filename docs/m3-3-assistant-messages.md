@@ -51,15 +51,16 @@ provider 支持与 M3-2 相同的数组、`messages`、`items`、`data.messages`
 | --- | --- |
 | `message_type = general` | `content.content` |
 | task proposal | `content.messages[].proposal.content.thought`，保持块顺序 |
-| task chat | 第一个 `plan_item.thought` |
-| task chat 最终回复 | `Finish` / `response_to_user` 的 `params.summary`，覆盖 chat thought |
+| task chat / solo agent 进度 | 所有非空 `plan_item.thought`，保持块顺序 |
+| task chat / solo agent 最终回复 | 最后一个 `Finish` / `response_to_user` 的 `params.summary` |
 
 `content` 可为 JSON 字符串或等价对象。每个正文块保留字段 locator 和内容
-SHA-256。
+SHA-256。进度 thought 与最终 summary 均保留；两者文本完全相同时只保留
+summary，避免重复显示同一段最终输出。
 
-`reasoning_content` 不进入 M3-3 正文。非 chat task 的普通
-`plan_item.thought` 也不映射；它们由 M3-4 按持久化语义处理。没有可映射正文
-时仍保留有效的消息身份、关系、状态和时间 metadata，并产生
+`reasoning_content` 不进入 M3-3 正文。`agent_type` 既不是 `chat` 也不是
+`solo_agent` 的 task，其普通 `plan_item.thought` 仍不映射；它们由 M3-4 按
+持久化语义处理。没有可映射正文时仍保留有效的消息身份、关系、状态和时间 metadata，并产生
 `T2O_TRAE_ASSISTANT_MESSAGE_TEXT_MISSING`。
 
 ## 4. long-text 扫描与关联

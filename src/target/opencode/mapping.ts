@@ -38,6 +38,8 @@ export const MISSING_TOOL_ERROR_TEXT =
   "[TRAE tool failed without a persisted error message]";
 export const MISSING_ASSISTANT_TEXT =
   "[TRAE assistant response ended before final text was persisted]";
+export const MAX_CONTINUATION_CONTEXT_BYTES = 192 * 1024;
+export const MAX_CONTINUATION_SUMMARY_BYTES = 16 * 1024;
 
 const PARTIAL_PROJECTION_CODES = new Set([
   "T2O_IR_REPLY_REFERENCE_INVALID",
@@ -108,6 +110,75 @@ function encodedToolValue(value: JsonValue): {
   };
 }
 
+type ToolPresentation = {
+  name: string;
+  input: JsonObject;
+  output?: JsonValue;
+  metadata: JsonObject;
+};
+
+function projectToolPresentation(block: Extract<AssistantContentIR, { type: "tool" }>): ToolPresentation {
+  const sourceInput = block.input as JsonObject;
+  if (block.name !== "exec_command" || typeof sourceInput.cmd !== "string") {
+    return {
+      name: block.name,
+      input: sourceInput,
+      ...(block.output === undefined ? {} : { output: block.output }),
+      metadata: {},
+    };
+  }
+
+  const { cmd, command: sourceCommand, ...inputFields } = sourceInput;
+  const input: JsonObject = { ...inputFields, command: cmd };
+  const metadata: JsonObject = {
+    sourceToolName: block.name,
+    sourceCommandField: "cmd",
+    ...(sourceCommand === undefined ? {} : { sourceInputCommand: sourceCommand }),
+  };
+  const sourceOutput = block.output;
+  if (!isRecord(sourceOutput)) {
+    return {
+      name: "shell",
+      input,
+      ...(sourceOutput === undefined ? {} : { output: sourceOutput }),
+      metadata,
+    };
+  }
+
+  const visibleOutputField = typeof sourceOutput.stdout === "string"
+    ? "stdout"
+    : typeof sourceOutput.output === "string"
+      ? "output"
+      : undefined;
+  if (!visibleOutputField) {
+    return { name: "shell", input, output: sourceOutput, metadata };
+  }
+  const visibleOutput = sourceOutput[visibleOutputField] as string;
+  const mirroredOutputFields = ["stdout", "output"].filter((field) =>
+    sourceOutput[field] === visibleOutput);
+  const sourceOutputRemainder = Object.fromEntries(
+    Object.entries(sourceOutput).filter(([field]) => !mirroredOutputFields.includes(field)),
+  ) as JsonObject;
+  return {
+    name: "shell",
+    input,
+    output: visibleOutput,
+    metadata: {
+      ...metadata,
+      visibleOutputField,
+      mirroredOutputFields,
+      sourceOutputRemainder,
+      sourceOutputSha256: hashCanonicalJson(sourceOutput),
+    },
+  };
+}
+
+function isTaskProgressText(block: AssistantContentIR): boolean {
+  return block.type === "text" && block.sourceRefs.some((ref) =>
+    ref.locator.type === "runtime-field" &&
+    ref.locator.value.endsWith(".plan_item.thought"));
+}
+
 function mapContent(
   block: AssistantContentIR,
   session: SessionIR,
@@ -119,7 +190,11 @@ function mapContent(
     created: block.createdAt,
     ...(block.completedAt === undefined ? {} : { completed: block.completedAt }),
   };
-  if (block.type === "text") return { type: "text", text: block.text };
+  if (block.type === "text") {
+    return isTaskProgressText(block)
+      ? { type: "reasoning", text: block.text, ...(time ? { time } : {}) }
+      : { type: "text", text: block.text };
+  }
   if (block.type === "reasoning") {
     return { type: "reasoning", text: block.text, ...(time ? { time } : {}) };
   }
@@ -141,15 +216,24 @@ function mapContent(
     };
   }
   if (!isRecord(block.input)) reject(session, `${field}.input`);
+  const presentation = projectToolPresentation(block);
   if (block.status === "running" || block.status === "unknown") {
     const hasPreservedPayload = block.output !== undefined || hasErrorPayload(block.error);
+    const outputProjectedToShell = presentation.name === "shell" &&
+      typeof presentation.metadata.visibleOutputField === "string";
     const metadata: JsonObject = block.status === "unknown" || hasPreservedPayload
       ? { trae2opencode: {
         sourceStatus: block.status,
-        ...(block.output === undefined ? {} : { sourceOutput: block.output }),
+        ...(block.output === undefined || outputProjectedToShell ? {} : { sourceOutput: block.output }),
         ...(hasErrorPayload(block.error) ? { sourceError: block.error as JsonValue } : {}),
+        ...presentation.metadata,
       } }
-      : {};
+      : Object.keys(presentation.metadata).length > 0
+        ? { trae2opencode: presentation.metadata }
+        : {};
+    if (presentation.name === "shell" && typeof presentation.output === "string") {
+      metadata.output = presentation.output;
+    }
     if (block.status === "unknown") {
       diagnostics.push(diagnostic(
         session,
@@ -166,8 +250,8 @@ function mapContent(
       ));
     }
     return {
-      type: "tool", id: block.callId, name: block.name, time,
-      state: { status: "running", input: block.input as JsonObject, metadata },
+      type: "tool", id: block.callId, name: presentation.name, time,
+      state: { status: "running", input: presentation.input, metadata },
     };
   }
   if (block.status === "error") {
@@ -175,7 +259,7 @@ function mapContent(
     const error = encodedToolValue(sourceErrorMissing
       ? MISSING_TOOL_ERROR_TEXT
       : block.error as JsonValue);
-    const output = block.output === undefined ? undefined : encodedToolValue(block.output);
+    const output = presentation.output === undefined ? undefined : encodedToolValue(presentation.output);
     diagnostics.push(diagnostic(
       session,
       "T2O_OPENCODE_TOOL_ERROR_PRESERVED",
@@ -183,13 +267,14 @@ function mapContent(
       `${field}.status`,
     ));
     return {
-      type: "tool", id: block.callId, name: block.name, time,
+      type: "tool", id: block.callId, name: presentation.name, time,
       state: {
         status: "error",
-        input: block.input as JsonObject,
+        input: presentation.input,
         error: { type: "TRAE_TOOL_ERROR", message: error.text },
         ...(output ? { content: [{ type: "text", text: output.text }] } : {}),
         metadata: { trae2opencode: {
+          ...presentation.metadata,
           errorEncoding: error.encoding,
           errorSha256: error.sha256,
           ...(sourceErrorMissing ? { sourceErrorMissing: true } : {}),
@@ -202,10 +287,10 @@ function mapContent(
     };
   }
   if (hasErrorPayload(block.error)) reject(session, `${field}.error`);
-  const sourceOutputMissing = block.output === undefined;
+  const sourceOutputMissing = presentation.output === undefined;
   const outputValue: JsonValue = sourceOutputMissing
     ? MISSING_TOOL_OUTPUT_TEXT
-    : block.output as JsonValue;
+    : presentation.output as JsonValue;
   const output = encodedToolValue(outputValue);
   if (sourceOutputMissing) {
     diagnostics.push(diagnostic(
@@ -224,11 +309,12 @@ function mapContent(
     ));
   }
   return {
-    type: "tool", id: block.callId, name: block.name, time,
+    type: "tool", id: block.callId, name: presentation.name, time,
     state: {
-      status: "completed", input: block.input as JsonObject,
+      status: "completed", input: presentation.input,
       content: [{ type: "text", text: output.text }],
       metadata: { trae2opencode: {
+        ...presentation.metadata,
         outputEncoding: output.encoding,
         outputSha256: output.sha256,
         ...(sourceOutputMissing ? { sourceOutputMissing: true } : {}),
@@ -271,6 +357,104 @@ function eventMetadata(event: EventIR, validReply: boolean): JsonObject {
   };
 }
 
+function contextBytes(message: JsonObject): number {
+  if (message.type === "user") {
+    return Buffer.byteLength(typeof message.text === "string" ? message.text : "", "utf8") + 32;
+  }
+  if (message.type !== "assistant" || !Array.isArray(message.content)) return 0;
+  return message.content.reduce<number>((total, block) => {
+    if (!isRecord(block)) return total;
+    if ((block.type === "text" || block.type === "reasoning") && typeof block.text === "string") {
+      return total + Buffer.byteLength(block.text, "utf8") + 32;
+    }
+    if (block.type !== "tool") return total;
+    const state = isRecord(block.state) ? block.state : {};
+    const input = canonicalizeJson((state.input ?? null) as JsonValue);
+    const content = Array.isArray(state.content)
+      ? state.content.flatMap((item) =>
+        isRecord(item) && typeof item.text === "string" ? [item.text] : []).join("\n")
+      : "";
+    const error = state.error === undefined
+      ? "" : canonicalizeJson(state.error as JsonValue);
+    return total + Buffer.byteLength(input, "utf8") +
+      Buffer.byteLength(content.slice(0, 2_000), "utf8") +
+      Buffer.byteLength(error.slice(0, 2_000), "utf8") + 64;
+  }, 0);
+}
+
+function tailUtf8(value: string, limit: number): string {
+  const reversed: string[] = [];
+  let bytes = 0;
+  for (const character of Array.from(value).reverse()) {
+    const size = Buffer.byteLength(character, "utf8");
+    if (bytes + size > limit) break;
+    reversed.push(character);
+    bytes += size;
+  }
+  return reversed.reverse().join("");
+}
+
+function updateSummaryExcerpt(previous: string, message: JsonObject): string {
+  const text = message.type === "user" && typeof message.text === "string"
+    ? `[User]\n${message.text}`
+    : message.type === "assistant" && Array.isArray(message.content)
+      ? message.content.flatMap((block) =>
+        isRecord(block) && block.type === "text" && typeof block.text === "string"
+          ? [`[Assistant]\n${block.text}`] : []).join("\n\n")
+      : "";
+  return tailUtf8([previous, text].filter(Boolean).join("\n\n"), MAX_CONTINUATION_SUMMARY_BYTES);
+}
+
+function addContinuationBoundaries(
+  source: JsonObject[],
+  session: SessionIR,
+  diagnostics: Diagnostic[],
+): JsonObject[] {
+  const messages: JsonObject[] = [];
+  let activeBytes = 0;
+  let excerpt = "";
+  let boundaries = 0;
+  for (const message of source) {
+    messages.push(message);
+    activeBytes += contextBytes(message);
+    excerpt = updateSummaryExcerpt(excerpt, message);
+    if (message.type !== "assistant" || activeBytes <= MAX_CONTINUATION_CONTEXT_BYTES) continue;
+    const time = isRecord(message.time) ? message.time : {};
+    const created = typeof time.completed === "number"
+      ? time.completed : typeof time.created === "number" ? time.created : session.updatedAt!;
+    const summary = [
+      "Imported TRAE transcript checkpoint. Earlier messages remain visible in this session.",
+      excerpt ? `Recent recoverable user and assistant text:\n${excerpt}` :
+        "No recoverable user or assistant text was available for this checkpoint.",
+    ].join("\n\n");
+    messages.push({
+      id: `${String(message.id)}_compact`,
+      type: "compaction",
+      time: { created },
+      status: "completed",
+      reason: "manual",
+      summary,
+      recent: "",
+      metadata: { trae2opencode: {
+        mappingVersion: 7,
+        kind: "continuation-boundary",
+        activeContextBytes: activeBytes,
+      } },
+    });
+    boundaries++;
+    activeBytes = Buffer.byteLength(summary, "utf8");
+  }
+  if (boundaries > 0) {
+    diagnostics.push(diagnostic(
+      session,
+      "T2O_OPENCODE_CONTINUATION_BOUNDARY",
+      "Large imported history was divided by native compaction checkpoints so future prompts remain within a bounded active context.",
+      "events",
+    ));
+  }
+  return messages;
+}
+
 /** Pure mapping. No writes, timestamp synthesis, source guessing, or input mutation. */
 export function mapOpenCodeSession(
   value: MigrationBundle,
@@ -302,6 +486,7 @@ export function mapOpenCodeSession(
   if (!options.directory || options.directory.includes("\0")) reject(session, "directory");
   const targetIds = session.events.map((event) => options.messageIds.get(event.sourceId));
   const validIds = targetIds.every((id) => typeof id === "string" && /^msg_[a-zA-Z0-9_-]+$/.test(id)) &&
+    targetIds.every((id, index) => index === 0 || targetIds[index - 1]! < id!) &&
     new Set(targetIds).size === targetIds.length && /^ses_[a-zA-Z0-9_-]+$/.test(options.sessionId);
   if (!validIds) reject(session, "idMapping");
   const diagnostics = [
@@ -321,7 +506,7 @@ export function mapOpenCodeSession(
     diagnostics.push(diagnostic(session, "T2O_OPENCODE_RESOURCES_DEFERRED",
       "Resources remain in the IR; no message attachment association is inferred."));
   }
-  const messages = session.events.map((event, index): JsonObject => {
+  const sourceMessages = session.events.map((event, index): JsonObject => {
     const field = `events[${index}]`;
     if (!hasVerifiedRuntimeRefs(event.sourceRefs, session.sourceId)) reject(session, `${field}.sourceRefs`);
     if (event.createdAt === undefined) reject(session, `${field}.createdAt`);
@@ -353,9 +538,11 @@ export function mapOpenCodeSession(
         `${field}.status`,
       ));
     }
-    const content = event.content.flatMap((block, i) => {
+    const content: JsonObject[] = [];
+    event.content.forEach((block, i) => {
       const mapped = mapContent(block, session, `${field}.content[${i}]`, diagnostics);
-      return mapped ? [mapped] : [];
+      if (!mapped) return;
+      content.push(mapped);
     });
     const sourceTextMissing = session.recovery === "partial" &&
       issues.some((issue) =>
@@ -381,6 +568,7 @@ export function mapOpenCodeSession(
       content,
     };
   });
+  const messages = addContinuationBoundaries(sourceMessages, session, diagnostics);
   const transfer: OpenCodeTransfer = {
     info: {
       id: options.sessionId, projectID: "trae-import-unassigned",
@@ -390,7 +578,7 @@ export function mapOpenCodeSession(
       time: { created: session.createdAt, updated: session.updatedAt },
       location: { directory: options.directory },
       metadata: { trae2opencode: {
-        mappingVersion: 3, sourceSessionId: session.sourceId,
+        mappingVersion: 7, sourceSessionId: session.sourceId,
         sourceSessionSha256: hashCanonicalJson(session as unknown as JsonValue),
         unknownSourceFields: ["cost", "tokens", "agent", "model"],
         resourceCount: session.resources.length,

@@ -49,6 +49,69 @@ describe("assembleTraeMigrationBundle", () => {
     assert.deepEqual(validateMigrationBundleIntegrity(bundle), []);
   });
 
+  it("keeps task progress text interleaved with tools and the final response", () => {
+    const options = input();
+    const assistant = messages(options)[0];
+    assistant.agent_type = "chat";
+    assistant.content = {
+      messages: [
+        {
+          type: "plan_item",
+          plan_item: {
+            id: "plan-progress-a",
+            thought: "Preparing the workspace.",
+          },
+        },
+        {
+          type: "plan_item",
+          plan_item: {
+            id: "plan-progress-b",
+            thought: "Reading the selected file.",
+            tool_call_info: {
+              id: "call-progress",
+              name: "read_file",
+              params: { path: "example.txt" },
+              result: { status: "success", data: { text: "content" } },
+            },
+            timing: {
+              tool_call_started_at_ms: 1_700_000_002_000,
+              tool_call_finished_at_ms: 1_700_000_003_000,
+            },
+          },
+        },
+        {
+          type: "plan_item",
+          plan_item: {
+            id: "plan-finish",
+            tool_call_info: {
+              name: "finish",
+              params: { summary: "The task is complete." },
+            },
+          },
+        },
+      ],
+    };
+
+    const bundle = assembleTraeMigrationBundle(options);
+    const event = bundle.sessions[0].events[1];
+    assert.equal(event.type, "assistant");
+    assert.deepEqual(
+      event.content.map((block) =>
+        block.type === "text" ? ["text", block.text] : [block.type, ""]),
+      [
+        ["text", "Preparing the workspace."],
+        ["text", "Reading the selected file."],
+        ["tool", ""],
+        ["text", "The task is complete."],
+      ],
+    );
+    assert.equal(
+      bundle.diagnostics.some((diagnostic) =>
+        diagnostic.code === "T2O_TRAE_PLAN_THOUGHT_UNMAPPED"),
+      false,
+    );
+  });
+
   it("deduplicates identical runtime observations without changing the IR", () => {
     const options = input();
     const expected = assembleTraeMigrationBundle(options);

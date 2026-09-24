@@ -5,9 +5,14 @@ import type { JsonValue } from "../../ir/types.js";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
 
 export const OPENCODE_VERSION = "2.0.12";
+export const SUPPORTED_OPENCODE_VERSIONS = ["2.0.12", "2.0.16"] as const;
 export const IMPORT_ROUTE = "/api/experimental/session/import";
 export const EXPORT_ROUTE = "/api/experimental/session/{sessionID}/export";
 export const TRANSFER_REF = "#/components/schemas/SessionTransfer.Data";
+
+export function isSupportedOpenCodeVersion(value: string | null): boolean {
+  return value !== null && SUPPORTED_OPENCODE_VERSIONS.some((version) => version === value);
+}
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);

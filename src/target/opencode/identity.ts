@@ -25,10 +25,17 @@ export function stableOpenCodeSessionId(sourceSessionId: string, namespace = "tr
 }
 
 export function stableOpenCodeMessageId(
-  sourceSessionId: string, sourceMessageId: string, namespace = "trae-cn",
+  sourceSessionId: string,
+  sourceMessageId: string,
+  namespace = "trae-cn",
+  sourceOrder = 0,
 ): string {
-  if (!namespace || !sourceSessionId || !sourceMessageId) reject();
-  return `msg_t2o_${digest([namespace, "message", sourceSessionId, sourceMessageId])}`;
+  if (!namespace || !sourceSessionId || !sourceMessageId ||
+    !Number.isSafeInteger(sourceOrder) || sourceOrder < 0) reject();
+  const ordered = sourceOrder.toString(16).padStart(16, "0");
+  return `msg_000000000000${ordered}_t2o_${digest([
+    namespace, "message", sourceSessionId, sourceMessageId,
+  ])}`;
 }
 
 /** Iterative parent-first traversal remains safe for deep session trees. */
@@ -70,7 +77,8 @@ export function createOpenCodeIdentityMap(
   if (!namespace) reject();
   return parentFirst(bundle.sessions).map((session) => {
     const messageIds = new Map(session.events.map((event) => [
-      event.sourceId, stableOpenCodeMessageId(session.sourceId, event.sourceId, namespace),
+      event.sourceId,
+      stableOpenCodeMessageId(session.sourceId, event.sourceId, namespace, event.order),
     ]));
     if (messageIds.size !== session.events.length) reject();
     return {

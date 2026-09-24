@@ -15,16 +15,28 @@
   `message.metadata.trae2opencode`；reasoning 原生时间字段能表示时同时映射。
 - completed tool 要求 object input、output 与完成时间。string output 原样保留；
   其他 JSON 值编码为 canonical JSON，metadata 记录编码和原值 hash。
-- running 使用 object input，streaming 使用 string input，均不允许携带会被
-  丢弃的 output。工具 error/unknown 及非空 error payload 继续拒绝写入。
+- TRAE `exec_command` 语义等价投影为 OpenCode 原生 `shell`：`cmd` 转为
+  `command`，stdout 进入原生可展开输出。源工具名、输入附加字段、输出剩余字段
+  和完整源 output hash 保存在 `state.metadata.trae2opencode`。
+- running 使用 object input，streaming 使用 string input。running/unknown
+  的持久化 payload 保存在 metadata，不伪装为完成态；error 使用原生错误状态。
 - 消息 Agent/model 无已验证来源，使用明确的 `trae-import-unknown` / `unknown`
   标记。会话必填 cost/tokens 使用 0，metadata 明确这些字段的源值未知。
   它们不是对源模型或实际用量的推断。
 - 资源保留于 IR，并输出 `T2O_OPENCODE_RESOURCES_DEFERRED`；不猜测消息附件归属。
 - target ID 由调用方传入，M4-3 负责稳定生成；目录落地策略由 M4-5 负责。
   本层最终校验完整的 `SessionTransfer.Data` schema。
+- 映射版本 7 对超过 `192 KiB` 活跃 provider 上下文估算的历史插入 OpenCode
+  completed-compaction checkpoint。原 user/assistant/tool 消息仍完整保留；
+  checkpoint 只为后续对话提供最多 `16 KiB` 的近期可恢复文本摘要。
 
 ## 验证
+
+映射版本 7 延续版本 6 的真实 M1 结构核验：任务进度正文按来源精确识别并进入
+assistant reasoning part；176 个 `exec_command` 全部映射为原生 `shell`，
+其中 127 个完成态从 `content` 展示输出，49 个运行态从 `metadata.output`
+展示已持久化输出。reasoning 与工具在 OpenCode 中折叠展示，最终 summary 保持
+普通正文，不再插入水平分隔线。验收仅记录计数，不保存或输出正文与命令。
 
 2026-09-24，13 项新增单测覆盖内容、时间、来源、状态、错误诊断、ID、父关系、
 资源告警与输入不可变性；首轮全部通过，TypeScript 与 lint 通过。

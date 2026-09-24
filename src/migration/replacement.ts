@@ -43,8 +43,8 @@ export async function removeReplacements(
   // Preflight the complete selection before deleting its first child.
   for (const item of pending) {
     const actual = await target.readSession(item.targetId);
-    if (!actual && item.replacement!.state === "deleting") continue;
-    if (!actual || !matchesPrevious(actual, item)) {
+    if (!actual) continue;
+    if (!matchesPrevious(actual, item)) {
       throw new Trae2OpenCodeError("T2O_MIGRATION_TARGET_CHANGED");
     }
     const children = await target.listChildren(item.targetId);
@@ -63,8 +63,6 @@ export async function removeReplacements(
         // A lost acknowledgement is recoverable only if the target is now absent.
         if (await target.readSession(item.targetId)) throw error;
       }
-    } else if (prior.state !== "deleting") {
-      throw new Trae2OpenCodeError("T2O_MIGRATION_TARGET_CHANGED");
     }
     if (await target.readSession(item.targetId)) throw new Trae2OpenCodeError("T2O_OPENCODE_DELETE_FAILED");
     prior.state = "deleted";

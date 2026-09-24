@@ -1,24 +1,30 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 import * as fs from "node:fs/promises";
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import Database from "better-sqlite3";
 import type { MigrationBundle } from "../ir/types.js";
 import { readBundleFile } from "../migration/bundle-file.js";
 import { readManifest, type MigrationManifest } from "../migration/manifest.js";
+import { createMigrationTarget } from "../migration/target.js";
 import { connectTraeRuntime } from "../source/trae/runtime-cdp.js";
 import { createTraeRuntimeReader } from "../source/trae/runtime-reader.js";
 import {
   parseTraeRuntimeSessionMetadata,
   type TraeSessionMetadata,
 } from "../source/trae/session-metadata.js";
-import { OPENCODE_VERSION } from "../target/opencode/contract.js";
+import {
+  isSupportedOpenCodeVersion,
+  SUPPORTED_OPENCODE_VERSIONS,
+} from "../target/opencode/contract.js";
 
 const MAX_BUNDLE_BYTES = 128 * 1024 * 1024;
-const INTERACTIVE_EXPORT_REVISION = 6;
+const INTERACTIVE_EXPORT_REVISION = 10;
 const MANAGED_OPENCODE_PORT = 4097;
 const ARTIFACT_DIRECTORY = /^session-[a-f0-9]{16}$/;
 const WORKBENCH_URL =
@@ -87,6 +93,31 @@ export function parseChoiceIndex(answer: string, count: number): number | undefi
   return Number.isInteger(index) && index >= 0 && index < count ? index : undefined;
 }
 
+export function parseChoiceIndexes(answer: string, count: number): number[] | undefined {
+  const normalized = answer.trim().toLowerCase();
+  if (count <= 0 || normalized.length === 0) return undefined;
+  if (normalized === "all" || normalized === "*" || normalized === "全部") {
+    return Array.from({ length: count }, (_, index) => index);
+  }
+
+  const selected = new Set<number>();
+  for (const token of normalized.split(/[\s,，]+/)) {
+    const range = /^(\d+)-(\d+)$/.exec(token);
+    if (range) {
+      const start = Number(range[1]);
+      const end = Number(range[2]);
+      if (start < 1 || end > count || start > end) return undefined;
+      for (let value = start; value <= end; value++) selected.add(value - 1);
+      continue;
+    }
+    if (!/^\d+$/.test(token)) return undefined;
+    const value = Number(token);
+    if (value < 1 || value > count) return undefined;
+    selected.add(value - 1);
+  }
+  return selected.size > 0 ? [...selected].sort((left, right) => left - right) : undefined;
+}
+
 export function formatMetadataStatus(status: string): string {
   return METADATA_STATUS_LABELS[status] ?? "元数据状态未知";
 }
@@ -142,6 +173,39 @@ export async function prepareExportDirectory(directory: string): Promise<boolean
   }
 }
 
+/** Quarantine a run leaf containing only an unlocked orphan manifest lock. */
+export async function prepareRunDirectory(directory: string): Promise<boolean> {
+  if (await prepareExportDirectory(directory)) return true;
+  const lockName = "migration-manifest.json.lock";
+  const lockPath = path.join(directory, lockName);
+  let database: Database.Database | undefined;
+  try {
+    const directoryStat = await fs.lstat(directory);
+    if (!directoryStat.isDirectory() || directoryStat.isSymbolicLink()) return false;
+    const entries = await fs.readdir(directory);
+    if (entries.length !== 1 || entries[0] !== lockName) return false;
+    const lockStat = await fs.lstat(lockPath);
+    if (!lockStat.isFile() || lockStat.isSymbolicLink() || lockStat.nlink !== 1) return false;
+    database = new Database(lockPath, { timeout: 0 });
+    database.exec("BEGIN EXCLUSIVE");
+    database.exec("ROLLBACK");
+    database.close();
+    database = undefined;
+    const currentDirectory = await fs.lstat(directory);
+    const currentLock = await fs.lstat(lockPath);
+    if (currentDirectory.dev !== directoryStat.dev || currentDirectory.ino !== directoryStat.ino ||
+      currentLock.dev !== lockStat.dev || currentLock.ino !== lockStat.ino ||
+      (await fs.readdir(directory)).join("\0") !== lockName) return false;
+    const quarantine = `${directory}-orphan-lock-${randomUUID()}`;
+    await fs.rename(directory, quarantine);
+    return true;
+  } catch {
+    return false;
+  } finally {
+    database?.close();
+  }
+}
+
 export function isTerminalManifestForSession(
   manifest: MigrationManifest,
   sourceSessionId: string,
@@ -150,6 +214,102 @@ export function isTerminalManifestForSession(
   return manifest.sessions.length > 0 &&
     manifest.sessions.every((item) =>
       item.sourceId === sourceSessionId && terminalStates.has(item.state));
+}
+
+export function isReplacementManifestForSession(
+  manifest: MigrationManifest,
+  sourceSessionId: string,
+): boolean {
+  const session = manifest.sessions[0];
+  return manifest.rollbackState === undefined &&
+    manifest.sessions.length === 1 &&
+    session.sourceId === sourceSessionId &&
+    session.state === "verified" &&
+    session.created &&
+    session.deletionHash !== undefined;
+}
+
+export function replacementResumeNeedsExclusiveAccess(
+  manifest: MigrationManifest,
+): boolean {
+  return manifest.sessions.some((session) =>
+    session.replacement !== undefined && session.replacement.state !== "deleted");
+}
+
+export function confirmsOverwrite(answer: string): boolean {
+  return answer.trim() === "OVERWRITE";
+}
+
+export type InteractiveMigrationMode = {
+  name: "create" | "replace" | "resume";
+  args: string[];
+};
+
+export function resolveInteractiveMigrationMode(options: {
+  manifest: string;
+  runDirectory: string;
+  manifestExists: boolean;
+  runDirectoryExists: boolean;
+  replacementManifest?: string;
+  resumeNeedsExclusiveAccess: boolean;
+}): InteractiveMigrationMode | undefined {
+  if (options.manifestExists) {
+    return {
+      name: "resume",
+      args: [
+        "--resume", options.manifest,
+        ...(options.resumeNeedsExclusiveAccess ? ["--exclusive-target"] : []),
+      ],
+    };
+  }
+  if (options.runDirectoryExists) return undefined;
+  if (options.replacementManifest) {
+    return {
+      name: "replace",
+      args: [
+        "--output", options.runDirectory,
+        "--replace", options.replacementManifest,
+        "--exclusive-target",
+      ],
+    };
+  }
+  return { name: "create", args: ["--output", options.runDirectory] };
+}
+
+export async function findReplacementManifest(options: {
+  sourceSessionId: string;
+  runRoot: string;
+  currentRunDirectory: string;
+}): Promise<string | undefined> {
+  const candidates: Array<{ filename: string; modifiedAt: number }> = [];
+  const entries = await fs.readdir(options.runRoot, { withFileTypes: true }).catch(() => []);
+  for (const entry of entries) {
+    if (!entry.isDirectory() || !ARTIFACT_DIRECTORY.test(entry.name)) continue;
+    const directory = path.resolve(options.runRoot, entry.name);
+    if (directory === path.resolve(options.currentRunDirectory)) continue;
+    try {
+      const stat = await fs.lstat(directory);
+      if (!stat.isDirectory() || stat.isSymbolicLink()) continue;
+      const filename = path.join(directory, "migration-manifest.json");
+      const manifest = await readManifest(filename);
+      if (!isReplacementManifestForSession(manifest, options.sourceSessionId)) continue;
+      candidates.push({ filename, modifiedAt: stat.mtimeMs });
+    } catch {
+      // Invalid or active artifacts cannot authorize replacement.
+    }
+  }
+  candidates.sort((left, right) => right.modifiedAt - left.modifiedAt ||
+    left.filename.localeCompare(right.filename));
+  return candidates[0]?.filename;
+}
+
+export async function replacementTargetExists(
+  manifestFilename: string,
+  readSession: (targetId: string) => Promise<unknown | null>,
+): Promise<boolean> {
+  const manifest = await readManifest(manifestFilename);
+  const targetId = manifest.sessions[0]?.targetId;
+  return typeof targetId === "string" && await readSession(targetId) !== null;
 }
 
 async function removeUnchangedDirectory(directory: string, initial: Awaited<ReturnType<typeof fs.lstat>>) {
@@ -230,13 +390,22 @@ function printFailure(outputText: string, server: string): void {
       break;
     case "T2O_OPENCODE_VERSION_UNSUPPORTED":
     case "T2O_OPENCODE_SCHEMA_UNSUPPORTED":
-      console.error("OpenCode 版本或协议不受支持，需要经过验证的 2.0.12。");
+      console.error(`OpenCode 版本或协议不受支持，需要 ${SUPPORTED_OPENCODE_VERSIONS.join(" 或 ")}。`);
       break;
     case "T2O_MIGRATION_PLAN_CHANGED":
       console.error("迁移内容与已有续跑记录不一致，请恢复原会话或使用新的迁移目录。");
       break;
     case "T2O_MIGRATION_TARGET_CHANGED":
       console.error("OpenCode 服务与已有续跑记录不一致，已停止以保护目标会话。");
+      break;
+    case "T2O_MIGRATION_REPLACEMENT_INVALID":
+      console.error("旧 manifest 无法证明目标会话归属，未执行覆盖。");
+      break;
+    case "T2O_MIGRATION_CHILDREN_PROTECTED":
+      console.error("目标会话包含迁移范围外的子会话，未执行覆盖。");
+      break;
+    case "T2O_MIGRATION_EXCLUSIVE_REQUIRED":
+      console.error("覆盖需要独占 OpenCode 写入权限，请暂停其他写入后重新确认。");
       break;
     default:
       console.error("迁移未完成，请检查 TRAE、OpenCode 和迁移目录。");
@@ -267,6 +436,28 @@ export function localServerUrl(outputText: string): string | undefined {
   return outputText.match(/http:\/\/127\.0\.0\.1:\d+/)?.[0];
 }
 
+export type OpenCodeServiceDescriptor = {
+  url: string;
+  password: string;
+  version: string;
+};
+
+export function parseOpenCodeServiceDescriptor(value: unknown): OpenCodeServiceDescriptor | undefined {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const descriptor = value as Record<string, unknown>;
+  const url = typeof descriptor.url === "string" ? localServerUrl(descriptor.url) : undefined;
+  const password = typeof descriptor.password === "string" ? descriptor.password : undefined;
+  const version = typeof descriptor.version === "string" &&
+      /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(descriptor.version)
+    ? descriptor.version
+    : undefined;
+  if (url === undefined || url !== descriptor.url || version === undefined ||
+    password === undefined || password.length < 8 || password.length > 512) {
+    return undefined;
+  }
+  return { url, password, version };
+}
+
 async function canAccessOpenCodeServer(
   server: string,
   password = process.env.OPENCODE_SERVER_PASSWORD,
@@ -287,6 +478,30 @@ async function canAccessOpenCodeServer(
   }
 }
 
+async function discoverOpenCodeService(): Promise<OpenCodeServiceDescriptor | undefined> {
+  const roots = [
+    process.env.XDG_STATE_HOME,
+    path.join(os.homedir(), ".local", "state"),
+  ].filter((value): value is string => typeof value === "string" && value.length > 0);
+  for (const root of [...new Set(roots.map((value) => path.resolve(value)))]) {
+    const filename = path.join(root, "opencode", "service.json");
+    try {
+      const stat = await fs.lstat(filename);
+      if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 ||
+        stat.size <= 0 || stat.size > 16 * 1024) continue;
+      const descriptor = parseOpenCodeServiceDescriptor(
+        JSON.parse(await fs.readFile(filename, "utf8")),
+      );
+      if (descriptor && await canAccessOpenCodeServer(descriptor.url, descriptor.password)) {
+        return descriptor;
+      }
+    } catch {
+      // Missing, stale or malformed descriptors are ignored.
+    }
+  }
+  return undefined;
+}
+
 async function stopManagedServer(child: ChildProcess): Promise<void> {
   if (child.exitCode !== null || child.signalCode !== null) return;
   child.kill("SIGTERM");
@@ -297,15 +512,11 @@ async function stopManagedServer(child: ChildProcess): Promise<void> {
   if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
 }
 
-async function startManagedOpenCodeServer(): Promise<{
-  url: string;
-  password: string;
-  close(): Promise<void>;
-}> {
-  const temporaryParent = path.join(process.cwd(), "tmp");
-  await fs.mkdir(temporaryParent, { recursive: true, mode: 0o700 });
-  const stateDirectory = await fs.mkdtemp(path.join(temporaryParent, "opencode-state-"));
-  const env = { ...process.env };
+export function createManagedOpenCodeEnvironment(
+  stateDirectory: string,
+  baseEnvironment: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+  const env = { ...baseEnvironment };
   env.XDG_STATE_HOME = stateDirectory;
   env.OPENCODE_DISABLE_DEFAULT_PLUGINS = "1";
   env.OPENCODE_DISABLE_MODELS_FETCH = "1";
@@ -314,6 +525,18 @@ async function startManagedOpenCodeServer(): Promise<{
   delete env.OPENCODE_SERVER_USERNAME;
   delete env.OPENCODE_PASSWORD;
   delete env.OPENCODE_USERNAME;
+  return env;
+}
+
+async function startManagedOpenCodeServer(): Promise<{
+  url: string;
+  password: string;
+  close(): Promise<void>;
+}> {
+  const temporaryParent = path.join(process.cwd(), "tmp");
+  await fs.mkdir(temporaryParent, { recursive: true, mode: 0o700 });
+  const stateDirectory = await fs.mkdtemp(path.join(temporaryParent, "opencode-state-"));
+  const env = createManagedOpenCodeEnvironment(stateDirectory);
   const child = spawn("opencode", [
     "serve", "--hostname", "127.0.0.1",
     "--port", String(MANAGED_OPENCODE_PORT), "--service",
@@ -330,22 +553,17 @@ async function startManagedOpenCodeServer(): Promise<{
       if (failed || child.exitCode !== null || child.signalCode !== null) break;
       try {
         const descriptor: unknown = JSON.parse(await fs.readFile(descriptorFile, "utf8"));
-        if (descriptor !== null && typeof descriptor === "object" && !Array.isArray(descriptor)) {
-          const value = descriptor as Record<string, unknown>;
-          const url = typeof value.url === "string" ? localServerUrl(value.url) : undefined;
-          const password = typeof value.password === "string" ? value.password : undefined;
-          if (typeof url === "string" && url === value.url && value.version === OPENCODE_VERSION &&
-            password !== undefined && password.length >= 8 && password.length <= 512 &&
-            await canAccessOpenCodeServer(url, password)) {
-            return {
-              url,
-              password,
-              async close() {
-                await stopManagedServer(child);
-                await fs.rm(stateDirectory, { recursive: true, force: true });
-              },
-            };
-          }
+        const service = parseOpenCodeServiceDescriptor(descriptor);
+        if (service && isSupportedOpenCodeVersion(service.version) &&
+          await canAccessOpenCodeServer(service.url, service.password)) {
+          return {
+            url: service.url,
+            password: service.password,
+            async close() {
+              await stopManagedServer(child);
+              await fs.rm(stateDirectory, { recursive: true, force: true });
+            },
+          };
         }
       } catch {
         // The descriptor is created atomically after the service starts.
@@ -448,10 +666,10 @@ function formatUpdatedAt(value?: number): string {
     : date.toLocaleString("zh-CN", { hour12: false });
 }
 
-async function chooseSession(
+async function chooseSessions(
   target: WorkbenchTarget,
   cdp: string,
-): Promise<SessionChoice> {
+): Promise<SessionChoice[]> {
   const transport = await connectTraeRuntime(cdp, target.id);
   try {
     const reader = createTraeRuntimeReader(transport);
@@ -465,12 +683,15 @@ async function chooseSession(
     if (choices.length === 0) throw new Error("TRAE_WORKSPACE_SESSIONS_EMPTY");
     const requested = process.env.T2O_TRAE_SESSION;
     if (requested) {
-      const selected = choices.find((choice) => choice.id === requested);
-      if (!selected) throw new Error("TRAE_SESSION_NOT_FOUND");
-      console.log(`已选择会话：${selected.title}`);
-      return selected;
+      const requestedIds = [...new Set(requested.split(",").map((id) => id.trim()).filter(Boolean))];
+      const selected = requestedIds.map((id) => choices.find((choice) => choice.id === id));
+      if (selected.length === 0 || selected.some((choice) => choice === undefined)) {
+        throw new Error("TRAE_SESSION_NOT_FOUND");
+      }
+      console.log(`已选择 ${selected.length} 个会话。`);
+      return selected as SessionChoice[];
     }
-    console.log("\n请选择要迁移的 TRAE 会话：");
+    console.log("\n请选择要迁移的 TRAE 会话（支持多选）：");
     choices.forEach((choice, index) => {
       console.log(
         `  ${index + 1}. ${choice.title} · ${choice.metadataStatus} · ${formatUpdatedAt(choice.updatedAt)}`,
@@ -478,16 +699,208 @@ async function chooseSession(
     });
     const rl = createInterface({ input, output });
     try {
-      const answer = await rl.question("请输入会话编号：");
-      const index = parseChoiceIndex(answer, choices.length);
-      if (index === undefined) throw new Error("TRAE_SESSION_INVALID");
-      return choices[index];
+      const answer = await rl.question("请输入编号（如 1,3-5；输入 all 全选）：");
+      const indexes = parseChoiceIndexes(answer, choices.length);
+      if (!indexes) throw new Error("TRAE_SESSION_INVALID");
+      return indexes.map((index) => choices[index]);
     } finally {
       rl.close();
     }
   } finally {
     transport.close();
   }
+}
+
+type SessionMigrationJob = {
+  session: SessionChoice;
+  directories: MigrationDirectories;
+  replacementManifest?: string;
+  resumeNeedsExclusiveAccess: boolean;
+};
+
+async function createSessionMigrationJob(
+  rootDirectory: string,
+  session: SessionChoice,
+): Promise<SessionMigrationJob> {
+  const directories = resolveMigrationDirectories(
+    rootDirectory,
+    session.id,
+    process.env.T2O_MIGRATION_EXPORT,
+    process.env.T2O_MIGRATION_RUN,
+    session.updatedAt,
+  );
+  const manifestFile = path.join(directories.runDirectory, "migration-manifest.json");
+  const manifestStat = await fs.stat(manifestFile).catch(() => undefined);
+  let resumeNeedsExclusiveAccess = false;
+  if (manifestStat?.isFile()) {
+    const manifest = await readManifest(manifestFile).catch(() => undefined);
+    resumeNeedsExclusiveAccess = manifest !== undefined &&
+      replacementResumeNeedsExclusiveAccess(manifest);
+  }
+  const replacementManifest = manifestStat === undefined &&
+      process.env.T2O_MIGRATION_RUN === undefined
+    ? await findReplacementManifest({
+        sourceSessionId: session.id,
+        runRoot: path.dirname(directories.runDirectory),
+        currentRunDirectory: directories.runDirectory,
+      })
+    : undefined;
+  return {
+    session,
+    directories,
+    ...(replacementManifest ? { replacementManifest } : {}),
+    resumeNeedsExclusiveAccess,
+  };
+}
+
+async function confirmOverwrite(count: number): Promise<boolean> {
+  if (count === 0 || process.env.T2O_REPLACE_EXISTING === "1") return true;
+  console.log(
+    `\n检测到 ${count} 个由本工具迁移的已有会话，将先校验内容未被修改，再覆盖为新版本。`,
+  );
+  console.log("请先暂停其他 OpenCode 写入操作；校验失败时不会删除任何会话。");
+  const rl = createInterface({ input, output });
+  try {
+    return confirmsOverwrite(await rl.question("输入 OVERWRITE 确认覆盖："));
+  } finally {
+    rl.close();
+  }
+}
+
+async function migrateSelectedSession(options: {
+  job: SessionMigrationJob;
+  target: WorkbenchTarget;
+  cdp: string;
+  server: string;
+  password?: string;
+  rootDirectory: string;
+  cliPath: string;
+  position: number;
+  total: number;
+}): Promise<boolean> {
+  const { job, target, cdp, server, password, rootDirectory, cliPath, position, total } = options;
+  const { session, directories } = job;
+  const { exportDirectory, runDirectory } = directories;
+  const inputFile = path.join(exportDirectory, "migration-bundle.json");
+  console.log(`\n[${position}/${total}] 正在处理：${session.title}`);
+
+  const existingBundle = await fs.stat(inputFile).catch(() => undefined);
+  if (existingBundle) {
+    if (!existingBundle.isFile()) {
+      console.error("已有迁移 bundle 不是普通文件，已跳过该会话。");
+      return false;
+    }
+    try {
+      const bundle = await readBundleFile(inputFile);
+      if (!bundleMatchesSession(bundle, session.id)) {
+        console.error("已有迁移 bundle 与本次选择的会话不一致，已跳过该会话。");
+        return false;
+      }
+    } catch {
+      console.error("已有迁移 bundle 无法校验，已跳过该会话。");
+      return false;
+    }
+    console.log("已发现并校验当前会话的迁移 bundle。");
+  } else {
+    await fs.mkdir(path.dirname(exportDirectory), { recursive: true, mode: 0o700 });
+    if (!await prepareExportDirectory(exportDirectory)) {
+      console.error("迁移导出目录已被其他文件占用，已跳过该会话。");
+      return false;
+    }
+    console.log("正在导出所选会话...");
+    const exported = await runCli([
+      "export", "--cdp", cdp, "--cdp-target", target.id,
+      "--session", session.id, "--output", exportDirectory,
+      "--redact-credentials", "--json",
+    ], cliPath, server);
+    if (!exported.ok) return false;
+    if (exported.outputText.includes("T2O_SENSITIVE_CONTENT_REDACTED")) {
+      console.log("已自动将疑似凭据替换为脱敏占位符，该会话按部分恢复迁移。");
+    }
+  }
+
+  const stat = await fs.stat(inputFile).catch(() => undefined);
+  if (!stat || stat.size > MAX_BUNDLE_BYTES) {
+    console.error("迁移 bundle 超过 128 MiB，已跳过该会话。");
+    return false;
+  }
+
+  console.log("正在检查迁移完整性和 OpenCode 兼容性...");
+  const preview = await runCli([
+    "migrate", "--input", inputFile, "--dry-run", "--server", server,
+    "--fallback-directory", rootDirectory, "--json",
+  ], cliPath, server, password);
+  if (!preview.ok) return false;
+  const previewResult = cliJsonResult(preview.outputText);
+  if (previewResult?.ready !== 1 || previewResult.blocked !== 0 ||
+    previewResult.excluded !== 0) {
+    console.error("所选会话包含当前无法无损映射的内容，未写入 OpenCode。");
+    return false;
+  }
+
+  await fs.mkdir(path.dirname(runDirectory), { recursive: true, mode: 0o700 });
+  const manifest = path.join(runDirectory, "migration-manifest.json");
+  const manifestStat = await fs.stat(manifest).catch(() => undefined);
+  const runDirectoryStat = await fs.stat(runDirectory).catch(() => undefined);
+  const releasedEmptyRunDirectory = manifestStat === undefined &&
+    runDirectoryStat !== undefined &&
+    await prepareRunDirectory(runDirectory);
+  const mode = resolveInteractiveMigrationMode({
+    manifest,
+    runDirectory,
+    manifestExists: manifestStat !== undefined,
+    runDirectoryExists: runDirectoryStat !== undefined && !releasedEmptyRunDirectory,
+    replacementManifest: job.replacementManifest,
+    resumeNeedsExclusiveAccess: job.resumeNeedsExclusiveAccess,
+  });
+  if (!mode) {
+    console.error("迁移目录已存在但没有 manifest，已跳过该会话。");
+    return false;
+  }
+
+  console.log(mode.name === "replace"
+    ? "正在校验并覆盖已有会话，请稍候..."
+    : "正在迁移并校验，请稍候...");
+  const migrated = await runCli([
+    "migrate", "--input", inputFile, "--server", server,
+    "--fallback-directory", rootDirectory, ...mode.args, "--json",
+  ], cliPath, server, password);
+  if (!migrated.ok) return false;
+  const migrationResult = cliJsonResult(migrated.outputText);
+  if (migrationResult?.skipped === 1 && migrationResult.created === 0 &&
+    migrationResult.replaced === 0) {
+    console.error("目标会话已存在，但缺少可验证的旧 manifest，未执行覆盖。");
+    return false;
+  }
+  if (migrationResult?.hasFailures !== false || migrationResult.verified !== 1) {
+    console.error("迁移结果未通过完整回读校验。");
+    return false;
+  }
+  if (migrationResult.replaced === 1) {
+    console.log("已有会话已安全覆盖并通过校验。");
+  } else if (mode.name === "resume") {
+    console.log("迁移续跑完成，已有会话已校验。");
+  } else {
+    console.log(`迁移完成，结果已写入：${runDirectory}`);
+  }
+
+  const canCleanDefaultArtifacts =
+    process.env.T2O_MIGRATION_EXPORT === undefined &&
+    process.env.T2O_MIGRATION_RUN === undefined;
+  if (canCleanDefaultArtifacts) {
+    const cleaned = await cleanupObsoleteArtifacts({
+      sourceSessionId: session.id,
+      exportRoot: path.dirname(exportDirectory),
+      runRoot: path.dirname(runDirectory),
+      currentExportDirectory: exportDirectory,
+      currentRunDirectory: runDirectory,
+    });
+    const totalCleaned = cleaned.exportDirectories + cleaned.runDirectories;
+    if (totalCleaned > 0) {
+      console.log(`已清理 ${totalCleaned} 个过期迁移目录，保留当前 bundle 和 manifest。`);
+    }
+  }
+  return true;
 }
 
 async function main(): Promise<number> {
@@ -512,15 +925,15 @@ async function main(): Promise<number> {
     return 4;
   }
 
-  let session: SessionChoice;
+  let sessions: SessionChoice[];
   try {
-    session = await chooseSession(target, cdp);
+    sessions = await chooseSessions(target, cdp);
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
     if (code === "TRAE_SESSION_NOT_FOUND") {
-      console.error("指定的会话已不存在，请重新运行并选择当前会话。");
+      console.error("至少一个指定会话已不存在，请重新运行并选择当前会话。");
     } else if (code === "TRAE_SESSION_INVALID") {
-      console.error("会话编号无效，请重新运行。");
+      console.error("会话编号或范围无效，请重新运行。");
     } else if (code === "TRAE_WORKSPACE_SESSIONS_EMPTY") {
       console.error("所选 workbench 没有可迁移的本地会话。");
     } else {
@@ -529,126 +942,91 @@ async function main(): Promise<number> {
     return 4;
   }
 
-  const directories = resolveMigrationDirectories(
-    rootDirectory,
-    session.id,
-    process.env.T2O_MIGRATION_EXPORT,
-    process.env.T2O_MIGRATION_RUN,
-    session.updatedAt,
-  );
-  const exportDirectory = directories.exportDirectory;
-  const runDirectory = directories.runDirectory;
-  const inputFile = path.join(exportDirectory, "migration-bundle.json");
-  const existingBundle = await fs.stat(inputFile).catch(() => undefined);
-  if (existingBundle) {
-    if (!existingBundle.isFile()) {
-      console.error("已有迁移 bundle 不是普通文件，已停止以避免覆盖数据。");
-      return 4;
-    }
-    try {
-      const bundle = await readBundleFile(inputFile);
-      if (!bundleMatchesSession(bundle, session.id)) {
-        console.error("已有迁移 bundle 与本次选择的会话不一致，已停止以避免误迁移。");
-        return 4;
-      }
-    } catch {
-      console.error("已有迁移 bundle 无法校验，已停止以避免覆盖数据。");
-      return 4;
-    }
-    console.log("已发现并校验当前会话的迁移 bundle。");
-  } else {
-    await fs.mkdir(path.dirname(exportDirectory), { recursive: true, mode: 0o700 });
-    if (!await prepareExportDirectory(exportDirectory)) {
-      console.error("迁移导出目录已被其他文件占用，已停止以避免覆盖数据。");
-      return 4;
-    }
-    console.log("正在导出所选会话...");
-    const exported = await runCli([
-      "export", "--cdp", cdp, "--cdp-target", target.id,
-      "--session", session.id, "--output", exportDirectory,
-      "--redact-credentials", "--json",
-    ], cliPath, server);
-    if (!exported.ok) return 4;
-    if (exported.outputText.includes("T2O_SENSITIVE_CONTENT_REDACTED")) {
-      console.log("已自动将疑似凭据替换为脱敏占位符，该会话按部分恢复迁移。");
-    }
-  }
-
-  const stat = await fs.stat(inputFile).catch(() => undefined);
-  if (!stat || stat.size > MAX_BUNDLE_BYTES) {
-    console.error("迁移 bundle 超过 128 MiB，请重新选择更小的会话。");
+  const usesCustomArtifacts =
+    process.env.T2O_MIGRATION_EXPORT !== undefined ||
+    process.env.T2O_MIGRATION_RUN !== undefined;
+  if (sessions.length > 1 && usesCustomArtifacts) {
+    console.error("多选迁移不能共用自定义 bundle 或 manifest 路径，请取消路径覆盖后重试。");
     return 4;
   }
 
+  const jobs = await Promise.all(
+    sessions.map((session) => createSessionMigrationJob(rootDirectory, session)),
+  );
+
   let managedServer: Awaited<ReturnType<typeof startManagedOpenCodeServer>> | undefined;
+  let serverPassword = process.env.OPENCODE_SERVER_PASSWORD;
   try {
-    if (!process.env.T2O_OPENCODE_SERVER && !await canAccessOpenCodeServer(server)) {
-      console.log("默认 OpenCode 服务不可访问，正在临时启动本机服务...");
-      try {
-        managedServer = await startManagedOpenCodeServer();
-        server = managedServer.url;
-      } catch {
-        console.error("无法自动启动 OpenCode，请确认已安装 2.0.12。");
-        return 4;
+    if (!process.env.T2O_OPENCODE_SERVER) {
+      const discovered = await discoverOpenCodeService();
+      if (discovered) {
+        if (!isSupportedOpenCodeVersion(discovered.version)) {
+          console.error(
+            `检测到正在运行的 OpenCode ${discovered.version}，当前仅支持 ` +
+            `${SUPPORTED_OPENCODE_VERSIONS.join(" 或 ")}。` +
+            "请完全退出 OpenCode 桌面端或停止该服务后重试。",
+          );
+          return 4;
+        }
+        server = discovered.url;
+        serverPassword = discovered.password;
+        console.log(`已连接当前 OpenCode ${discovered.version} 本机服务。`);
+      } else if (!await canAccessOpenCodeServer(server, serverPassword)) {
+        console.log("默认 OpenCode 服务不可访问，正在临时启动本机服务...");
+        try {
+          managedServer = await startManagedOpenCodeServer();
+          server = managedServer.url;
+          serverPassword = managedServer.password;
+        } catch {
+          console.error(`无法自动启动 OpenCode，请确认已安装 ${SUPPORTED_OPENCODE_VERSIONS.join(" 或 ")}。`);
+          return 4;
+        }
       }
     }
 
-    console.log("正在检查迁移完整性和 OpenCode 兼容性...");
-    const preview = await runCli([
-      "migrate", "--input", inputFile, "--dry-run", "--server", server,
-      "--fallback-directory", rootDirectory, "--json",
-    ], cliPath, server, managedServer?.password);
-    if (!preview.ok) return 4;
-    const previewResult = cliJsonResult(preview.outputText);
-    if (previewResult?.ready !== 1 || previewResult.blocked !== 0 ||
-      previewResult.excluded !== 0) {
-      console.error("所选会话包含当前无法无损映射的内容，未写入 OpenCode。");
+    const migrationTarget = createMigrationTarget({
+      serverUrl: server,
+      password: serverPassword,
+    });
+    for (const job of jobs) {
+      if (!job.replacementManifest) continue;
+      try {
+        const exists = await replacementTargetExists(
+          job.replacementManifest,
+          (targetId) => migrationTarget.readSession(targetId),
+        );
+        if (!exists) delete job.replacementManifest;
+      } catch {
+        console.error("无法核对已有目标会话，已停止以保护 OpenCode 数据。");
+        return 4;
+      }
+    }
+    const overwriteCount = jobs.filter((job) =>
+      job.replacementManifest !== undefined || job.resumeNeedsExclusiveAccess).length;
+    if (!await confirmOverwrite(overwriteCount)) {
+      console.error("未确认覆盖，未写入 OpenCode。");
       return 4;
     }
 
-    await fs.mkdir(path.dirname(runDirectory), { recursive: true, mode: 0o700 });
-    const manifest = path.join(runDirectory, "migration-manifest.json");
-    const mode = (await fs.stat(manifest).catch(() => undefined))
-      ? ["--resume", manifest]
-      : (await fs.stat(runDirectory).catch(() => undefined))
-        ? null
-        : ["--output", runDirectory];
-    if (!mode) {
-      console.error("迁移目录已存在但没有 manifest，请更换迁移目录后重试。");
-      return 4;
-    }
-
-    console.log("正在迁移并校验，请稍候...");
-    const migrated = await runCli([
-      "migrate", "--input", inputFile, "--server", server,
-      "--fallback-directory", rootDirectory, ...mode, "--json",
-    ], cliPath, server, managedServer?.password);
-    if (!migrated.ok) return 4;
-    const migrationResult = cliJsonResult(migrated.outputText);
-    if (migrationResult?.skipped === 1 && migrationResult.created === 0) {
-      console.log("目标会话已存在，未重复导入。");
-    } else {
-      console.log(mode[0] === "--resume"
-        ? "迁移续跑完成，已有会话已校验。"
-        : `迁移完成，结果已写入：${runDirectory}`);
-    }
-    const canCleanDefaultArtifacts =
-      process.env.T2O_MIGRATION_EXPORT === undefined &&
-      process.env.T2O_MIGRATION_RUN === undefined &&
-      migrationResult?.hasFailures === false &&
-      migrationResult.verified === 1;
-    if (canCleanDefaultArtifacts) {
-      const cleaned = await cleanupObsoleteArtifacts({
-        sourceSessionId: session.id,
-        exportRoot: path.dirname(exportDirectory),
-        runRoot: path.dirname(runDirectory),
-        currentExportDirectory: exportDirectory,
-        currentRunDirectory: runDirectory,
+    let completed = 0;
+    for (const [index, job] of jobs.entries()) {
+      const succeeded = await migrateSelectedSession({
+        job,
+        target,
+        cdp,
+        server,
+        password: serverPassword,
+        rootDirectory,
+        cliPath,
+        position: index + 1,
+        total: jobs.length,
       });
-      const total = cleaned.exportDirectories + cleaned.runDirectories;
-      if (total > 0) console.log(`已清理 ${total} 个过期迁移目录，保留当前 bundle 和 manifest。`);
+      if (succeeded) completed++;
     }
-    return 0;
+    if (jobs.length > 1) {
+      console.log(`\n批量迁移完成：成功 ${completed} 个，失败 ${jobs.length - completed} 个。`);
+    }
+    return completed === jobs.length ? 0 : 4;
   } finally {
     await managedServer?.close();
   }

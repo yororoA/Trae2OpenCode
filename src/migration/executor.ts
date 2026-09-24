@@ -4,6 +4,7 @@ import * as path from "node:path";
 import type { JsonObject } from "../ir/types.js";
 import { normalizeError, Trae2OpenCodeError } from "../shared/errors.js";
 import { assertNoCredentials } from "../shared/sensitive.js";
+import { isSupportedOpenCodeVersion } from "../target/opencode/contract.js";
 import type { OpenCodeTransfer } from "../target/opencode/mapping.js";
 import { reconcileOpenCodeTransfer } from "../target/opencode/reconciliation.js";
 import {
@@ -48,6 +49,67 @@ function requireTarget(manifest: MigrationManifest, target: MigrationTargetDescr
   if (jsonHash(manifest.target) !== jsonHash(target)) {
     throw new Trae2OpenCodeError("T2O_MIGRATION_TARGET_CHANGED");
   }
+}
+
+function isCompatibleTargetChange(
+  previous: MigrationTargetDescriptor,
+  current: MigrationTargetDescriptor,
+): boolean {
+  const endpointOrVersionChanged = previous.endpointHash !== current.endpointHash ||
+    previous.binaryVersion !== current.binaryVersion ||
+    previous.serverVersion !== current.serverVersion;
+  return endpointOrVersionChanged &&
+    isSupportedOpenCodeVersion(previous.binaryVersion) &&
+    isSupportedOpenCodeVersion(previous.serverVersion) &&
+    isSupportedOpenCodeVersion(current.binaryVersion) &&
+    isSupportedOpenCodeVersion(current.serverVersion) &&
+    previous.schemaHash === current.schemaHash;
+}
+
+/**
+ * A supported endpoint/version change can be rebound only when an unchanged,
+ * tool-owned target session proves that the target reaches the same data.
+ */
+async function requireOrRebindTarget(
+  manifest: MigrationManifest,
+  descriptor: MigrationTargetDescriptor,
+  target: MigrationTarget,
+  store: ManifestStore,
+): Promise<void> {
+  if (jsonHash(manifest.target) === jsonHash(descriptor)) return;
+  if (!isCompatibleTargetChange(manifest.target, descriptor)) {
+    throw new Trae2OpenCodeError("T2O_MIGRATION_TARGET_CHANGED");
+  }
+  const candidates = manifest.sessions.filter((item) =>
+    item.state === "verified" && item.created &&
+    item.expected !== undefined && item.deletionHash !== undefined);
+  const observed = new Map<string, OpenCodeTransfer | null>();
+  let matched = false;
+  for (const item of candidates) {
+    const actual = await target.readSession(item.targetId);
+    observed.set(item.targetId, actual);
+    if (actual && isOwnedByRun(actual, manifest, item) &&
+      equalSnapshot(snapshot(actual), item.expected!) &&
+      jsonHash(actual) === item.deletionHash) {
+      matched = true;
+      break;
+    }
+  }
+  if (!matched) {
+    let allTargetsAbsent = true;
+    for (const item of manifest.sessions) {
+      const actual = observed.has(item.targetId)
+        ? observed.get(item.targetId)!
+        : await target.readSession(item.targetId);
+      if (actual) {
+        allTargetsAbsent = false;
+        break;
+      }
+    }
+    if (!allTargetsAbsent) throw new Trae2OpenCodeError("T2O_MIGRATION_TARGET_CHANGED");
+  }
+  manifest.target = structuredClone(descriptor);
+  await store.save(manifest);
 }
 
 /** All checkpoints are outside failure isolation: a persistence failure stops every later write. */
@@ -162,12 +224,7 @@ export async function migrate(
   }
   return withManifestStore(filename, async (store) => {
     const manifest = options.resumeManifest ? await store.read() : createManifest(plan, descriptor);
-    requireTarget(manifest, descriptor);
     if (manifest.rollbackState) throw new Trae2OpenCodeError("T2O_MIGRATION_ROLLBACK_STARTED");
-    if (options.replaceManifest) {
-      await withManifestStore(options.replaceManifest, async (previousStore) =>
-        authorizeReplacements(manifest, await previousStore.read()));
-    }
     const changedPlan = manifest.irHash !== plan.irHash || manifest.sourceFingerprint !== plan.sourceFingerprint ||
       manifest.planHash !== jsonHash(summarizeMigrationPlan(plan));
     if (changedPlan) throw new Trae2OpenCodeError("T2O_MIGRATION_PLAN_CHANGED");
@@ -181,10 +238,33 @@ export async function migrate(
         !equalSnapshot(snapshot(owned), item.expected!);
       if (changedPayload) throw new Trae2OpenCodeError("T2O_MIGRATION_PLAN_CHANGED");
     }
-    // Detect a replaced/emptied target or edited successful session before importing anything else.
+    await requireOrRebindTarget(manifest, descriptor, target, store);
+    if (options.replaceManifest) {
+      await withManifestStore(options.replaceManifest, async (previousStore) => {
+        const previous = await previousStore.read();
+        if (previous.rollbackState) {
+          throw new Trae2OpenCodeError("T2O_MIGRATION_ROLLBACK_STARTED");
+        }
+        await requireOrRebindTarget(previous, descriptor, target, previousStore);
+        authorizeReplacements(manifest, previous);
+      });
+    }
+    // Restore absent outputs, but stop before writes when an existing verified target was edited.
     for (const item of manifest.sessions.filter((session) => session.state === "verified")) {
       const actual = await target.readSession(item.targetId);
-      if (!actual || !isOwnedByRun(actual, manifest, item) || !equalSnapshot(snapshot(actual), item.expected!)) {
+      if (!actual) {
+        item.state = "pending";
+        item.created = false;
+        item.codes = [];
+        delete item.actual;
+        delete item.deletionHash;
+        await store.save(manifest);
+        continue;
+      }
+      const changedReadback = actual && item.deletionHash !== undefined &&
+        jsonHash(actual) !== item.deletionHash;
+      if (!isOwnedByRun(actual, manifest, item) ||
+        !equalSnapshot(snapshot(actual), item.expected!) || changedReadback) {
         throw new Trae2OpenCodeError("T2O_MIGRATION_TARGET_CHANGED");
       }
     }

@@ -152,20 +152,73 @@ describe("migration executor", () => {
     assert.deepEqual((await readManifest(filename)).sessions[0].codes, ["T2O_MIGRATION_TARGET_CHANGED"]);
   }));
 
-  it("rejects a changed source plan, endpoint, or edited successful target", () => setup(async ({ plan, fake, filename, outputDirectory }) => {
+  it("rebinds a compatible endpoint and version change after exact target proof", () => setup(async ({ plan, fake, filename, outputDirectory }) => {
+    await migrate(plan, fake.api, { outputDirectory });
+    const reboundDescriptor = {
+      ...descriptor,
+      endpointHash: hashCanonicalJson("other-endpoint"),
+      serverVersion: "2.0.16",
+      fingerprint: hashCanonicalJson("other-fingerprint"),
+    };
+    fake.api.describe = async () => structuredClone(reboundDescriptor);
+    const resumed = await migrate(plan, fake.api, { resumeManifest: filename });
+    assert.equal(resumed.verified, 1);
+    assert.equal(fake.imports.length, 1);
+    assert.deepEqual((await readManifest(filename)).target, reboundDescriptor);
+    assert.equal((await verifyMigration(filename, fake.api)).hasFailures, false);
+  }));
+
+  it("rejects a changed source plan, target contract, or edited successful target", () => setup(async ({ plan, fake, filename, outputDirectory }) => {
     await migrate(plan, fake.api, { outputDirectory });
     const changed = structuredClone(plan);
     changed.irHash = hashCanonicalJson("changed");
     await assert.rejects(migrate(changed, fake.api, { resumeManifest: filename }), { code: "T2O_MIGRATION_PLAN_CHANGED" });
-    const describeTarget = fake.api.describe;
-    fake.api.describe = async () => ({ ...descriptor, endpointHash: hashCanonicalJson("other") });
+    fake.api.describe = async () => ({
+      ...descriptor,
+      schemaHash: hashCanonicalJson("other-schema"),
+      fingerprint: hashCanonicalJson("other-contract"),
+    });
     await assert.rejects(migrate(plan, fake.api, { resumeManifest: filename }), { code: "T2O_MIGRATION_TARGET_CHANGED" });
     await assert.rejects(verifyMigration(filename, fake.api), { code: "T2O_MIGRATION_TARGET_CHANGED" });
-    fake.api.describe = describeTarget;
+    fake.api.describe = async () => structuredClone(descriptor);
     fake.sessions.get(plan.sessions[0].targetId)!.messages[0].text = "new user content";
     await assert.rejects(migrate(plan, fake.api, { resumeManifest: filename }), { code: "T2O_MIGRATION_TARGET_CHANGED" });
     assert.equal((await verifyMigration(filename, fake.api)).hasFailures, true);
     assert.equal(fake.imports.length, 1);
+  }));
+
+  it("rebinds an empty compatible target when no planned ID exists", () => setup(async ({ plan, fake, filename, outputDirectory }) => {
+    const nativeImport = fake.api.importSession;
+    fake.api.importSession = async () => {
+      throw new Trae2OpenCodeError("T2O_OPENCODE_IMPORT_FAILED");
+    };
+    assert.equal((await migrate(plan, fake.api, { outputDirectory })).hasFailures, true);
+    fake.api.describe = async () => ({
+      ...descriptor,
+      endpointHash: hashCanonicalJson("other-endpoint"),
+      fingerprint: hashCanonicalJson("other-fingerprint"),
+    });
+    fake.api.importSession = nativeImport;
+    const result = await migrate(plan, fake.api, { resumeManifest: filename });
+    assert.equal(result.verified, 1);
+    assert.equal(result.sessions[0].attempts, 2);
+  }));
+
+  it("rejects compatible rebinding when a planned ID exists without valid evidence", () => setup(async ({ plan, fake, filename, outputDirectory }) => {
+    fake.api.importSession = async () => {
+      throw new Trae2OpenCodeError("T2O_OPENCODE_IMPORT_FAILED");
+    };
+    assert.equal((await migrate(plan, fake.api, { outputDirectory })).hasFailures, true);
+    fake.sessions.set(plan.sessions[0].targetId, structuredClone(plan.sessions[0].transfer!));
+    fake.api.describe = async () => ({
+      ...descriptor,
+      endpointHash: hashCanonicalJson("other-endpoint"),
+      fingerprint: hashCanonicalJson("other-fingerprint"),
+    });
+    await assert.rejects(
+      migrate(plan, fake.api, { resumeManifest: filename }),
+      { code: "T2O_MIGRATION_TARGET_CHANGED" },
+    );
   }));
 
   it("stops all writes when the importing checkpoint cannot be saved", () => setup(async ({ plan, fake, filename, outputDirectory }) => {
@@ -194,6 +247,17 @@ describe("migration executor", () => {
     assert.equal(recovered.created, 1);
     assert.equal(recovered.verified, 1);
     assert.equal(fake.imports.length, 1);
+  }));
+
+  it("recreates a verified tool-owned session that is now absent", () => setup(async ({ plan, fake, filename, outputDirectory }) => {
+    assert.equal((await migrate(plan, fake.api, { outputDirectory })).verified, 1);
+    fake.sessions.delete(plan.sessions[0].targetId);
+    const restored = await migrate(plan, fake.api, { resumeManifest: filename });
+    assert.equal(restored.verified, 1);
+    assert.equal(restored.created, 1);
+    assert.equal(restored.sessions[0].attempts, 2);
+    assert.equal(fake.imports.length, 2);
+    assert.ok(fake.sessions.has(plan.sessions[0].targetId));
   }));
 
   it("skips pre-existing sessions and rejects an existing output directory", () => setup(async ({ plan, fake, outputDirectory }) => {

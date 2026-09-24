@@ -4,7 +4,7 @@
 
 1. 打开要迁移会话所在的 TRAE 项目窗口。
 2. 在本仓库根目录运行 `npm run migrate:local`。
-3. 按编号选择窗口和会话，等待“迁移完成”或“迁移续跑完成”。
+3. 按编号选择窗口和一个或多个会话，等待批量迁移完成。
 
 工具会自动导出、脱敏、检查兼容性、导入、回读核验，并在中断后安全续跑。不会要求输入
 workbench ID 或 session ID。
@@ -17,7 +17,7 @@ workbench ID 或 session ID。
 | 组件 | 要求 |
 | --- | --- |
 | TRAE 来源 | TRAE CN **3.3.104**，已登录，并以本机 CDP 端口 `9222` 启动 |
-| OpenCode 目标 | **2.0.12** |
+| OpenCode 目标 | **2.0.12** 或 **2.0.16** |
 | 系统 | macOS、Windows 可直接读取本机 TRAE；Linux 只支持导入已导出的 bundle |
 | Node.js | `>=18.18`，推荐 Node.js 22 |
 
@@ -43,16 +43,21 @@ node --version
 npm run check
 ```
 
-### 2. 安装 OpenCode 2.0.12
+### 2. 安装受支持的 OpenCode
 
 ```sh
-npm install -g @opencode/cli@2.0.12
+npm install -g @opencode/cli@2.0.16
 opencode --version
 ```
 
-看到版本为 `2.0.12` 后即可继续。`migrate:local` 会先尝试连接本机
-`http://127.0.0.1:4096`；不可用时会临时启动仅监听本机的 `4097` 服务，并在迁移结束后关闭。
+看到版本为 `2.0.12` 或 `2.0.16` 后即可继续。`migrate:local` 会读取 OpenCode 当前 service
+descriptor 发现动态端口，并检查本机 `http://127.0.0.1:4096`。没有可用服务时会
+临时启动仅监听本机的 `4097` 进程，沿用当前本地 OpenCode 会话库，迁移结束后只关闭
+该临时进程。
 因此通常不需要手动启动 OpenCode server。
+
+如果发现正在运行的 OpenCode 桌面端或服务不在已验证版本范围内，程序会要求先停止
+该服务，不会再启动另一个进程并发访问同一数据库。`2.0.16` 桌面端可直接作为迁移目标。
 
 ### 3. 以调试模式启动 TRAE
 
@@ -75,7 +80,8 @@ opencode --version
 npm run migrate:local
 ```
 
-程序会显示可用的 TRAE 窗口和该窗口所属项目的会话。输入列表中的**编号**即可：
+程序会显示可用的 TRAE 窗口和该窗口所属项目的会话。会话支持单选、逗号分隔、
+连续范围或全部选择：
 
 ```text
 发现多个 TRAE workbench，请选择：
@@ -83,19 +89,28 @@ npm run migrate:local
   2. another-project
 请输入 workbench 编号：1
 
-请选择要迁移的 TRAE 会话：
+请选择要迁移的 TRAE 会话（支持多选）：
   1. 修复迁移流程 · complete · 2026/09/24 15:30:00
   2. 阅读 README · partial · 2026/09/24 14:20:00
-请输入会话编号：1
+  3. 发布检查 · complete · 2026/09/24 13:10:00
+请输入编号（如 1,3-5；输入 all 全选）：1,3
 ```
 
 随后工具依次完成：
 
-1. 导出所选会话。
+1. 为每个所选会话创建独立 bundle 和 manifest。
 2. 自动剥离正文、标题和工具 payload 中已识别的凭据。
 3. 在真正写入前检查迁移完整性和 OpenCode 兼容性。
-4. 导入到 OpenCode，并回读消息、reasoning、工具记录和 hash。
+4. 逐个导入到 OpenCode，并回读消息、reasoning、工具记录和 hash；单个失败不阻止后续会话。
 5. 成功后保留最新迁移记录，清理同一会话已被替代的旧终态记录。
+
+如果目标中已存在同一来源会话，并且本地保留着本工具上次成功迁移的 manifest，程序会
+提示输入 `OVERWRITE`。确认后先校验旧会话未被修改，再安全覆盖；外来会话、已修改会话
+或缺少可信 manifest 的目标不会被删除。
+
+OpenCode 服务重启后动态端口可能改变。已有 manifest 至少包含一个成功会话时，工具会
+同时核验目标版本、schema、迁移所有权、完整性快照和整条内容 hash；全部证据匹配后才会
+把 manifest 安全绑定到新端口。尚无成功会话或目标内容发生变化时仍会停止。
 
 ### 5. 确认结果
 
@@ -123,6 +138,14 @@ TRAE 本身的历史被删除，源数据始终保持只读。
 - 单个 bundle 最大为 `128 MiB`。超过限制时需选择更小的会话。
 - 发现可安全定位的凭据会替换为 `[REDACTED_SECRET]`，会话标记为 `partial`；
   若凭据位于 ID、路径或来源定位等不可安全改写字段，迁移会停止。
+- assistant 在任务执行期间已持久化的进度描述会按原顺序映射为 OpenCode 原生
+  reasoning part，与命令工具共同显示在可折叠的任务过程中；最终输出保持为普通正文，
+  不再插入 Markdown 分隔线。私有 `reasoning_content` 仍保持独立的 reasoning part。
+- TRAE 的 `exec_command` 会映射为 OpenCode 原生 shell 工具，可展开查看具体命令和
+  已持久化的终端输出；原始工具字段仍保存在 metadata 中。
+- 迁移消息使用与 OpenCode 时间线兼容的稳定递增 ID，因此迁移后继续对话、撤销和
+  重做不会让当前窗口丢失历史。超大历史会自动加入少量原生 compaction checkpoint；
+  完整旧消息仍可查看，模型只携带最近 checkpoint 之后的有界上下文。
 - TRAE 未持久化的工具输出或最终 assistant 正文不会被编造。工具记录会保留缺失标识；
   缺失的最终正文会显示明确提示，内部工具 JSON 不会作为聊天正文显示。
 
@@ -145,8 +168,10 @@ TRAE 本身的历史被删除，源数据始终保持只读。
 | --- | --- |
 | `无法发现 TRAE workbench` | 完全退出后，用上面的终端命令重新启动 TRAE；确认目标项目窗口已打开。 |
 | `所选 workbench 没有可迁移的本地会话` | 选择正确的项目窗口，并在 TRAE 中打开该项目后再运行。 |
-| `无法自动启动 OpenCode` | 安装并确认 `@opencode/cli@2.0.12`，再运行命令。 |
+| `无法自动启动 OpenCode` | 安装并确认 `@opencode/cli@2.0.12` 或 `2.0.16`，再运行命令。 |
+| `OpenCode 版本或协议不受支持` | 使用 `2.0.12` 或 `2.0.16`；其他版本即使能打开数据库也不会自动放行。 |
 | `所选会话包含当前无法无损映射的内容` | 工具尚未写入 OpenCode。保留产物并查看[故障排查](docs/troubleshooting.md)。 |
+| `目标会话已存在，但缺少可验证的旧 manifest` | 目标归属无法证明，因此不会覆盖；恢复对应 manifest 或在 OpenCode 中人工确认处理。 |
 | `迁移 bundle 超过 128 MiB` | 选择更小的会话；不要修改 bundle 来绕过限制。 |
 
 ## 高级操作与文档

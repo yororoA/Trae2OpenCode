@@ -43,7 +43,7 @@ async function setup(run: (harness: {
   const root = await fs.mkdtemp(path.resolve("tmp", "native test $() "));
   const transfer = mapOpenCodeSession(bundle, "session-synthetic", {
     sessionId: "ses_native", directory: root,
-    messageIds: new Map([["user-synthetic", "msg_u"], ["assistant-synthetic", "msg_a"]]),
+    messageIds: new Map([["user-synthetic", "msg_0001"], ["assistant-synthetic", "msg_0002"]]),
   }).transfer;
   const state = { stored: null as OpenCodeTransfer | null, version: "2.0.12", fail: false, lose: false, wrongId: false, dropMessage: false };
   const calls: string[][] = [];
@@ -98,6 +98,14 @@ describe("native OpenCode CLI adapter", () => {
       assert.equal(calls[0][1], "import");
       assert.deepEqual(await fs.readdir(root), []);
       assert.deepEqual(await adapter.exportSession(transfer.info.id), transfer);
+      assert.deepEqual(await adapter.readSession(transfer.info.id), transfer);
+    });
+  });
+
+  it("accepts the reviewed 2.0.16 transfer contract", async () => {
+    await setup(async ({ transfer, adapter, state }) => {
+      state.version = "2.0.16";
+      assert.deepEqual(await adapter.importSession(transfer), transfer);
       assert.deepEqual(await adapter.readSession(transfer.info.id), transfer);
     });
   });

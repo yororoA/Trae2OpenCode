@@ -2,12 +2,15 @@
 
 `stableOpenCodeSessionId` / `stableOpenCodeMessageId` 使用版本化 JSON tuple 的
 SHA-256。session ID 由 namespace 与源 session ID 决定；message ID 另加入
-源 message ID。同一 message ID 出现在不同 session 时不会冲突。
+源 message ID。同一 message ID 出现在不同 session 时不会冲突。message ID
+还包含固定宽度的源 order 前缀：同一会话内严格递增，并整体排在迁移后生成的
+OpenCode 原生时间 ID 之前，满足 Desktop Revert 的边界比较规则。
 
 默认 namespace 为 `trae-cn`。迁移 manifest 必须保存显式 namespace，重跑时沿用；
 更换 namespace 表示有意创建另一组目标身份。内容、标题、采集时间、产品升级版本
 和 sourceFingerprint 不参与 ID 计算，避免会话新增消息后被识别为新会话。
-内容变化由后续 manifest/hash 冲突策略处理。
+内容变化由后续 manifest/hash 冲突策略处理。源 order 属于消息结构身份；改变
+order 会生成不同 ID，防止把改变顺序的消息误认成原目标。
 
 `createOpenCodeIdentityMap` 先校验 IR schema，再迭代处理父链。结果先父后子，
 对相同输入集合不受数组排列影响。排序使用 code point，避免依赖机器 locale。

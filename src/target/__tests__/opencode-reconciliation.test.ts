@@ -10,7 +10,7 @@ const bundle = JSON.parse(readFileSync(new URL(
 ), "utf8")) as MigrationBundle;
 const expected = mapOpenCodeSession(bundle, "session-synthetic", {
   sessionId: "ses_verify", directory: "/synthetic/target",
-  messageIds: new Map([["user-synthetic", "msg_u"], ["assistant-synthetic", "msg_a"]]),
+  messageIds: new Map([["user-synthetic", "msg_0001"], ["assistant-synthetic", "msg_0002"]]),
 }).transfer;
 
 describe("OpenCode readback reconciliation", () => {
