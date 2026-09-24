@@ -22,6 +22,7 @@ import {
   parseChoiceIndexes,
   parseOpenCodeServiceDescriptor,
   prepareExportDirectory,
+  prepareRunDirectory,
   replacementResumeNeedsExclusiveAccess,
   replacementTargetExists,
   resolveInteractiveMigrationMode,
@@ -246,6 +247,27 @@ describe("interactive migration helpers", () => {
       assert.equal(await fs.stat(empty).catch(() => undefined), undefined);
       assert.equal(await prepareExportDirectory(occupied), false);
       assert.equal(await fs.readFile(path.join(occupied, "private.txt"), "utf8"), "content");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("quarantines only an unlocked orphan manifest lock", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "trae2opencode-orphan-lock-"));
+    const orphan = path.join(root, "session-1111111111111111");
+    const occupied = path.join(root, "session-2222222222222222");
+    await fs.mkdir(orphan);
+    await fs.writeFile(path.join(orphan, "migration-manifest.json.lock"), "");
+    await fs.mkdir(occupied);
+    await fs.writeFile(path.join(occupied, "migration-manifest.json.lock"), "");
+    await fs.writeFile(path.join(occupied, "unrelated.txt"), "keep");
+    try {
+      assert.equal(await prepareRunDirectory(orphan), true);
+      assert.equal(await fs.stat(orphan).catch(() => undefined), undefined);
+      assert.ok((await fs.readdir(root)).some((entry) =>
+        entry.startsWith("session-1111111111111111-orphan-lock-")));
+      assert.equal(await prepareRunDirectory(occupied), false);
+      assert.equal(await fs.readFile(path.join(occupied, "unrelated.txt"), "utf8"), "keep");
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }

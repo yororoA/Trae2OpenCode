@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
@@ -7,6 +7,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import Database from "better-sqlite3";
 import type { MigrationBundle } from "../ir/types.js";
 import { readBundleFile } from "../migration/bundle-file.js";
 import { readManifest, type MigrationManifest } from "../migration/manifest.js";
@@ -166,6 +167,39 @@ export async function prepareExportDirectory(directory: string): Promise<boolean
     return true;
   } catch (error) {
     return error !== null && typeof error === "object" && "code" in error && error.code === "ENOENT";
+  }
+}
+
+/** Quarantine a run leaf containing only an unlocked orphan manifest lock. */
+export async function prepareRunDirectory(directory: string): Promise<boolean> {
+  if (await prepareExportDirectory(directory)) return true;
+  const lockName = "migration-manifest.json.lock";
+  const lockPath = path.join(directory, lockName);
+  let database: Database.Database | undefined;
+  try {
+    const directoryStat = await fs.lstat(directory);
+    if (!directoryStat.isDirectory() || directoryStat.isSymbolicLink()) return false;
+    const entries = await fs.readdir(directory);
+    if (entries.length !== 1 || entries[0] !== lockName) return false;
+    const lockStat = await fs.lstat(lockPath);
+    if (!lockStat.isFile() || lockStat.isSymbolicLink() || lockStat.nlink !== 1) return false;
+    database = new Database(lockPath, { timeout: 0 });
+    database.exec("BEGIN EXCLUSIVE");
+    database.exec("ROLLBACK");
+    database.close();
+    database = undefined;
+    const currentDirectory = await fs.lstat(directory);
+    const currentLock = await fs.lstat(lockPath);
+    if (currentDirectory.dev !== directoryStat.dev || currentDirectory.ino !== directoryStat.ino ||
+      currentLock.dev !== lockStat.dev || currentLock.ino !== lockStat.ino ||
+      (await fs.readdir(directory)).join("\0") !== lockName) return false;
+    const quarantine = `${directory}-orphan-lock-${randomUUID()}`;
+    await fs.rename(directory, quarantine);
+    return true;
+  } catch {
+    return false;
+  } finally {
+    database?.close();
   }
 }
 
@@ -807,7 +841,7 @@ async function migrateSelectedSession(options: {
   const runDirectoryStat = await fs.stat(runDirectory).catch(() => undefined);
   const releasedEmptyRunDirectory = manifestStat === undefined &&
     runDirectoryStat !== undefined &&
-    await prepareExportDirectory(runDirectory);
+    await prepareRunDirectory(runDirectory);
   const mode = resolveInteractiveMigrationMode({
     manifest,
     runDirectory,
