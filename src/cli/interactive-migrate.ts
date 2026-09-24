@@ -1,14 +1,20 @@
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import type { MigrationBundle } from "../ir/types.js";
+import { readBundleFile } from "../migration/bundle-file.js";
 import { detectTraeVersion } from "../source/trae/collect.js";
 import { requireTraeRoot } from "../source/trae/path-discovery.js";
 import { connectTraeRuntime } from "../source/trae/runtime-cdp.js";
 import { createTraeRuntimeReader } from "../source/trae/runtime-reader.js";
-import { readTraeSessionMetadata } from "../source/trae/session-metadata.js";
+import {
+  readTraeSessionMetadata,
+  type TraeSessionMetadata,
+} from "../source/trae/session-metadata.js";
 
 const MAX_BUNDLE_BYTES = 128 * 1024 * 1024;
 const WORKBENCH_URL =
@@ -20,19 +26,91 @@ type WorkbenchTarget = {
   url: string;
 };
 
-type SessionChoice = {
+export type SessionChoice = {
   id: string;
   title: string;
-  recovery: string;
+  metadataStatus: string;
   updatedAt?: number;
 };
 
-const RECOVERY_LABELS: Record<string, string> = {
-  complete: "完整",
-  partial: "部分可恢复",
-  "metadata-only": "仅元数据",
-  unrecoverable: "不可恢复",
+const METADATA_STATUS_LABELS: Record<string, string> = {
+  complete: "元数据完整",
+  partial: "元数据部分可用",
+  invalid: "元数据有问题",
 };
+
+export type MigrationDirectories = {
+  exportDirectory: string;
+  runDirectory: string;
+};
+
+function selectionKey(sourceSessionId: string): string {
+  return createHash("sha256").update(sourceSessionId).digest("hex").slice(0, 16);
+}
+
+export function resolveMigrationDirectories(
+  rootDirectory: string,
+  sourceSessionId: string,
+  exportOverride?: string,
+  runOverride?: string,
+): MigrationDirectories {
+  const exportRoot = path.resolve(exportOverride ?? path.join(rootDirectory, "trae-export"));
+  const runRoot = path.resolve(runOverride ?? path.join(rootDirectory, "migration-run"));
+  const hasExportOverride = exportOverride !== undefined;
+  const hasRunOverride = runOverride !== undefined;
+  const key = `session-${selectionKey(sourceSessionId)}`;
+  return {
+    exportDirectory: hasExportOverride ? exportRoot : path.join(exportRoot, key),
+    runDirectory: hasRunOverride ? runRoot : path.join(runRoot, key),
+  };
+}
+
+export function parseChoiceIndex(answer: string, count: number): number | undefined {
+  const index = Number.parseInt(answer.trim(), 10) - 1;
+  return Number.isInteger(index) && index >= 0 && index < count ? index : undefined;
+}
+
+export function formatMetadataStatus(status: string): string {
+  return METADATA_STATUS_LABELS[status] ?? "元数据状态未知";
+}
+
+function runtimeMetadataRecord(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined;
+}
+
+export function buildSessionChoices(
+  sessions: readonly TraeSessionMetadata[],
+  records: readonly unknown[],
+): SessionChoice[] {
+  const metadata = new Map(
+    records
+      .map(runtimeMetadataRecord)
+      .filter((record): record is Record<string, unknown> => record !== undefined)
+      .map((record) => [String(record.chat_session_id), record]),
+  );
+  return sessions.map((session) => {
+    const record = metadata.get(session.sourceSessionId);
+    return {
+      id: session.sourceSessionId,
+      title: typeof record?.title === "string" && record.title.trim()
+        ? record.title.replace(/\s+/g, " ").trim()
+        : "未命名会话",
+      metadataStatus: formatMetadataStatus(session.metadataStatus),
+      updatedAt: typeof record?.updated_at === "string"
+        ? Number(record.updated_at)
+        : session.updatedAt,
+    };
+  });
+}
+
+export function bundleMatchesSession(
+  bundle: MigrationBundle,
+  sourceSessionId: string,
+): boolean {
+  return bundle.sessions.length === 1 && bundle.sessions[0].sourceId === sourceSessionId;
+}
 
 function friendlyCode(outputText: string): string {
   for (const line of outputText.trim().split(/\r?\n/).reverse()) {
@@ -136,8 +214,8 @@ async function chooseWorkbench(cdp: string): Promise<WorkbenchTarget> {
   const rl = createInterface({ input, output });
   try {
     const answer = await rl.question("请输入 workbench 编号：");
-    const index = Number.parseInt(answer.trim(), 10) - 1;
-    if (!Number.isInteger(index) || !targets[index]) throw new Error("TRAE_DEBUG_TARGET_INVALID");
+    const index = parseChoiceIndex(answer, targets.length);
+    if (index === undefined) throw new Error("TRAE_DEBUG_TARGET_INVALID");
     return targets[index];
   } finally {
     rl.close();
@@ -165,25 +243,7 @@ async function chooseSession(
     const records = await reader.readMetadata(
       localReport.sessions.map((session) => session.sourceSessionId),
     );
-    const metadata = new Map(
-      records
-        .filter((record): record is Record<string, unknown> =>
-          record !== null && typeof record === "object")
-        .map((record) => [String(record.chat_session_id), record]),
-    );
-    const choices: SessionChoice[] = localReport.sessions.map((session) => {
-      const record = metadata.get(session.sourceSessionId);
-      return {
-        id: session.sourceSessionId,
-        title: typeof record?.title === "string" && record.title.trim()
-          ? record.title.replace(/\s+/g, " ").trim()
-          : "未命名会话",
-        recovery: RECOVERY_LABELS[session.metadataStatus] ?? session.metadataStatus,
-        updatedAt: typeof record?.updated_at === "string"
-          ? Number(record.updated_at)
-          : session.updatedAt,
-      };
-    });
+    const choices = buildSessionChoices(localReport.sessions, records);
     const requested = process.env.T2O_TRAE_SESSION;
     if (requested) {
       const selected = choices.find((choice) => choice.id === requested);
@@ -194,14 +254,14 @@ async function chooseSession(
     console.log("\n请选择要迁移的 TRAE 会话：");
     choices.forEach((choice, index) => {
       console.log(
-        `  ${index + 1}. ${choice.title} · ${choice.recovery} · ${formatUpdatedAt(choice.updatedAt)}`,
+        `  ${index + 1}. ${choice.title} · ${choice.metadataStatus} · ${formatUpdatedAt(choice.updatedAt)}`,
       );
     });
     const rl = createInterface({ input, output });
     try {
       const answer = await rl.question("请输入会话编号：");
-      const index = Number.parseInt(answer.trim(), 10) - 1;
-      if (!Number.isInteger(index) || !choices[index]) throw new Error("TRAE_SESSION_INVALID");
+      const index = parseChoiceIndex(answer, choices.length);
+      if (index === undefined) throw new Error("TRAE_SESSION_INVALID");
       return choices[index].id;
     } finally {
       rl.close();
@@ -215,13 +275,6 @@ async function main(): Promise<number> {
   const cdp = process.env.T2O_TRAE_CDP ?? "http://127.0.0.1:9222";
   const server = process.env.T2O_OPENCODE_SERVER ?? "http://127.0.0.1:4096";
   const rootDirectory = process.cwd();
-  const exportDirectory = path.resolve(
-    process.env.T2O_MIGRATION_EXPORT ?? path.join(rootDirectory, "trae-export"),
-  );
-  const runDirectory = path.resolve(
-    process.env.T2O_MIGRATION_RUN ?? path.join(rootDirectory, "migration-run"),
-  );
-  const inputFile = path.join(exportDirectory, "migration-bundle.json");
   const cliPath = fileURLToPath(new URL("./index.js", import.meta.url));
 
   console.log("正在准备迁移工具...");
@@ -255,13 +308,34 @@ async function main(): Promise<number> {
     return 4;
   }
 
-  if (await fs.stat(inputFile).catch(() => undefined)) {
-    console.log("已发现已有迁移 bundle。");
-  } else {
-    if (await fs.stat(exportDirectory).catch(() => undefined)) {
-      console.error("导出目录已存在但没有 bundle，请更换目录后重试。");
+  const directories = resolveMigrationDirectories(
+    rootDirectory,
+    sessionId,
+    process.env.T2O_MIGRATION_EXPORT,
+    process.env.T2O_MIGRATION_RUN,
+  );
+  const exportDirectory = directories.exportDirectory;
+  const runDirectory = directories.runDirectory;
+  const inputFile = path.join(exportDirectory, "migration-bundle.json");
+  const existingBundle = await fs.stat(inputFile).catch(() => undefined);
+  if (existingBundle) {
+    if (!existingBundle.isFile()) {
+      console.error("已有迁移 bundle 不是普通文件，已停止以避免覆盖数据。");
       return 4;
     }
+    try {
+      const bundle = await readBundleFile(inputFile);
+      if (!bundleMatchesSession(bundle, sessionId)) {
+        console.error("已有迁移 bundle 与本次选择的会话不一致，已停止以避免误迁移。");
+        return 4;
+      }
+    } catch {
+      console.error("已有迁移 bundle 无法校验，已停止以避免覆盖数据。");
+      return 4;
+    }
+    console.log("已发现并校验当前会话的迁移 bundle。");
+  } else {
+    await fs.mkdir(path.dirname(exportDirectory), { recursive: true, mode: 0o700 });
     console.log("正在导出所选会话...");
     const exported = await runCli([
       "export", "--cdp", cdp, "--cdp-target", target.id,
@@ -299,4 +373,9 @@ async function main(): Promise<number> {
   return 0;
 }
 
-main().then((code) => { process.exitCode = code; });
+const isMainModule = process.argv[1] !== undefined &&
+  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+
+if (isMainModule) {
+  main().then((code) => { process.exitCode = code; });
+}
