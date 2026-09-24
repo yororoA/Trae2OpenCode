@@ -4,11 +4,13 @@ import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 import * as fs from "node:fs/promises";
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { MigrationBundle } from "../ir/types.js";
 import { readBundleFile } from "../migration/bundle-file.js";
 import { readManifest, type MigrationManifest } from "../migration/manifest.js";
+import { createMigrationTarget } from "../migration/target.js";
 import { connectTraeRuntime } from "../source/trae/runtime-cdp.js";
 import { createTraeRuntimeReader } from "../source/trae/runtime-reader.js";
 import {
@@ -264,6 +266,15 @@ export async function findReplacementManifest(options: {
   return candidates[0]?.filename;
 }
 
+export async function replacementTargetExists(
+  manifestFilename: string,
+  readSession: (targetId: string) => Promise<unknown | null>,
+): Promise<boolean> {
+  const manifest = await readManifest(manifestFilename);
+  const targetId = manifest.sessions[0]?.targetId;
+  return typeof targetId === "string" && await readSession(targetId) !== null;
+}
+
 async function removeUnchangedDirectory(directory: string, initial: Awaited<ReturnType<typeof fs.lstat>>) {
   const current = await fs.lstat(directory);
   if (!current.isDirectory() || current.isSymbolicLink() ||
@@ -388,6 +399,23 @@ export function localServerUrl(outputText: string): string | undefined {
   return outputText.match(/http:\/\/127\.0\.0\.1:\d+/)?.[0];
 }
 
+export type OpenCodeServiceDescriptor = {
+  url: string;
+  password: string;
+};
+
+export function parseOpenCodeServiceDescriptor(value: unknown): OpenCodeServiceDescriptor | undefined {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const descriptor = value as Record<string, unknown>;
+  const url = typeof descriptor.url === "string" ? localServerUrl(descriptor.url) : undefined;
+  const password = typeof descriptor.password === "string" ? descriptor.password : undefined;
+  if (url === undefined || url !== descriptor.url || descriptor.version !== OPENCODE_VERSION ||
+    password === undefined || password.length < 8 || password.length > 512) {
+    return undefined;
+  }
+  return { url, password };
+}
+
 async function canAccessOpenCodeServer(
   server: string,
   password = process.env.OPENCODE_SERVER_PASSWORD,
@@ -408,6 +436,30 @@ async function canAccessOpenCodeServer(
   }
 }
 
+async function discoverOpenCodeService(): Promise<OpenCodeServiceDescriptor | undefined> {
+  const roots = [
+    process.env.XDG_STATE_HOME,
+    path.join(os.homedir(), ".local", "state"),
+  ].filter((value): value is string => typeof value === "string" && value.length > 0);
+  for (const root of [...new Set(roots.map((value) => path.resolve(value)))]) {
+    const filename = path.join(root, "opencode", "service.json");
+    try {
+      const stat = await fs.lstat(filename);
+      if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 ||
+        stat.size <= 0 || stat.size > 16 * 1024) continue;
+      const descriptor = parseOpenCodeServiceDescriptor(
+        JSON.parse(await fs.readFile(filename, "utf8")),
+      );
+      if (descriptor && await canAccessOpenCodeServer(descriptor.url, descriptor.password)) {
+        return descriptor;
+      }
+    } catch {
+      // Missing, stale or malformed descriptors are ignored.
+    }
+  }
+  return undefined;
+}
+
 async function stopManagedServer(child: ChildProcess): Promise<void> {
   if (child.exitCode !== null || child.signalCode !== null) return;
   child.kill("SIGTERM");
@@ -422,18 +474,8 @@ export function createManagedOpenCodeEnvironment(
   stateDirectory: string,
   baseEnvironment: NodeJS.ProcessEnv = process.env,
 ): NodeJS.ProcessEnv {
-  const dataDirectory = path.join(stateDirectory, "data");
-  const configDirectory = path.join(stateDirectory, "config");
-  const cacheDirectory = path.join(stateDirectory, "cache");
   const env = { ...baseEnvironment };
   env.XDG_STATE_HOME = stateDirectory;
-  env.XDG_DATA_HOME = dataDirectory;
-  env.XDG_CONFIG_HOME = configDirectory;
-  env.XDG_CACHE_HOME = cacheDirectory;
-  env.OPENCODE_DB = path.join(dataDirectory, "opencode", "opencode.db");
-  env.OPENCODE_CONFIG_DIR = path.join(configDirectory, "opencode");
-  env.OPENCODE_CONFIG_CONTENT = "{}";
-  env.OPENCODE_DISABLE_PROJECT_CONFIG = "1";
   env.OPENCODE_DISABLE_DEFAULT_PLUGINS = "1";
   env.OPENCODE_DISABLE_MODELS_FETCH = "1";
   env.OPENCODE_DISABLE_AUTOUPDATE = "1";
@@ -763,11 +805,14 @@ async function migrateSelectedSession(options: {
   const manifest = path.join(runDirectory, "migration-manifest.json");
   const manifestStat = await fs.stat(manifest).catch(() => undefined);
   const runDirectoryStat = await fs.stat(runDirectory).catch(() => undefined);
+  const releasedEmptyRunDirectory = manifestStat === undefined &&
+    runDirectoryStat !== undefined &&
+    await prepareExportDirectory(runDirectory);
   const mode = resolveInteractiveMigrationMode({
     manifest,
     runDirectory,
     manifestExists: manifestStat !== undefined,
-    runDirectoryExists: runDirectoryStat !== undefined,
+    runDirectoryExists: runDirectoryStat !== undefined && !releasedEmptyRunDirectory,
     replacementManifest: job.replacementManifest,
     resumeNeedsExclusiveAccess: job.resumeNeedsExclusiveAccess,
   });
@@ -871,24 +916,52 @@ async function main(): Promise<number> {
   const jobs = await Promise.all(
     sessions.map((session) => createSessionMigrationJob(rootDirectory, session)),
   );
-  const overwriteCount = jobs.filter((job) =>
-    job.replacementManifest !== undefined || job.resumeNeedsExclusiveAccess).length;
-  if (!await confirmOverwrite(overwriteCount)) {
-    console.error("未确认覆盖，未写入 OpenCode。");
-    return 4;
-  }
 
   let managedServer: Awaited<ReturnType<typeof startManagedOpenCodeServer>> | undefined;
+  let serverPassword = process.env.OPENCODE_SERVER_PASSWORD;
   try {
-    if (!process.env.T2O_OPENCODE_SERVER && !await canAccessOpenCodeServer(server)) {
-      console.log("默认 OpenCode 服务不可访问，正在临时启动本机服务...");
+    if (!process.env.T2O_OPENCODE_SERVER &&
+      !await canAccessOpenCodeServer(server, serverPassword)) {
+      const discovered = await discoverOpenCodeService();
+      if (discovered) {
+        server = discovered.url;
+        serverPassword = discovered.password;
+        console.log("已连接当前 OpenCode 2.0.12 本机服务。");
+      } else {
+        console.log("默认 OpenCode 服务不可访问，正在临时启动本机服务...");
+        try {
+          managedServer = await startManagedOpenCodeServer();
+          server = managedServer.url;
+          serverPassword = managedServer.password;
+        } catch {
+          console.error("无法自动启动 OpenCode，请确认已安装 2.0.12。");
+          return 4;
+        }
+      }
+    }
+
+    const migrationTarget = createMigrationTarget({
+      serverUrl: server,
+      password: serverPassword,
+    });
+    for (const job of jobs) {
+      if (!job.replacementManifest) continue;
       try {
-        managedServer = await startManagedOpenCodeServer();
-        server = managedServer.url;
+        const exists = await replacementTargetExists(
+          job.replacementManifest,
+          (targetId) => migrationTarget.readSession(targetId),
+        );
+        if (!exists) delete job.replacementManifest;
       } catch {
-        console.error("无法自动启动 OpenCode，请确认已安装 2.0.12。");
+        console.error("无法核对已有目标会话，已停止以保护 OpenCode 数据。");
         return 4;
       }
+    }
+    const overwriteCount = jobs.filter((job) =>
+      job.replacementManifest !== undefined || job.resumeNeedsExclusiveAccess).length;
+    if (!await confirmOverwrite(overwriteCount)) {
+      console.error("未确认覆盖，未写入 OpenCode。");
+      return 4;
     }
 
     let completed = 0;
@@ -898,7 +971,7 @@ async function main(): Promise<number> {
         target,
         cdp,
         server,
-        password: managedServer?.password,
+        password: serverPassword,
         rootDirectory,
         cliPath,
         position: index + 1,

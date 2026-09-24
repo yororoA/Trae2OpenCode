@@ -20,8 +20,10 @@ import {
   localServerUrl,
   parseChoiceIndex,
   parseChoiceIndexes,
+  parseOpenCodeServiceDescriptor,
   prepareExportDirectory,
   replacementResumeNeedsExclusiveAccess,
+  replacementTargetExists,
   resolveInteractiveMigrationMode,
   resolveMigrationDirectories,
 } from "../interactive-migrate.js";
@@ -113,21 +115,39 @@ describe("interactive migration helpers", () => {
     assert.equal(confirmsOverwrite("yes"), false);
   });
 
-  it("isolates managed OpenCode data, config, cache and credentials", () => {
+  it("isolates the managed service descriptor while retaining the user's target database", () => {
     const environment = createManagedOpenCodeEnvironment("/tmp/managed-opencode", {
       XDG_DATA_HOME: "/Users/example/.local/share",
+      OPENCODE_DB: "/Users/example/.local/share/opencode/opencode.db",
       OPENCODE_SERVER_PASSWORD: "private",
       OPENCODE_USERNAME: "private-user",
     });
     assert.equal(environment.XDG_STATE_HOME, "/tmp/managed-opencode");
-    assert.equal(environment.XDG_DATA_HOME, "/tmp/managed-opencode/data");
-    assert.equal(environment.XDG_CONFIG_HOME, "/tmp/managed-opencode/config");
-    assert.equal(environment.XDG_CACHE_HOME, "/tmp/managed-opencode/cache");
-    assert.equal(environment.OPENCODE_DB, "/tmp/managed-opencode/data/opencode/opencode.db");
-    assert.equal(environment.OPENCODE_CONFIG_DIR, "/tmp/managed-opencode/config/opencode");
-    assert.equal(environment.OPENCODE_CONFIG_CONTENT, "{}");
+    assert.equal(environment.XDG_DATA_HOME, "/Users/example/.local/share");
+    assert.equal(environment.OPENCODE_DB, "/Users/example/.local/share/opencode/opencode.db");
     assert.equal(environment.OPENCODE_SERVER_PASSWORD, undefined);
     assert.equal(environment.OPENCODE_USERNAME, undefined);
+  });
+
+  it("accepts only authenticated OpenCode 2.0.12 loopback service descriptors", () => {
+    assert.deepEqual(parseOpenCodeServiceDescriptor({
+      url: "http://127.0.0.1:49374",
+      version: "2.0.12",
+      password: "long-enough-password",
+    }), {
+      url: "http://127.0.0.1:49374",
+      password: "long-enough-password",
+    });
+    assert.equal(parseOpenCodeServiceDescriptor({
+      url: "http://remote.test:49374",
+      version: "2.0.12",
+      password: "long-enough-password",
+    }), undefined);
+    assert.equal(parseOpenCodeServiceDescriptor({
+      url: "http://127.0.0.1:49374",
+      version: "2.0.16",
+      password: "long-enough-password",
+    }), undefined);
   });
 
   it("reads the final structured CLI result without exposing progress text", () => {
@@ -335,6 +355,23 @@ describe("interactive migration helpers", () => {
         runRoot: root,
         currentRunDirectory: current,
       }), path.join(newest, "migration-manifest.json"));
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("drops replacement mode when the previously migrated target was deleted", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "trae2opencode-target-"));
+    try {
+      const filename = await writeManifest(
+        path.join(root, "session-1111111111111111"),
+        replacementManifest("session-a"),
+      );
+      assert.equal(await replacementTargetExists(filename, async (targetId) => {
+        assert.equal(targetId, "ses_target");
+        return null;
+      }), false);
+      assert.equal(await replacementTargetExists(filename, async () => ({ id: "ses_target" })), true);
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
