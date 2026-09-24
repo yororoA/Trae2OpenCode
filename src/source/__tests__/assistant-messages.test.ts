@@ -233,7 +233,7 @@ describe("parseTraeRuntimeAssistantMessages", () => {
     assert.doesNotMatch(JSON.stringify(report.issues), /private proposal reasoning|private plan thought|private plan reasoning/);
   });
 
-  it("uses chat plan thought and lets an explicit response summary override it", () => {
+  it("preserves chat progress thoughts and the final response summary in source order", () => {
     const report = parseTraeRuntimeAssistantMessages(
       [
         runtimeAssistant({
@@ -271,18 +271,22 @@ describe("parseTraeRuntimeAssistantMessages", () => {
 
     assert.deepStrictEqual(
       report.messages[0].textBlocks.map((block) => block.text),
-      ["final response"],
+      ["initial visible response", "later plan thought", "final response"],
     );
     assert.equal(
-      report.messages[0].textBlocks[0].source.locator,
+      report.messages[0].textBlocks[2].source.locator,
       "content.messages[1].plan_item.tool_call_info.params.summary",
     );
     assert.doesNotMatch(
       JSON.stringify(report.messages[0].textBlocks),
-      /initial visible response|later plan thought|private reasoning/,
+      /private reasoning/,
+    );
+    assert.equal(
+      report.issues.some((issue) => issue.code === "T2O_TRAE_PLAN_THOUGHT_UNMAPPED"),
+      false,
     );
 
-    const firstPlanItemIsAuthoritative =
+    const laterProgressRemainsVisible =
       parseTraeRuntimeAssistantMessages(
         [
           runtimeAssistant({
@@ -296,7 +300,7 @@ describe("parseTraeRuntimeAssistantMessages", () => {
                 },
                 {
                   type: "plan_item",
-                  plan_item: { id: "plan-chat-b", thought: "later private thought" },
+                  plan_item: { id: "plan-chat-b", thought: "later visible progress" },
                 },
               ],
             },
@@ -305,13 +309,88 @@ describe("parseTraeRuntimeAssistantMessages", () => {
         "3.3.104",
       );
     assert.deepStrictEqual(
-      firstPlanItemIsAuthoritative.messages[0].textBlocks,
-      [],
+      laterProgressRemainsVisible.messages[0].textBlocks.map((block) => block.text),
+      ["later visible progress"],
     );
-    assert.doesNotMatch(
-      JSON.stringify(firstPlanItemIsAuthoritative.issues),
-      /later private thought/,
+    assert.deepEqual(laterProgressRemainsVisible.issues, []);
+  });
+
+  it("keeps the final response once when a progress thought contains the same text", () => {
+    const report = parseTraeRuntimeAssistantMessages(
+      [
+        runtimeAssistant({
+          message_type: "task",
+          agent_type: "chat",
+          content: {
+            messages: [
+              {
+                type: "plan_item",
+                plan_item: {
+                  id: "plan-progress",
+                  thought: "checking files",
+                },
+              },
+              {
+                type: "plan_item",
+                plan_item: {
+                  id: "plan-finish",
+                  thought: "final response",
+                  tool_call_info: {
+                    name: "finish",
+                    params: { summary: "final response" },
+                  },
+                },
+              },
+            ],
+          },
+        }),
+      ],
+      "3.3.104",
     );
+
+    assert.deepStrictEqual(
+      report.messages[0].textBlocks.map((block) => block.text),
+      ["checking files", "final response"],
+    );
+    assert.equal(
+      report.messages[0].textBlocks[1].source.locator,
+      "content.messages[1].plan_item.tool_call_info.params.summary",
+    );
+  });
+
+  it("rejects an invalid later progress field without exposing its value", () => {
+    const report = parseTraeRuntimeAssistantMessages(
+      [
+        runtimeAssistant({
+          message_type: "task",
+          agent_type: "chat",
+          content: {
+            messages: [
+              {
+                type: "plan_item",
+                plan_item: { id: "plan-progress-a", thought: "visible progress" },
+              },
+              {
+                type: "plan_item",
+                plan_item: {
+                  id: "plan-progress-b",
+                  thought: { private: "not visible" },
+                },
+              },
+            ],
+          },
+        }),
+      ],
+      "3.3.104",
+    );
+
+    assert.deepEqual(
+      report.messages[0].textBlocks.map((block) => block.text),
+      ["visible progress"],
+    );
+    assert.ok(report.issues.some((issue) =>
+      issue.code === "T2O_TRAE_ASSISTANT_MESSAGE_CONTENT_INVALID"));
+    assert.doesNotMatch(JSON.stringify(report.issues), /not visible|private/);
   });
 
   it("retains valid metadata when no assistant text can be mapped", () => {
@@ -353,7 +432,7 @@ describe("parseTraeRuntimeAssistantMessages", () => {
     assert.deepEqual(report.messages[0].textBlocks.map((block) => block.text), ["final answer"]);
   });
 
-  it("projects the verified solo agent finish summary", () => {
+  it("projects solo agent progress followed by its verified finish summary", () => {
     const report = parseTraeRuntimeAssistantMessages([runtimeAssistant({
       message_type: "task",
       agent_type: "solo_agent",
@@ -361,14 +440,13 @@ describe("parseTraeRuntimeAssistantMessages", () => {
         type: "plan_item",
         plan_item: {
           id: "plan-solo-finish",
-          thought: "internal plan thought",
+          thought: "visible progress update",
           tool_call_info: { name: "finish", params: { summary: "visible solo answer" } },
         },
       }] },
     })], "3.3.104");
     assert.deepEqual(report.messages[0].textBlocks.map((block) => block.text),
-      ["visible solo answer"]);
-    assert.doesNotMatch(JSON.stringify(report.messages[0].textBlocks), /internal plan thought/);
+      ["visible progress update", "visible solo answer"]);
   });
 
   it("isolates invalid timing and status without leaking content", () => {

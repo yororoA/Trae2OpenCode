@@ -40,8 +40,9 @@ resume 仍为 verified；独立重复迁移 created=0、skipped=1。verify 的 e
 2. runtime `getSession` 的一条悬空 ID 曾使整批 metadata 丢失。现在逐会话隔离；
    至少一个有效响应时保留有效项，整批失败仍拒绝。
 3. 当前 renderer 使用 `agent_type: "solo_agent"`，最终正文仍是已验证的
-   lowercase `finish.params.summary`。该显式类型复用 chat summary 映射；
-   其他 plan thought 不猜作可见正文，继续产生降级诊断。
+   lowercase `finish.params.summary`。该显式类型复用 chat summary 映射。
+   本报告验收时其他 plan thought 尚未投影；后续已确认这些字段包含同步展示的
+   进度描述，现按源顺序作为正文保留，`reasoning_content` 仍保持独立。
 4. runtime 存在 name/params/result 均为空的工具占位。严格空占位不再误报工具
    调用；具有输入或结果但缺少名称的记录仍拒绝映射。
 5. 带 workspaceStorageId 的资源错误此前成为 bundle 级错误并阻止所有 workspace。
