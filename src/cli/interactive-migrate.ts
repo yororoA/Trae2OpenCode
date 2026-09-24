@@ -18,7 +18,7 @@ import {
 import { OPENCODE_VERSION } from "../target/opencode/contract.js";
 
 const MAX_BUNDLE_BYTES = 128 * 1024 * 1024;
-const INTERACTIVE_EXPORT_REVISION = 8;
+const INTERACTIVE_EXPORT_REVISION = 9;
 const MANAGED_OPENCODE_PORT = 4097;
 const ARTIFACT_DIRECTORY = /^session-[a-f0-9]{16}$/;
 const WORKBENCH_URL =
@@ -418,6 +418,32 @@ async function stopManagedServer(child: ChildProcess): Promise<void> {
   if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
 }
 
+export function createManagedOpenCodeEnvironment(
+  stateDirectory: string,
+  baseEnvironment: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+  const dataDirectory = path.join(stateDirectory, "data");
+  const configDirectory = path.join(stateDirectory, "config");
+  const cacheDirectory = path.join(stateDirectory, "cache");
+  const env = { ...baseEnvironment };
+  env.XDG_STATE_HOME = stateDirectory;
+  env.XDG_DATA_HOME = dataDirectory;
+  env.XDG_CONFIG_HOME = configDirectory;
+  env.XDG_CACHE_HOME = cacheDirectory;
+  env.OPENCODE_DB = path.join(dataDirectory, "opencode", "opencode.db");
+  env.OPENCODE_CONFIG_DIR = path.join(configDirectory, "opencode");
+  env.OPENCODE_CONFIG_CONTENT = "{}";
+  env.OPENCODE_DISABLE_PROJECT_CONFIG = "1";
+  env.OPENCODE_DISABLE_DEFAULT_PLUGINS = "1";
+  env.OPENCODE_DISABLE_MODELS_FETCH = "1";
+  env.OPENCODE_DISABLE_AUTOUPDATE = "1";
+  delete env.OPENCODE_SERVER_PASSWORD;
+  delete env.OPENCODE_SERVER_USERNAME;
+  delete env.OPENCODE_PASSWORD;
+  delete env.OPENCODE_USERNAME;
+  return env;
+}
+
 async function startManagedOpenCodeServer(): Promise<{
   url: string;
   password: string;
@@ -426,15 +452,7 @@ async function startManagedOpenCodeServer(): Promise<{
   const temporaryParent = path.join(process.cwd(), "tmp");
   await fs.mkdir(temporaryParent, { recursive: true, mode: 0o700 });
   const stateDirectory = await fs.mkdtemp(path.join(temporaryParent, "opencode-state-"));
-  const env = { ...process.env };
-  env.XDG_STATE_HOME = stateDirectory;
-  env.OPENCODE_DISABLE_DEFAULT_PLUGINS = "1";
-  env.OPENCODE_DISABLE_MODELS_FETCH = "1";
-  env.OPENCODE_DISABLE_AUTOUPDATE = "1";
-  delete env.OPENCODE_SERVER_PASSWORD;
-  delete env.OPENCODE_SERVER_USERNAME;
-  delete env.OPENCODE_PASSWORD;
-  delete env.OPENCODE_USERNAME;
+  const env = createManagedOpenCodeEnvironment(stateDirectory);
   const child = spawn("opencode", [
     "serve", "--hostname", "127.0.0.1",
     "--port", String(MANAGED_OPENCODE_PORT), "--service",

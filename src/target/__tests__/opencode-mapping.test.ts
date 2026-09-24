@@ -9,6 +9,7 @@ import {
   MISSING_ASSISTANT_TEXT,
   MISSING_TOOL_ERROR_TEXT,
   MISSING_TOOL_OUTPUT_TEXT,
+  TASK_PROCESS_SEPARATOR_TEXT,
 } from "../opencode/mapping.js";
 
 const fixture = JSON.parse(readFileSync(new URL(
@@ -59,6 +60,29 @@ describe("OpenCode IR mapping", () => {
       [{ completedAt: 1700000002000 }, { createdAt: 1700000001001 }]);
     assert.deepEqual(meta.unknownSourceFields, ["agent", "model"]);
     assert.deepEqual(transfer.messages[1].model, { id: "unknown", providerID: "trae-import-unknown" });
+  });
+
+  it("separates task process content from the final response summary", () => {
+    const bundle = structuredClone(fixture);
+    const event = assistant(bundle);
+    const finalText = event.content.at(-1);
+    assert.equal(finalText?.type, "text");
+    finalText!.sourceRefs[0].locator = {
+      type: "runtime-field",
+      value: 'runtime:getMessages#message["assistant-synthetic"].content.messages[2].plan_item.tool_call_info.params.summary',
+    };
+
+    const content = map(bundle).transfer.messages[1].content as JsonObject[];
+    assert.deepEqual(content.slice(-3).map((block) =>
+      block.type === "text" ? block.text : block.type), [
+      "tool",
+      TASK_PROCESS_SEPARATOR_TEXT,
+      "Final response.\n",
+    ]);
+
+    event.content = [finalText!];
+    const summaryOnly = map(bundle).transfer.messages[1].content as JsonObject[];
+    assert.deepEqual(summaryOnly, [{ type: "text", text: "Final response.\n" }]);
   });
 
   it("projects TRAE exec commands to expandable native shell tools without losing source fields", () => {

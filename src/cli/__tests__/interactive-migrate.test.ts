@@ -12,6 +12,7 @@ import {
   cleanupObsoleteArtifacts,
   cliJsonResult,
   confirmsOverwrite,
+  createManagedOpenCodeEnvironment,
   findReplacementManifest,
   formatMetadataStatus,
   isReplacementManifestForSession,
@@ -110,6 +111,23 @@ describe("interactive migration helpers", () => {
     assert.equal(confirmsOverwrite(" OVERWRITE "), true);
     assert.equal(confirmsOverwrite("overwrite"), false);
     assert.equal(confirmsOverwrite("yes"), false);
+  });
+
+  it("isolates managed OpenCode data, config, cache and credentials", () => {
+    const environment = createManagedOpenCodeEnvironment("/tmp/managed-opencode", {
+      XDG_DATA_HOME: "/Users/example/.local/share",
+      OPENCODE_SERVER_PASSWORD: "private",
+      OPENCODE_USERNAME: "private-user",
+    });
+    assert.equal(environment.XDG_STATE_HOME, "/tmp/managed-opencode");
+    assert.equal(environment.XDG_DATA_HOME, "/tmp/managed-opencode/data");
+    assert.equal(environment.XDG_CONFIG_HOME, "/tmp/managed-opencode/config");
+    assert.equal(environment.XDG_CACHE_HOME, "/tmp/managed-opencode/cache");
+    assert.equal(environment.OPENCODE_DB, "/tmp/managed-opencode/data/opencode/opencode.db");
+    assert.equal(environment.OPENCODE_CONFIG_DIR, "/tmp/managed-opencode/config/opencode");
+    assert.equal(environment.OPENCODE_CONFIG_CONTENT, "{}");
+    assert.equal(environment.OPENCODE_SERVER_PASSWORD, undefined);
+    assert.equal(environment.OPENCODE_USERNAME, undefined);
   });
 
   it("reads the final structured CLI result without exposing progress text", () => {
