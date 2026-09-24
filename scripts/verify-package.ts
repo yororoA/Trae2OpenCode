@@ -31,11 +31,11 @@ try {
   assert.equal(packed.length, 1);
   const artifact = packed[0];
   const files = artifact.files.map((file) => file.path);
-  for (const required of ["package.json", "README.md", "dist/cli/index.js", schema, sample]) {
+  for (const required of ["package.json", "README.md", "LICENSE", "dist/cli/index.js", schema, sample]) {
     assert.ok(files.includes(required), `Missing package file: ${required}`);
   }
   for (const file of files) {
-    const allowed = file === "package.json" || file === "README.md" ||
+    const allowed = file === "package.json" || file === "README.md" || file === "LICENSE" ||
       (file.startsWith("dist/") && file.endsWith(".js") && !file.includes("/__tests__/")) ||
       (file.startsWith("docs/") && file.endsWith(".md")) || file === schema || file === sample;
     assert.ok(allowed, `Unexpected package file: ${file}`);
