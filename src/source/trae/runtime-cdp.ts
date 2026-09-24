@@ -43,7 +43,7 @@ async function targets(endpoint: URL): Promise<unknown[]> {
 // Version-pinned registry module from the installed TRAE CN 3.3.104 renderer.
 // Importing an already loaded module reuses its registry. No UI/storage mutations.
 const rendererApi = `
-  const root = new URL("../../../", location.href);
+  const root = new URL("../../../../../", location.href);
   const product = await (await fetch(new URL("product.json", root))).json();
   if (product.appVersion !== "3.3.104" || !String(product.nameLong).includes("Trae CN"))
     throw new Error("Unsupported product");
@@ -96,7 +96,7 @@ export async function connectTraeRuntime(endpoint: string, targetId?: string): P
   try {
     const candidates = (await targets(url)).filter((item) => isRuntimeObject(item) &&
       item.type === "page" && typeof item.url === "string" &&
-      /\/out\/vs\/workbench\/workbench\.html(?:\?|$)/.test(item.url) &&
+      /\/out\/vs\/code\/electron-browser\/workbench\/workbench\.html(?:\?|$)/.test(item.url) &&
       (targetId === undefined || item.id === targetId));
     if (candidates.length !== 1) throw unavailable();
     const target = candidates[0] as Record<string, unknown>;

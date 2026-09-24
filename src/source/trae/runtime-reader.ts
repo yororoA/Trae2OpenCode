@@ -37,12 +37,18 @@ export function createTraeRuntimeReader(transport: TraeRuntimeTransport, limits:
     productVersion: transport.productVersion,
     async readMetadata(sourceSessionIds: readonly string[]): Promise<unknown[]> {
       const records: unknown[] = [];
+      let failures = 0;
       for (const id of sourceSessionIds) {
         assertId(id);
-        const data = dataFrom(await transport.invoke("getSession", { chat_session_id: id, env: "local" }));
-        if (data.chat_session_id !== id) invalid();
-        records.push(data);
+        try {
+          const data = dataFrom(await transport.invoke("getSession", { chat_session_id: id, env: "local" }));
+          if (data.chat_session_id !== id) invalid();
+          records.push(data);
+        } catch {
+          failures++;
+        }
       }
+      if (failures > 0 && records.length === 0) invalid();
       return records;
     },
     async readMessages(sourceSessionId: string) {

@@ -196,7 +196,27 @@ export function assembleTraeMigrationBundle(options: AssembleTraeBundleOptions):
     add(issue, session ? metadataRefs(session) : []);
   }
   for (const issue of options.workspaces.issues) add(issue);
-  for (const issue of options.resources.issues) add(issue);
+  const sessionIdsByWorkspace = new Map<string, string[]>();
+  for (const session of metadata.values()) {
+    for (const workspaceStorageId of session.workspaceStorageIds) {
+      const ids = sessionIdsByWorkspace.get(workspaceStorageId) ?? [];
+      ids.push(session.sourceSessionId);
+      sessionIdsByWorkspace.set(workspaceStorageId, ids);
+    }
+  }
+  for (const issue of options.resources.issues) {
+    const sessionIds = issue.sourceSessionId
+      ? [issue.sourceSessionId]
+      : issue.workspaceStorageId
+        ? sessionIdsByWorkspace.get(issue.workspaceStorageId) ?? []
+        : [];
+    if (sessionIds.length === 0) add(issue);
+    else {
+      for (const sourceSessionId of sessionIds) {
+        add({ ...issue, sourceSessionId }, [], sourceSessionId);
+      }
+    }
+  }
 
   const projectsByPath = new Map<string, ProjectIR>();
   const workspaceProjects = new Map<string, Set<string>>();

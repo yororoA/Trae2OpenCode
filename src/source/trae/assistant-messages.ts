@@ -480,7 +480,10 @@ function parseTaskContent(
   if (!envelope || !Array.isArray(envelope.messages)) {
     return { valid: false, textBlocks: [] };
   }
-  return agentType === "chat"
+  const usesPlanSummary =
+    agentType === "chat" ||
+    agentType === "solo_agent";
+  return usesPlanSummary
     ? parseChatTaskContent(envelope.messages)
     : parseProposalTaskContent(envelope.messages);
 }

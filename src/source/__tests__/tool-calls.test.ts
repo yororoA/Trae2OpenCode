@@ -92,6 +92,24 @@ describe("parseTraeToolCalls", () => {
       ["T2O_TRAE_TOOL_RESULT_MISSING", "T2O_TRAE_TOOL_STATUS_UNSUPPORTED"]);
   });
 
+  it("ignores verified empty tool placeholders without hiding malformed calls", () => {
+    const emptyPlaceholder = {
+      type: "plan_item",
+      plan_item: {
+        id: "plan-placeholder",
+        tool_call_info: {
+          id: "placeholder-a", name: "", params: undefined, result: {},
+          already_emitted_generating_event: false, already_emitted_run_event: false,
+        },
+        timing: { generated_at_ms: 100 },
+      },
+    };
+    const malformed = observation("call-b", {}, { name: "", params: { path: "a" } });
+    const report = parse([emptyPlaceholder, malformed]);
+    assert.deepEqual(report.toolCalls, []);
+    assert.deepEqual(report.issues.map((issue) => issue.code), ["T2O_TRAE_TOOL_CALL_INVALID"]);
+  });
+
   it("rejects orphan results, invalid JSON inputs, and invalid result payloads without exposing them", () => {
     const report = parse([
       observation("", { status: "success", data: "orphan output" }),
