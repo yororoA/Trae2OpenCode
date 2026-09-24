@@ -208,7 +208,7 @@ async function parent(): Promise<void> {
     const oversized = path.join(server.directory, "oversized.json");
     const file = await fs.open(oversized, "wx");
     try { await file.truncate(128 * 1024 * 1024 + 1); } finally { await file.close(); }
-    await assert.rejects(readBundleFile(oversized), { code: "T2O_MIGRATION_BUNDLE_READ_FAILED" });
+    await assert.rejects(readBundleFile(oversized), { code: "T2O_MIGRATION_BUNDLE_TOO_LARGE" });
     const report = {
       platform: process.platform, node: process.version, targetVersion: "2.0.12",
       source: "synthetic-pressure-fixtures", rssSamplingMs: 25,
