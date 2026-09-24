@@ -90,6 +90,11 @@ TRAE 若将工具标记为 completed 但没有持久化 output，会保留该工
 若某轮没有持久化最终 assistant 正文，会显示明确的缺失提示，不会拿过程推理或
 工具结果冒充最终回答。
 
+成功校验后会保留当前会话最新的 bundle 和 manifest：bundle 用于稳定续跑及重新
+映射，manifest 用于 verify、rollback 和受保护替换。属于同一来源会话、已被当前
+verified 版本取代的旧终态目录会自动清理；失败、进行中、无效或显式指定路径的产物
+不会自动删除。
+
 ## 从 TRAE 导出
 
 先执行 `trae2opencode doctor --json`。默认发现位置：

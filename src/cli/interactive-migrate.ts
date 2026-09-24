@@ -8,6 +8,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { MigrationBundle } from "../ir/types.js";
 import { readBundleFile } from "../migration/bundle-file.js";
+import { readManifest, type MigrationManifest } from "../migration/manifest.js";
 import { connectTraeRuntime } from "../source/trae/runtime-cdp.js";
 import { createTraeRuntimeReader } from "../source/trae/runtime-reader.js";
 import {
@@ -19,6 +20,7 @@ import { OPENCODE_VERSION } from "../target/opencode/contract.js";
 const MAX_BUNDLE_BYTES = 128 * 1024 * 1024;
 const INTERACTIVE_EXPORT_REVISION = 6;
 const MANAGED_OPENCODE_PORT = 4097;
+const ARTIFACT_DIRECTORY = /^session-[a-f0-9]{16}$/;
 const WORKBENCH_URL =
   /\/out\/vs\/code\/electron-browser\/workbench\/workbench\.html(?:\?|$)/;
 
@@ -44,6 +46,11 @@ const METADATA_STATUS_LABELS: Record<string, string> = {
 export type MigrationDirectories = {
   exportDirectory: string;
   runDirectory: string;
+};
+
+export type ArtifactCleanupResult = {
+  exportDirectories: number;
+  runDirectories: number;
 };
 
 function selectionKey(sourceSessionId: string, sourceUpdatedAt?: number): string {
@@ -133,6 +140,66 @@ export async function prepareExportDirectory(directory: string): Promise<boolean
   } catch (error) {
     return error !== null && typeof error === "object" && "code" in error && error.code === "ENOENT";
   }
+}
+
+export function isTerminalManifestForSession(
+  manifest: MigrationManifest,
+  sourceSessionId: string,
+): boolean {
+  const terminalStates = new Set(["verified", "skipped", "excluded", "blocked", "rolled-back"]);
+  return manifest.sessions.length > 0 &&
+    manifest.sessions.every((item) =>
+      item.sourceId === sourceSessionId && terminalStates.has(item.state));
+}
+
+async function removeUnchangedDirectory(directory: string, initial: Awaited<ReturnType<typeof fs.lstat>>) {
+  const current = await fs.lstat(directory);
+  if (!current.isDirectory() || current.isSymbolicLink() ||
+    current.dev !== initial.dev || current.ino !== initial.ino) return false;
+  await fs.rm(directory, { recursive: true });
+  return true;
+}
+
+/** Remove only validated, terminal revisions superseded by the current verified run. */
+export async function cleanupObsoleteArtifacts(options: {
+  sourceSessionId: string;
+  exportRoot: string;
+  runRoot: string;
+  currentExportDirectory: string;
+  currentRunDirectory: string;
+}): Promise<ArtifactCleanupResult> {
+  const result = { exportDirectories: 0, runDirectories: 0 };
+  const cleanupRoot = async (
+    root: string,
+    currentDirectory: string,
+    kind: "export" | "run",
+  ) => {
+    const entries = await fs.readdir(root, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+      if (!entry.isDirectory() || !ARTIFACT_DIRECTORY.test(entry.name)) continue;
+      const directory = path.resolve(root, entry.name);
+      if (directory === path.resolve(currentDirectory)) continue;
+      try {
+        const initial = await fs.lstat(directory);
+        if (!initial.isDirectory() || initial.isSymbolicLink()) continue;
+        if (kind === "export") {
+          const bundle = await readBundleFile(path.join(directory, "migration-bundle.json"));
+          if (!bundleMatchesSession(bundle, options.sourceSessionId)) continue;
+        } else {
+          const manifest = await readManifest(path.join(directory, "migration-manifest.json"));
+          if (!isTerminalManifestForSession(manifest, options.sourceSessionId)) continue;
+        }
+        if (!await removeUnchangedDirectory(directory, initial)) continue;
+        if (kind === "export") result.exportDirectories++;
+        else result.runDirectories++;
+      } catch {
+        // Invalid, active or concurrently changed artifacts are retained.
+      }
+    }
+  };
+  await cleanupRoot(options.exportRoot, options.currentExportDirectory, "export");
+  await cleanupRoot(options.runRoot, options.currentRunDirectory, "run");
+  return result;
 }
 
 function friendlyCode(outputText: string): string {
@@ -564,6 +631,22 @@ async function main(): Promise<number> {
       console.log(mode[0] === "--resume"
         ? "迁移续跑完成，已有会话已校验。"
         : `迁移完成，结果已写入：${runDirectory}`);
+    }
+    const canCleanDefaultArtifacts =
+      process.env.T2O_MIGRATION_EXPORT === undefined &&
+      process.env.T2O_MIGRATION_RUN === undefined &&
+      migrationResult?.hasFailures === false &&
+      migrationResult.verified === 1;
+    if (canCleanDefaultArtifacts) {
+      const cleaned = await cleanupObsoleteArtifacts({
+        sourceSessionId: session.id,
+        exportRoot: path.dirname(exportDirectory),
+        runRoot: path.dirname(runDirectory),
+        currentExportDirectory: exportDirectory,
+        currentRunDirectory: runDirectory,
+      });
+      const total = cleaned.exportDirectories + cleaned.runDirectories;
+      if (total > 0) console.log(`已清理 ${total} 个过期迁移目录，保留当前 bundle 和 manifest。`);
     }
     return 0;
   } finally {
