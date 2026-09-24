@@ -14,7 +14,9 @@ function setup() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "t2o-attachments-"));
   directories.push(directory);
   fs.mkdirSync(path.join(directory, "User", "workspaceStorage"), { recursive: true });
-  const root = requireTraeRoot({ traeRoot: directory, platform: "darwin" });
+  const root = requireTraeRoot({
+    traeRoot: directory, platform: process.platform === "win32" ? "win32" : "darwin",
+  });
   const write = (workspace: string, relative: string, content: string | Buffer) => {
     const file = path.join(root.workspaceStoragePath, workspace, relative);
     fs.mkdirSync(path.dirname(file), { recursive: true });

@@ -11,7 +11,7 @@ export function getDefaultTraeUserDataPaths(
 ): string[] {
   if (platform === "darwin") {
     return ["Trae CN", "Trae"].map((product) =>
-      path.join(homeDir, "Library", "Application Support", product, "User"),
+      path.posix.join(homeDir, "Library", "Application Support", product, "User"),
     );
   }
 
@@ -20,14 +20,14 @@ export function getDefaultTraeUserDataPaths(
       .filter((root): root is string => Boolean(root))
       .flatMap((root) =>
         ["Trae CN", "Trae"].map((product) =>
-          path.join(root, product, "User"),
+          path.win32.join(root, product, "User"),
         ),
       );
   }
 
   if (platform === "linux") {
     return ["Trae CN", "Trae"].map((product) =>
-      path.join(homeDir, ".config", product, "User"),
+      path.posix.join(homeDir, ".config", product, "User"),
     );
   }
 

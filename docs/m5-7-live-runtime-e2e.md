@@ -1,4 +1,4 @@
-# M5 真实 TRAE 到 OpenCode 端到端验收
+# M5-7 真实 TRAE 到 OpenCode 端到端验收
 
 核验日期：2026-09-24。源为已登录的 TRAE CN 3.3.104 正常用户目录和生产
 renderer，目标为完全隔离的 OpenCode 2.0.12。验收没有使用消息 fixture、
@@ -6,7 +6,7 @@ renderer 日志、数据库解密或用户现有 OpenCode 数据。
 
 ## 结果
 
-生产 CDP reader 完成：
+通过 `npm run verify:live` 完成：
 
 ```text
 TRAE production CDP

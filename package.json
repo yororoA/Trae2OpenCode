@@ -5,6 +5,13 @@
   "bin": {
     "trae2opencode": "./dist/cli/index.js"
   },
+  "files": [
+    "dist/**/*.js",
+    "!dist/**/__tests__/**",
+    "docs/**/*.md",
+    "fixtures/opencode/2.0.12/evidence/transfer.schema.json",
+    "fixtures/ir/v1/valid-trae-assembled.json"
+  ],
   "engines": {
     "node": ">=18.18.0"
   },
@@ -14,7 +21,7 @@
   "type": "module",
   "scripts": {
     "lint": "biome lint --error-on-warnings src scripts",
-    "test": "node --import tsx --test src/**/__tests__/*.test.ts",
+    "test": "node scripts/run-tests.mjs",
     "schema:ir": "tsx scripts/write-ir-schema.ts",
     "golden:update": "tsx scripts/update-golden-fixtures.ts",
     "golden:check": "node --import tsx --test src/ir/__tests__/golden.test.ts",
@@ -22,8 +29,14 @@
     "collect:trae-runtime-evidence": "tsx scripts/collect-trae-runtime-evidence.ts",
     "collect:trae-structured-runtime-evidence": "tsx scripts/collect-trae-structured-runtime-evidence.ts",
     "verify:opencode": "tsx scripts/verify-opencode-roundtrip.ts",
+    "verify:platform": "tsx scripts/verify-platform.ts",
+    "verify:versions": "tsx scripts/verify-version-contract.ts",
+    "verify:resilience": "node --max-old-space-size=512 --import tsx scripts/verify-resilience.ts",
+    "verify:package": "tsx scripts/verify-package.ts",
+    "verify:live": "tsx scripts/verify-live-runtime.ts",
+    "prepack": "node scripts/prepare-package.mjs",
     "build": "tsc",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.integration.json",
     "smoke": "node dist/cli/index.js --version",
     "check": "npm run lint && npm test && npm run typecheck && npm run build && npm run smoke"
   },

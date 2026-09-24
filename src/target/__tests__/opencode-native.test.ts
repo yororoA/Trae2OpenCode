@@ -64,8 +64,11 @@ async function setup(run: (harness: {
       calls.push([...args]);
       if (args[1] === "export") return JSON.stringify(state.stored);
       assert.deepEqual(args.slice(3), ["--server", "http://127.0.0.1:9999", "--directory", root]);
-      assert.equal((await fs.stat(path.dirname(args[2]))).mode & 0o777, 0o700);
-      assert.equal((await fs.stat(args[2])).mode & 0o777, 0o600);
+      // Windows exposes synthetic mode bits; contents and cleanup remain checked.
+      if (process.platform !== "win32") {
+        assert.equal((await fs.stat(path.dirname(args[2]))).mode & 0o777, 0o700);
+        assert.equal((await fs.stat(args[2])).mode & 0o777, 0o600);
+      }
       const input = JSON.parse(await fs.readFile(args[2], "utf8")) as OpenCodeTransfer;
       if (state.fail) throw new Error("private command output");
       if (!state.lose) state.stored = input;

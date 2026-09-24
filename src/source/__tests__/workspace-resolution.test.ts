@@ -12,6 +12,7 @@ import {
 } from "../trae/workspace-resolution.js";
 
 const temporaryDirectories: string[] = [];
+const nativePlatform = process.platform === "win32" ? "win32" : "darwin";
 
 function createTemporaryDirectory(): string {
   const directory = fs.mkdtempSync(
@@ -147,7 +148,7 @@ describe("resolveTraeWorkspaces", () => {
     });
 
     const report = resolveTraeWorkspaces({
-      platform: "darwin",
+      platform: nativePlatform,
       workspaceStoragePath,
     });
 
@@ -191,7 +192,7 @@ describe("resolveTraeWorkspaces", () => {
     });
 
     const report = resolveTraeWorkspaces({
-      platform: "darwin",
+      platform: nativePlatform,
       workspaceStoragePath,
     });
 
@@ -219,7 +220,7 @@ describe("resolveTraeWorkspaces", () => {
     });
 
     const report = resolveTraeWorkspaces({
-      platform: "darwin",
+      platform: nativePlatform,
       workspaceStoragePath,
     });
 
@@ -256,7 +257,7 @@ describe("resolveTraeWorkspaces", () => {
     });
 
     const report = resolveTraeWorkspaces({
-      platform: "darwin",
+      platform: nativePlatform,
       workspaceStoragePath,
     });
 
@@ -296,7 +297,7 @@ describe("resolveTraeWorkspaces", () => {
     });
 
     const report = resolveTraeWorkspaces({
-      platform: "darwin",
+      platform: nativePlatform,
       workspaceStoragePath,
     });
 
@@ -316,7 +317,7 @@ describe("resolveTraeWorkspaces", () => {
 
     assert.deepStrictEqual(
       resolveTraeWorkspaces({
-        platform: "darwin",
+        platform: nativePlatform,
         workspaceStoragePath: path.join(root, "missing"),
       }),
       {
