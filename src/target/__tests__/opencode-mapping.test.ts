@@ -6,6 +6,7 @@ import type { AssistantEventIR, JsonObject, MigrationBundle, ToolContentIR } fro
 import { assertOpenCodeTransfer } from "../opencode/contract.js";
 import {
   mapOpenCodeSession,
+  MAX_CONTINUATION_CONTEXT_BYTES,
   MISSING_ASSISTANT_TEXT,
   MISSING_TOOL_ERROR_TEXT,
   MISSING_TOOL_OUTPUT_TEXT,
@@ -16,7 +17,7 @@ const fixture = JSON.parse(readFileSync(new URL(
 ), "utf8")) as MigrationBundle;
 const options = {
   sessionId: "ses_mapping",
-  messageIds: new Map([["user-synthetic", "msg_user"], ["assistant-synthetic", "msg_assistant"]]),
+  messageIds: new Map([["user-synthetic", "msg_0001_user"], ["assistant-synthetic", "msg_0002_assistant"]]),
   directory: "/synthetic/target",
 };
 const map = (bundle = structuredClone(fixture), overrides = {}) =>
@@ -30,7 +31,8 @@ describe("OpenCode IR mapping", () => {
     const { transfer, diagnostics } = map();
     assertOpenCodeTransfer(transfer);
     assert.equal(transfer.info.title, fixture.sessions[0].title);
-    assert.deepEqual(transfer.messages.map((message) => message.id), ["msg_user", "msg_assistant"]);
+    assert.deepEqual(transfer.messages.map((message) => message.id),
+      ["msg_0001_user", "msg_0002_assistant"]);
     assert.equal(transfer.messages[0].text, "Read this file. 中文\n");
     const content = transfer.messages[1].content as JsonObject[];
     assert.deepEqual(content.map((block) => block.type), ["reasoning", "text", "reasoning", "tool", "text"]);
@@ -87,6 +89,24 @@ describe("OpenCode IR mapping", () => {
     event.content = [finalText!];
     const summaryOnly = map(bundle).transfer.messages[1].content as JsonObject[];
     assert.deepEqual(summaryOnly, [{ type: "text", text: "Final response.\n" }]);
+  });
+
+  it("adds a native compaction checkpoint when imported context is too large", () => {
+    const bundle = structuredClone(fixture);
+    const text = assistant(bundle).content.find((block) => block.type === "text");
+    assert.ok(text?.type === "text");
+    text.text = "x".repeat(MAX_CONTINUATION_CONTEXT_BYTES + 1);
+
+    const { transfer, diagnostics } = map(bundle);
+    assert.deepEqual(transfer.messages.map((message) => message.type),
+      ["user", "assistant", "compaction"]);
+    const boundary = transfer.messages[2];
+    assert.equal(boundary.id, "msg_0002_assistant_compact");
+    assert.equal(boundary.status, "completed");
+    assert.equal(boundary.reason, "manual");
+    assert.equal(Buffer.byteLength(String(boundary.summary), "utf8") <= 17 * 1024, true);
+    assert.ok(diagnostics.some((item) =>
+      item.code === "T2O_OPENCODE_CONTINUATION_BOUNDARY"));
   });
 
   it("projects TRAE exec commands to expandable native shell tools without losing source fields", () => {
@@ -365,6 +385,9 @@ describe("OpenCode IR mapping", () => {
     assert.throws(() => map(undefined, { messageIds: new Map() }), expectedRejection);
     assert.throws(() => map(undefined, { messageIds: new Map([
       ["user-synthetic", "msg_same"], ["assistant-synthetic", "msg_same"],
+    ]) }), expectedRejection);
+    assert.throws(() => map(undefined, { messageIds: new Map([
+      ["user-synthetic", "msg_0002"], ["assistant-synthetic", "msg_0001"],
     ]) }), expectedRejection);
     const bundle = structuredClone(fixture);
     assistant(bundle).replyToSourceId = "missing-user";

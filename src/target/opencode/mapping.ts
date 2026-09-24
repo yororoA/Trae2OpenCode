@@ -38,6 +38,8 @@ export const MISSING_TOOL_ERROR_TEXT =
   "[TRAE tool failed without a persisted error message]";
 export const MISSING_ASSISTANT_TEXT =
   "[TRAE assistant response ended before final text was persisted]";
+export const MAX_CONTINUATION_CONTEXT_BYTES = 192 * 1024;
+export const MAX_CONTINUATION_SUMMARY_BYTES = 16 * 1024;
 
 const PARTIAL_PROJECTION_CODES = new Set([
   "T2O_IR_REPLY_REFERENCE_INVALID",
@@ -355,6 +357,104 @@ function eventMetadata(event: EventIR, validReply: boolean): JsonObject {
   };
 }
 
+function contextBytes(message: JsonObject): number {
+  if (message.type === "user") {
+    return Buffer.byteLength(typeof message.text === "string" ? message.text : "", "utf8") + 32;
+  }
+  if (message.type !== "assistant" || !Array.isArray(message.content)) return 0;
+  return message.content.reduce<number>((total, block) => {
+    if (!isRecord(block)) return total;
+    if ((block.type === "text" || block.type === "reasoning") && typeof block.text === "string") {
+      return total + Buffer.byteLength(block.text, "utf8") + 32;
+    }
+    if (block.type !== "tool") return total;
+    const state = isRecord(block.state) ? block.state : {};
+    const input = canonicalizeJson((state.input ?? null) as JsonValue);
+    const content = Array.isArray(state.content)
+      ? state.content.flatMap((item) =>
+        isRecord(item) && typeof item.text === "string" ? [item.text] : []).join("\n")
+      : "";
+    const error = state.error === undefined
+      ? "" : canonicalizeJson(state.error as JsonValue);
+    return total + Buffer.byteLength(input, "utf8") +
+      Buffer.byteLength(content.slice(0, 2_000), "utf8") +
+      Buffer.byteLength(error.slice(0, 2_000), "utf8") + 64;
+  }, 0);
+}
+
+function tailUtf8(value: string, limit: number): string {
+  const reversed: string[] = [];
+  let bytes = 0;
+  for (const character of Array.from(value).reverse()) {
+    const size = Buffer.byteLength(character, "utf8");
+    if (bytes + size > limit) break;
+    reversed.push(character);
+    bytes += size;
+  }
+  return reversed.reverse().join("");
+}
+
+function updateSummaryExcerpt(previous: string, message: JsonObject): string {
+  const text = message.type === "user" && typeof message.text === "string"
+    ? `[User]\n${message.text}`
+    : message.type === "assistant" && Array.isArray(message.content)
+      ? message.content.flatMap((block) =>
+        isRecord(block) && block.type === "text" && typeof block.text === "string"
+          ? [`[Assistant]\n${block.text}`] : []).join("\n\n")
+      : "";
+  return tailUtf8([previous, text].filter(Boolean).join("\n\n"), MAX_CONTINUATION_SUMMARY_BYTES);
+}
+
+function addContinuationBoundaries(
+  source: JsonObject[],
+  session: SessionIR,
+  diagnostics: Diagnostic[],
+): JsonObject[] {
+  const messages: JsonObject[] = [];
+  let activeBytes = 0;
+  let excerpt = "";
+  let boundaries = 0;
+  for (const message of source) {
+    messages.push(message);
+    activeBytes += contextBytes(message);
+    excerpt = updateSummaryExcerpt(excerpt, message);
+    if (message.type !== "assistant" || activeBytes <= MAX_CONTINUATION_CONTEXT_BYTES) continue;
+    const time = isRecord(message.time) ? message.time : {};
+    const created = typeof time.completed === "number"
+      ? time.completed : typeof time.created === "number" ? time.created : session.updatedAt!;
+    const summary = [
+      "Imported TRAE transcript checkpoint. Earlier messages remain visible in this session.",
+      excerpt ? `Recent recoverable user and assistant text:\n${excerpt}` :
+        "No recoverable user or assistant text was available for this checkpoint.",
+    ].join("\n\n");
+    messages.push({
+      id: `${String(message.id)}_compact`,
+      type: "compaction",
+      time: { created },
+      status: "completed",
+      reason: "manual",
+      summary,
+      recent: "",
+      metadata: { trae2opencode: {
+        mappingVersion: 7,
+        kind: "continuation-boundary",
+        activeContextBytes: activeBytes,
+      } },
+    });
+    boundaries++;
+    activeBytes = Buffer.byteLength(summary, "utf8");
+  }
+  if (boundaries > 0) {
+    diagnostics.push(diagnostic(
+      session,
+      "T2O_OPENCODE_CONTINUATION_BOUNDARY",
+      "Large imported history was divided by native compaction checkpoints so future prompts remain within a bounded active context.",
+      "events",
+    ));
+  }
+  return messages;
+}
+
 /** Pure mapping. No writes, timestamp synthesis, source guessing, or input mutation. */
 export function mapOpenCodeSession(
   value: MigrationBundle,
@@ -386,6 +486,7 @@ export function mapOpenCodeSession(
   if (!options.directory || options.directory.includes("\0")) reject(session, "directory");
   const targetIds = session.events.map((event) => options.messageIds.get(event.sourceId));
   const validIds = targetIds.every((id) => typeof id === "string" && /^msg_[a-zA-Z0-9_-]+$/.test(id)) &&
+    targetIds.every((id, index) => index === 0 || targetIds[index - 1]! < id!) &&
     new Set(targetIds).size === targetIds.length && /^ses_[a-zA-Z0-9_-]+$/.test(options.sessionId);
   if (!validIds) reject(session, "idMapping");
   const diagnostics = [
@@ -405,7 +506,7 @@ export function mapOpenCodeSession(
     diagnostics.push(diagnostic(session, "T2O_OPENCODE_RESOURCES_DEFERRED",
       "Resources remain in the IR; no message attachment association is inferred."));
   }
-  const messages = session.events.map((event, index): JsonObject => {
+  const sourceMessages = session.events.map((event, index): JsonObject => {
     const field = `events[${index}]`;
     if (!hasVerifiedRuntimeRefs(event.sourceRefs, session.sourceId)) reject(session, `${field}.sourceRefs`);
     if (event.createdAt === undefined) reject(session, `${field}.createdAt`);
@@ -467,6 +568,7 @@ export function mapOpenCodeSession(
       content,
     };
   });
+  const messages = addContinuationBoundaries(sourceMessages, session, diagnostics);
   const transfer: OpenCodeTransfer = {
     info: {
       id: options.sessionId, projectID: "trae-import-unassigned",
@@ -476,7 +578,7 @@ export function mapOpenCodeSession(
       time: { created: session.createdAt, updated: session.updatedAt },
       location: { directory: options.directory },
       metadata: { trae2opencode: {
-        mappingVersion: 6, sourceSessionId: session.sourceId,
+        mappingVersion: 7, sourceSessionId: session.sourceId,
         sourceSessionSha256: hashCanonicalJson(session as unknown as JsonValue),
         unknownSourceFields: ["cost", "tokens", "agent", "model"],
         resourceCount: session.resources.length,

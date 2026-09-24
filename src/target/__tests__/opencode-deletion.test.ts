@@ -20,7 +20,7 @@ const bundle = JSON.parse(readFileSync(new URL(
 function setup() {
   const transfer = mapOpenCodeSession(bundle, "session-synthetic", {
     sessionId: "ses_target", directory: process.cwd(),
-    messageIds: new Map([["user-synthetic", "msg_u"], ["assistant-synthetic", "msg_a"]]),
+    messageIds: new Map([["user-synthetic", "msg_0001"], ["assistant-synthetic", "msg_0002"]]),
   }).transfer;
   const state = {
     stored: structuredClone(transfer) as typeof transfer | null, version: "2.0.12",

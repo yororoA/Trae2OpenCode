@@ -34,6 +34,9 @@ describe("OpenCode stable identity and dependency order", () => {
     const { transfer } = mapOpenCodeSession(fixture, original[0].sourceSessionId,
       { ...original[0], directory: "/synthetic/target" });
     assert.equal(transfer.info.id, original[0].sessionId);
+    const messageIds = [...original[0].messageIds.values()];
+    assert.equal(messageIds.every((id, index) => index === 0 || messageIds[index - 1]! < id), true);
+    assert.equal(messageIds.every((id) => id < "msg_0d000000000000000000000000"), true);
   });
 
   it("separates namespaces, kinds and per-session message identities", () => {
@@ -45,6 +48,7 @@ describe("OpenCode stable identity and dependency order", () => {
     assert.equal(new Set(ids).size, ids.length);
     assert.throws(() => stableOpenCodeSessionId(""), rejected);
     assert.throws(() => stableOpenCodeMessageId("a", ""), rejected);
+    assert.throws(() => stableOpenCodeMessageId("a", "b", "trae-cn", -1), rejected);
     assert.throws(() => createOpenCodeIdentityMap(fixture, ""), rejected);
   });
 

@@ -28,8 +28,8 @@ await withIsolatedOpenCodeServer({ temporaryRoot: "tmp" }, async (server) => {
     const { transfer } = mapOpenCodeSession(bundle, "session-synthetic", {
       sessionId: `ses_m46_${variant}`, directory: server.directory,
       messageIds: new Map([
-        ["user-synthetic", `msg_m46_${variant}_u`],
-        ["assistant-synthetic", `msg_m46_${variant}_a`],
+        ["user-synthetic", `msg_m46_${variant}_0001`],
+        ["assistant-synthetic", `msg_m46_${variant}_0002`],
       ]),
     });
     if (variant === "child") transfer.info.parentID = "ses_m46_completed";

@@ -23,7 +23,10 @@ await withIsolatedOpenCodeServer({
   const bundle = await readBundleFile("fixtures/ir/v1/valid-trae-assembled.json");
   const { transfer } = mapOpenCodeSession(bundle, "session-synthetic", {
     sessionId: "ses_version_contract", directory: server.directory,
-    messageIds: new Map([["user-synthetic", "msg_version_u"], ["assistant-synthetic", "msg_version_a"]]),
+    messageIds: new Map([
+      ["user-synthetic", "msg_version_0001"],
+      ["assistant-synthetic", "msg_version_0002"],
+    ]),
   });
   const native = createNativeOpenCodeAdapter({ ...server, temporaryRoot: server.directory });
   const adjacentNative = createOpenCodeTransport({
@@ -101,8 +104,8 @@ if (compatible) {
       sessionId: "ses_version_contract_2016",
       directory: server.directory,
       messageIds: new Map([
-        ["user-synthetic", "msg_version_2016_u"],
-        ["assistant-synthetic", "msg_version_2016_a"],
+        ["user-synthetic", "msg_version_2016_0001"],
+        ["assistant-synthetic", "msg_version_2016_0002"],
       ]),
     });
     const mixed = createNativeOpenCodeAdapter({
