@@ -187,11 +187,29 @@ describe("migration executor", () => {
     assert.equal(fake.imports.length, 1);
   }));
 
-  it("rejects endpoint rebinding without an exact verified target", () => setup(async ({ plan, fake, filename, outputDirectory }) => {
+  it("rebinds an empty compatible target when no planned ID exists", () => setup(async ({ plan, fake, filename, outputDirectory }) => {
+    const nativeImport = fake.api.importSession;
     fake.api.importSession = async () => {
       throw new Trae2OpenCodeError("T2O_OPENCODE_IMPORT_FAILED");
     };
     assert.equal((await migrate(plan, fake.api, { outputDirectory })).hasFailures, true);
+    fake.api.describe = async () => ({
+      ...descriptor,
+      endpointHash: hashCanonicalJson("other-endpoint"),
+      fingerprint: hashCanonicalJson("other-fingerprint"),
+    });
+    fake.api.importSession = nativeImport;
+    const result = await migrate(plan, fake.api, { resumeManifest: filename });
+    assert.equal(result.verified, 1);
+    assert.equal(result.sessions[0].attempts, 2);
+  }));
+
+  it("rejects compatible rebinding when a planned ID exists without valid evidence", () => setup(async ({ plan, fake, filename, outputDirectory }) => {
+    fake.api.importSession = async () => {
+      throw new Trae2OpenCodeError("T2O_OPENCODE_IMPORT_FAILED");
+    };
+    assert.equal((await migrate(plan, fake.api, { outputDirectory })).hasFailures, true);
+    fake.sessions.set(plan.sessions[0].targetId, structuredClone(plan.sessions[0].transfer!));
     fake.api.describe = async () => ({
       ...descriptor,
       endpointHash: hashCanonicalJson("other-endpoint"),
@@ -229,6 +247,17 @@ describe("migration executor", () => {
     assert.equal(recovered.created, 1);
     assert.equal(recovered.verified, 1);
     assert.equal(fake.imports.length, 1);
+  }));
+
+  it("recreates a verified tool-owned session that is now absent", () => setup(async ({ plan, fake, filename, outputDirectory }) => {
+    assert.equal((await migrate(plan, fake.api, { outputDirectory })).verified, 1);
+    fake.sessions.delete(plan.sessions[0].targetId);
+    const restored = await migrate(plan, fake.api, { resumeManifest: filename });
+    assert.equal(restored.verified, 1);
+    assert.equal(restored.created, 1);
+    assert.equal(restored.sessions[0].attempts, 2);
+    assert.equal(fake.imports.length, 2);
+    assert.ok(fake.sessions.has(plan.sessions[0].targetId));
   }));
 
   it("skips pre-existing sessions and rejects an existing output directory", () => setup(async ({ plan, fake, outputDirectory }) => {

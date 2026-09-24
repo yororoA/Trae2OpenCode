@@ -34,8 +34,11 @@ CLI 输出机器可读报告；存在 failed、blocked、pending 或 importing �
   改变时，只有版本和 schema 不变，且至少一个 verified 会话同时通过 run 所有权、
   expected 快照和 deletion hash 核验，才会持久化新端点并续跑。尚无成功会话时拒绝
   重绑定；相同端口背后的不同库仍不能只靠端点指纹区分。
-- 续跑在写入前核验已 verified 的会话，缺失、所有权不符或被修改均停止写入。
-  首次写入前切换同地址数据库、或尚无成功会话的 run 不能依赖此检查识别换库。
+- 续跑在写入前核验已 verified 的会话。确定性目标 ID 已不存在时按原计划重新导入；
+  目标仍存在但所有权不符、快照变化或完整 hash 变化时继续拒绝。
+- 兼容端点或版本变化时，至少一个 unchanged verified 会话可以证明目标归属；如果
+  manifest 中所有计划 ID 在新目标中均不存在，也可作为空目标重新绑定。任一计划 ID
+  已存在但缺少所有权证据时拒绝重绑定。
 - 导入前必须先保存 importing checkpoint。会话已写入但进程/响应丢失时，续跑
   根据迁移标记和完整 hash 恢复为 verified，不重新 import。
 - 部分写入标记 created + failed，保留实际计数/hash；不自动重写或删除。

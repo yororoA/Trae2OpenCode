@@ -1,5 +1,4 @@
 tmp/
-.dbg/
 node_modules/
 dist/
 fixtures/fixture-report.json

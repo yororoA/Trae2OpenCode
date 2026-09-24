@@ -118,6 +118,20 @@ describe("explicit tool-owned replacement", () => {
     assert.equal(sessions.size, 2);
   }));
 
+  it("continues replacement when every old target is already absent", () => setup(async ({ root, plan, api, sessions, previous, deleted }) => {
+    sessions.clear();
+    plan.sessions[0].transfer!.info.title = "Updated after external removal";
+    const result = await migrate(plan, api, {
+      outputDirectory: path.join(root, "second"),
+      replaceManifest: previous,
+      exclusiveTarget: true,
+    });
+    assert.equal(result.verified, 2);
+    assert.equal(result.replaced, 2);
+    assert.equal(deleted.length, 0);
+    assert.equal(sessions.size, 2);
+  }));
+
   it("protects foreign children and rejects a partial selection of a parent tree", () => setup(async ({ root, plan, api, sessions, previous, deleted }) => {
     const unrelated = structuredClone(sessions.get(plan.sessions[1].targetId)!);
     unrelated.info.id = "ses_later_child";
