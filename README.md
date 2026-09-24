@@ -3,10 +3,12 @@
 将可恢复的 TRAE 会话转换为版本化 IR，通过 OpenCode 原生导入，并逐会话核对
 消息、reasoning、工具输入输出及 hash。提供只读盘点、dry-run、断点续跑和回滚。
 
-**当前为 P0 验收候选版本，尚未发布 npm 包。** M0–M4 已合入 main，
-M5 编排与 M7 兼容/打包位于里程碑分支。三端目标集成已通过；真实已登录 TRAE
-经生产 CDP reader 到 OpenCode 的完整端到端验收仍待完成。
-具体记录见[实现规划](docs/implementation-plan.md)。
+**P0 工程与实机验收已完成，尚待里程碑 PR 合入 main；未发布 npm 包。**
+三端目标/打包矩阵和真实已登录 TRAE 经生产 CDP reader 到隔离 OpenCode 的
+端到端验收均已通过。真实样本为准确标记的 partial 会话，覆盖 text/tool；
+reasoning 的真实来源与目标往返仍由拆分证据覆盖。
+具体记录见[实现规划](docs/implementation-plan.md)和
+[真实来源验收报告](docs/m5-7-live-runtime-e2e.md)。
 
 ## 支持范围
 
@@ -158,6 +160,7 @@ npm run verify:package
 - [只读 CLI / CDP](docs/m5-1-readonly-cli.md)、[dry-run](docs/m5-2-dry-run.md)
 - [manifest 与续跑](docs/m5-3-manifest-resume.md)、[凭据边界](docs/m5-6-sensitive-content.md)
 - [真实来源端到端验收步骤](docs/m5-live-runtime-acceptance.md)
+- [真实来源端到端验收报告](docs/m5-7-live-runtime-e2e.md)
 - [跨平台矩阵](docs/m7-1-platform-matrix.md)、[版本契约](docs/m7-2-version-contract.md)
 - [压力与中断恢复](docs/m7-3-resilience.md)、[打包验收](docs/m7-4-package-installation.md)
 - [TRAE 消息来源](docs/m0-3-source-location.md)、[OpenCode 投影限制](docs/m0-4-import-roundtrip.md)

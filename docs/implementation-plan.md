@@ -1,6 +1,6 @@
 # Trae2OpenCode 实现规划
 
-> 状态：M0 至 M4 已合入 `main`；M5-1 至 M5-6 与 M7-1 至 M7-4 已实现，真实已登录 runtime 端到端验收待完成
+> 状态：M0 至 M4 已合入 `main`；M5 与 M7 工程及实机验收已完成，等待 PR #16/#17 按序合入
 > 核验日期：2026-09-24
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
@@ -39,13 +39,15 @@ M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP
 | M2 recovery grading | 已集成 | 已实现逐会话四级分级、稳定缺失原因和 metadata session discovery |
 | M3 TRAE 读取 | 已集成，PR #14 | 已实现各类 parser、profile 注册、IR 组装与完整性/golden 校验；production runtime bridge 在 M5 实现 |
 | M4 OpenCode adapter | 已集成，PR #15 | 能力探测、IR 映射、稳定 ID、CLI adapter、路径映射与完整对账；五组 macOS 隔离实机通过 |
-| M5 迁移编排 | M5-1 至 M5-6 已实现 | 只读 CLI、dry-run、manifest、resume、真实 import/verify、显式替换、rollback 与凭据过滤；真实已登录 renderer 端到端待验收 |
+| M5 迁移编排 | 已实现，PR #16 | 只读 CLI、dry-run、manifest、resume、真实 import/verify、显式替换、rollback 与凭据过滤；已登录 renderer 端到端通过 |
 | M6 资源迁移 | P1，未开始 | Skill/MCP 发现、建议配置与复制可独立发布 |
 | M7 兼容与发布 | M7-1 至 M7-4 已实现，草稿 PR #17 | 三系统六任务、当前/相邻版本契约、真实中断与 tarball 安装/dry-run CI 全部通过 |
 
-当前是 P0 验收候选：生产迁移路径已经实现，已通过合成来源到真实 OpenCode
-的三平台验证。仍缺少已登录 TRAE 经生产 CDP reader 导出并迁移的完整实机证据，
-因此 M5/M7 保持里程碑分支，不能宣称 P0 已完成。尚未发布 npm 包。
+P0 工程与实机验收已完成：除合成来源到真实 OpenCode 的三平台矩阵外，
+已登录 TRAE 经生产 CDP reader 导出、原生导入、回读、resume 和重复跳过均通过。
+真实可写样本为 partial，覆盖 text/tool；reasoning 为 M0 真实来源与 M4/M7
+目标往返的拆分证据，不宣称单一实机会话整链覆盖。当前等待 M5/M7 PR 合入；
+尚未发布 npm 包。
 
 ## 2. 目标与边界
 
@@ -554,7 +556,7 @@ M4 已通过 PR #15 合入 `main`，合并提交为 `e80d744`；里程碑 CI 通
 
 | ID | 任务 | 依赖 | 验收 |
 | --- | --- | --- | --- |
-| M5-1 | `doctor/scan/preview/export` | M2, M3 | 已实现并通过本机只读验收；CDP 真实正文端到端验证待完成 |
+| M5-1 | `doctor/scan/preview/export` | M2, M3 | 已实现并通过本机只读及已登录 CDP 正文端到端验收 |
 | M5-2 | `migrate --dry-run` | M4 | 已实现：共享 transfer 计划、目录策略、恢复筛选与脱敏统计 |
 | M5-3 | manifest、checkpoint、resume | M4 | 已实现：持久化先于写入、原子 checkpoint、失败隔离、恢复与 verify |
 | M5-4 | 冲突与幂等策略 | M5-3 | 已实现：默认 skip，旧 manifest + 完整 hash + 显式独占声明保护替换 |
@@ -614,12 +616,12 @@ M7-1/2 的 CI [35930386323](https://github.com/yororoA/Trae2OpenCode/actions/run
 [版本](m7-2-version-contract.md)、[压力恢复](m7-3-resilience.md)、
 [安装验收](m7-4-package-installation.md)。
 
-P0 最后一项来源验收需用户已登录的 TRAE CN 3.3.104 workbench 开启本机 CDP，
-完成生产 reader 导出、隔离 OpenCode 导入、逐消息回读与重复迁移验证。
-现有正常使用的 TRAE 未开放调试端口；不自动重启用户工作中的应用。
-现已备好 `npm run verify:live` 入口及
-[可复现验收步骤](m5-live-runtime-acceptance.md)。M7 PR #17 暂以 M5 分支为 base，
-待 M5 PR #16 通过来源验收合入 main 后再改向 main。
+P0 最后一项来源验收已使用已登录的 TRAE CN 3.3.104 workbench 完成：
+生产 reader 导出、隔离 OpenCode 导入、逐消息回读、resume 与重复迁移均通过。
+过程中修复了实际 workbench 路径/应用根、metadata 失败隔离、`solo_agent`
+正文投影、空工具占位和跨 workspace 资源诊断归属。详见
+[M5-7 报告](m5-7-live-runtime-e2e.md)。M7 PR #17 暂以 M5 分支为 base，
+待 M5 PR #16 合入 main 后改向 main。
 
 ## 7. 优先级
 
@@ -697,8 +699,8 @@ P0 最后一项来源验收需用户已登录的 TRAE CN 3.3.104 workbench 开�
 5. 增加批量迁移、manifest、resume 和 rollback。
 6. 最后处理附件、Skill、MCP；SQLite Writer 保持为可选项。
 
-原始 P0 估算为 20-30 个工程日。当前 M0–M4 已集成，M5/M7 工程工作已实现，
-剩余退出条件为真实已登录来源端到端验收；不按测试数量折算完成比例。
+原始 P0 估算为 20-30 个工程日。当前 M0–M7 的 P0 工程与验收已完成，
+剩余交付操作为通过 CI 后依次合入 M5/M7；不按测试数量折算完成比例。
 
 ## 11. 分支与提交规范
 

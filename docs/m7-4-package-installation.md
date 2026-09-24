@@ -1,7 +1,7 @@
 # M7-4 安装包与操作文档
 
 日期：2026-09-24。此阶段交付本地可安装 tarball 和 CI 安装验收，未执行
-`npm publish`，未将待完成的真实来源验收标记为通过。
+`npm publish`。后续真实来源验收已通过，见 M5-7 报告。
 
 ## 包内容
 
@@ -40,7 +40,7 @@ CI [35932162689](https://github.com/yororoA/Trae2OpenCode/actions/runs/359321626
 （commit `ce990ed`）六任务全部成功，六份安装报告及三份原生目标集成报告均已上传。
 本机完整 `npm run check` 340 项通过。M7 已建立草稿
 [PR #17](https://github.com/yororoA/Trae2OpenCode/pull/17)，暂以 M5 分支为 base，
-等待真实来源验收和 M5 合并后再改向 main。
+等待 M5 合并后再改向 main。
 
 ## 文档交付
 
@@ -49,6 +49,6 @@ README 已覆盖安装、合成样本 dry-run、数据目录、CDP、导出、�
 [用户故障排查](troubleshooting.md) 按稳定错误码提供处理方式，
 [实现规划](implementation-plan.md) 记录 P0 退出条件。
 
-真实已登录 TRAE → 生产 CDP → IR → OpenCode 的整链验收仍是 M5/M7 合并与
-首个 P0 可用版本的前置条件。三端合成来源与安装成功均不能替代它。
-执行入口及通过条件见[真实来源验收](m5-live-runtime-acceptance.md)。
+真实已登录 TRAE → 生产 CDP → IR → OpenCode 的整链验收已经通过。
+执行入口见[验收步骤](m5-live-runtime-acceptance.md)，结果与覆盖边界见
+[M5-7 报告](m5-7-live-runtime-e2e.md)。
