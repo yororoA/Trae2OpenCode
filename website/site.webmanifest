@@ -1,0 +1,21 @@
+{
+  "name": "Trae2OpenCode",
+  "short_name": "T2O",
+  "description": "把可恢复的 TRAE 会话迁移到 OpenCode。",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4f5f0",
+  "theme_color": "#08763d",
+  "icons": [
+    {
+      "src": "./assets/favicon-48.png",
+      "sizes": "48x48",
+      "type": "image/png"
+    },
+    {
+      "src": "./assets/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

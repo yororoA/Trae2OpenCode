@@ -227,11 +227,11 @@ describe("interactive migration helpers", () => {
     assert.deepEqual(first, same);
     assert.notEqual(first.exportDirectory, second.exportDirectory);
     assert.notEqual(first.exportDirectory, updated.exportDirectory);
-    assert.match(first.exportDirectory, /trae-export\/session-[a-f0-9]{16}$/);
+    assert.match(first.exportDirectory, /trae-export[\\/]session-[a-f0-9]{16}$/);
     assert.doesNotMatch(first.exportDirectory, new RegExp(sourceSessionId));
     assert.deepEqual(
       resolveMigrationDirectories(root, "session-a", "/tmp/export", "/tmp/run"),
-      { exportDirectory: "/tmp/export", runDirectory: "/tmp/run" },
+      { exportDirectory: path.resolve("/tmp/export"), runDirectory: path.resolve("/tmp/run") },
     );
   });
 

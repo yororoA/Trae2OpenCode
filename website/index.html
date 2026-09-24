@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta
+      name="description"
+      content="Trae2OpenCode 将可恢复的 TRAE 会话迁移到 OpenCode，保留消息、推理与工具调用，并完成逐项回读核验。"
+    >
+    <meta name="author" content="yororoA">
+    <meta name="copyright" content="Copyright © 2026 yororoA">
+    <meta name="theme-color" content="#08763d">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Trae2OpenCode">
+    <meta property="og:site_name" content="Trae2OpenCode">
+    <meta property="og:url" content="https://trae2opencode.yororoice.top/">
+    <meta
+      property="og:description"
+      content="把 TRAE 会话完整带到 OpenCode。自动脱敏、断点续跑、回读核验。"
+    >
+    <meta property="og:image" content="https://trae2opencode.yororoice.top/assets/trae2opencode-social.png">
+    <meta property="og:image:alt" content="Trae2OpenCode 项目图标">
+    <meta name="twitter:card" content="summary">
+    <link rel="canonical" href="https://trae2opencode.yororoice.top/">
+    <link rel="icon" type="image/png" sizes="16x16" href="./assets/favicon-16.png?v=4">
+    <link rel="icon" type="image/png" sizes="32x32" href="./assets/favicon-32.png?v=4">
+    <link rel="icon" type="image/png" sizes="48x48" href="./assets/favicon-48.png?v=4">
+    <link rel="apple-touch-icon" sizes="180x180" href="./assets/apple-touch-icon.png?v=3">
+    <link rel="manifest" href="./site.webmanifest">
+    <link rel="preconnect" href="https://unpkg.com">
+    <link rel="stylesheet" href="./styles.css">
+    <title>Trae2OpenCode | 可验证的会话迁移</title>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Trae2OpenCode",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "macOS, Windows, Linux",
+        "softwareVersion": "1.0.0",
+        "description": "Migrate recoverable TRAE sessions to OpenCode with redaction, resume and readback verification.",
+        "url": "https://trae2opencode.yororoice.top/",
+        "codeRepository": "https://github.com/yororoA/Trae2OpenCode",
+        "license": "https://opensource.org/licenses/ISC"
+      }
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content" data-i18n="a11y.skip">跳到主要内容</a>
+
+    <header class="site-header" data-header>
+      <a class="brand" href="#top" aria-label="Trae2OpenCode 首页">
+        <img class="brand-icon" src="./assets/trae2opencode-app-icon.png" alt="" width="40" height="40">
+        <span>Trae2OpenCode</span>
+      </a>
+
+      <button class="icon-button nav-toggle" type="button" data-nav-toggle aria-label="打开菜单" aria-expanded="false">
+        <i data-lucide="menu" aria-hidden="true"></i>
+      </button>
+
+      <nav class="site-nav" data-nav aria-label="主要导航">
+        <a href="#why" data-i18n="nav.why">为什么</a>
+        <a href="#demo" data-i18n="nav.demo">迁移演示</a>
+        <a href="#capabilities" data-i18n="nav.capabilities">能力</a>
+        <a href="#quickstart" data-i18n="nav.quickstart">开始使用</a>
+      </nav>
+
+      <div class="header-actions">
+        <div class="language-switcher" role="group" aria-label="语言">
+          <button type="button" data-lang="zh" aria-pressed="true">中</button>
+          <button type="button" data-lang="en" aria-pressed="false">EN</button>
+        </div>
+        <a
+          class="icon-button"
+          href="https://github.com/yororoA/Trae2OpenCode"
+          target="_blank"
+          rel="noreferrer"
+          aria-label="在 GitHub 查看"
+          title="GitHub"
+        >
+          <i data-lucide="github" aria-hidden="true"></i>
+        </a>
+      </div>
+    </header>
+
+    <main id="main-content">
+      <section class="hero" id="top">
+        <div class="hero-media" aria-hidden="true">
+          <div class="hero-scene">
+            <div class="scene-column scene-source">
+              <span class="scene-caption">TRAE / runtime</span>
+              <div class="scene-message scene-message-user"></div>
+              <div class="scene-message scene-message-reasoning"></div>
+              <div class="scene-tool">
+                <span></span><span></span><span></span>
+              </div>
+              <div class="scene-message scene-message-short"></div>
+            </div>
+            <div class="scene-transfer">
+              <span class="scene-transfer-line scene-transfer-line-top"></span>
+              <span class="scene-transfer-line scene-transfer-line-bottom"></span>
+              <strong>IR</strong>
+              <small>map v7</small>
+            </div>
+            <div class="scene-column scene-target">
+              <span class="scene-caption">OpenCode / timeline</span>
+              <div class="scene-message scene-message-user"></div>
+              <div class="scene-message scene-message-reasoning"></div>
+              <div class="scene-tool scene-tool-verified">
+                <span></span><span></span><i data-lucide="check"></i>
+              </div>
+              <div class="scene-message scene-message-short"></div>
+              <div class="scene-verified">
+                <i data-lucide="shield-check"></i>
+                <span>readback verified</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="hero-overlay" aria-hidden="true"></div>
+        <div class="hero-inner">
+          <img
+            class="hero-logo"
+            src="./assets/trae2opencode-app-icon.png"
+            alt="Trae2OpenCode"
+            width="64"
+            height="64"
+          >
+          <p class="eyebrow" data-i18n="hero.eyebrow">开源 · 本地优先 · 可验证</p>
+          <h1>Trae2OpenCode</h1>
+          <p class="hero-statement" data-i18n="hero.statement">把 TRAE 会话，完整带到 OpenCode。</p>
+          <p class="hero-description" data-i18n="hero.description">
+            一条命令迁移消息、推理与工具调用。自动脱敏，支持中断续跑，并在写入后逐项回读核验。
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#quickstart">
+              <i data-lucide="terminal" aria-hidden="true"></i>
+              <span data-i18n="hero.start">开始迁移</span>
+            </a>
+            <a
+              class="button button-secondary"
+              href="https://github.com/yororoA/Trae2OpenCode"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <i data-lucide="github" aria-hidden="true"></i>
+              <span data-i18n="hero.source">查看源码</span>
+            </a>
+          </div>
+          <div class="hero-command" aria-label="迁移命令">
+            <span class="command-prompt" aria-hidden="true">$</span>
+            <code>npm run migrate:local</code>
+            <button class="copy-button" type="button" data-copy="npm run migrate:local" aria-label="复制迁移命令" title="复制">
+              <i data-lucide="copy" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+        <a class="hero-scroll" href="#why" aria-label="继续浏览">
+          <i data-lucide="arrow-down" aria-hidden="true"></i>
+        </a>
+      </section>
+
+      <section class="proof-strip" aria-label="项目状态">
+        <div class="proof-item">
+          <strong>1</strong>
+          <span data-i18n="proof.command">条命令完成迁移</span>
+        </div>
+        <div class="proof-item">
+          <strong>398</strong>
+          <span data-i18n="proof.tests">项自动化测试</span>
+        </div>
+        <div class="proof-item">
+          <strong>2.0.12 / 2.0.16</strong>
+          <span data-i18n="proof.versions">已验证 OpenCode 版本</span>
+        </div>
+        <div class="proof-item">
+          <strong>Readback</strong>
+          <span data-i18n="proof.readback">写入后逐项核验</span>
+        </div>
+      </section>
+
+      <section class="section why-section" id="why">
+        <div class="section-inner reveal">
+          <div class="section-heading">
+            <p class="section-index">01</p>
+            <div>
+              <p class="eyebrow eyebrow-dark" data-i18n="why.eyebrow">不是复制粘贴</p>
+              <h2 data-i18n="why.title">迁移的是可以继续工作的上下文</h2>
+            </div>
+          </div>
+
+          <div class="transformation">
+            <div class="transformation-side">
+              <span class="transformation-label" data-i18n="why.sourceLabel">TRAE 中的原始会话</span>
+              <div class="message-stack" aria-hidden="true">
+                <span class="message-line line-long"></span>
+                <span class="message-line line-short"></span>
+                <span class="tool-line"><i data-lucide="square-terminal"></i></span>
+                <span class="message-line line-medium"></span>
+                <span class="reasoning-line"></span>
+              </div>
+              <p data-i18n="why.sourceText">消息、推理、命令、状态与时间关系相互交织。</p>
+            </div>
+
+            <div class="transformation-core">
+              <span class="core-ring" aria-hidden="true"></span>
+              <i data-lucide="arrow-right" aria-hidden="true"></i>
+              <strong>IR</strong>
+              <span data-i18n="why.core">规范化 · 脱敏 · 映射</span>
+            </div>
+
+            <div class="transformation-side">
+              <span class="transformation-label" data-i18n="why.targetLabel">OpenCode 原生时间线</span>
+              <div class="message-stack message-stack-target" aria-hidden="true">
+                <span class="message-line line-long"></span>
+                <span class="reasoning-line"></span>
+                <span class="tool-line"><i data-lucide="square-terminal"></i></span>
+                <span class="message-line line-medium"></span>
+                <span class="verified-line"><i data-lucide="check"></i></span>
+              </div>
+              <p data-i18n="why.targetText">保持顺序和语义，并对目标结果逐项回读。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section demo-section" id="demo">
+        <div class="section-inner reveal">
+          <div class="section-heading section-heading-light">
+            <p class="section-index">02</p>
+            <div>
+              <p class="eyebrow" data-i18n="demo.eyebrow">交互演示</p>
+              <h2 data-i18n="demo.title">选择会话，其余交给迁移器</h2>
+              <p class="section-copy" data-i18n="demo.copy">
+                无需寻找 workbench ID 或 session ID。多选、覆盖保护、续跑与核验都在同一流程中完成。
+              </p>
+            </div>
+          </div>
+
+          <div class="demo-window" data-demo>
+            <div class="demo-toolbar">
+              <div class="window-controls" aria-hidden="true">
+                <span></span><span></span><span></span>
+              </div>
+              <span class="demo-title">trae2opencode / migrate:local</span>
+              <span class="demo-status" data-demo-status data-i18n="demo.ready">等待选择</span>
+            </div>
+
+            <div class="demo-grid">
+              <div class="session-panel">
+                <div class="panel-heading">
+                  <span data-i18n="demo.sessions">可迁移会话</span>
+                  <span>3</span>
+                </div>
+                <label class="session-row">
+                  <input type="checkbox" checked>
+                  <span class="session-check" aria-hidden="true"><i data-lucide="check"></i></span>
+                  <span>
+                    <strong data-i18n="demo.sessionOne">修复迁移流程</strong>
+                    <small>complete · 15:30</small>
+                  </span>
+                </label>
+                <label class="session-row">
+                  <input type="checkbox" checked>
+                  <span class="session-check" aria-hidden="true"><i data-lucide="check"></i></span>
+                  <span>
+                    <strong data-i18n="demo.sessionTwo">保留工具调用</strong>
+                    <small>complete · 14:20</small>
+                  </span>
+                </label>
+                <label class="session-row">
+                  <input type="checkbox">
+                  <span class="session-check" aria-hidden="true"><i data-lucide="check"></i></span>
+                  <span>
+                    <strong data-i18n="demo.sessionThree">发布前检查</strong>
+                    <small>partial · 13:10</small>
+                  </span>
+                </label>
+              </div>
+
+              <div class="terminal-panel" aria-live="polite">
+                <div class="terminal-line terminal-line-muted">
+                  <span>trae2opencode</span>
+                  <span>v1.0.0</span>
+                </div>
+                <div class="terminal-output" data-terminal-output>
+                  <p><span class="terminal-prompt">$</span> npm run migrate:local</p>
+                  <p class="terminal-muted" data-i18n="demo.terminalReady">选择会话后开始迁移。</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="demo-footer">
+              <div class="progress-track" aria-hidden="true">
+                <span data-progress></span>
+              </div>
+              <button class="button button-run" type="button" data-run-demo>
+                <i data-lucide="play" aria-hidden="true"></i>
+                <span data-i18n="demo.run">运行演示</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section capabilities-section" id="capabilities">
+        <div class="section-inner reveal">
+          <div class="section-heading">
+            <p class="section-index">03</p>
+            <div>
+              <p class="eyebrow eyebrow-dark" data-i18n="capabilities.eyebrow">迁移不靠运气</p>
+              <h2 data-i18n="capabilities.title">每一步都有明确证据</h2>
+            </div>
+          </div>
+
+          <div class="feature-grid">
+            <article class="feature-card">
+              <i data-lucide="scan-text" aria-hidden="true"></i>
+              <span class="feature-number">01</span>
+              <h3 data-i18n="capabilities.fidelityTitle">保留过程</h3>
+              <p data-i18n="capabilities.fidelityText">
+                Assistant 过程文本、reasoning 与工具调用按原顺序进入 OpenCode 原生时间线。
+              </p>
+            </article>
+            <article class="feature-card">
+              <i data-lucide="shield-check" aria-hidden="true"></i>
+              <span class="feature-number">02</span>
+              <h3 data-i18n="capabilities.safetyTitle">默认保护</h3>
+              <p data-i18n="capabilities.safetyText">
+                自动剥离已识别凭据；无法证明归属的目标、未知版本与不完整写入都会停止。
+              </p>
+            </article>
+            <article class="feature-card">
+              <i data-lucide="refresh-cw" aria-hidden="true"></i>
+              <span class="feature-number">03</span>
+              <h3 data-i18n="capabilities.resumeTitle">可以续跑</h3>
+              <p data-i18n="capabilities.resumeText">
+                Manifest 记录每个阶段。中断后从可靠检查点继续，不重复导入已验证内容。
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="trust-band">
+        <div class="section-inner trust-layout reveal">
+          <div>
+            <p class="eyebrow" data-i18n="trust.eyebrow">Fail closed</p>
+            <h2 data-i18n="trust.title">看不懂的数据，不猜。<br>无法验证的目标，不写。</h2>
+          </div>
+          <div class="trust-list">
+            <div>
+              <i data-lucide="fingerprint" aria-hidden="true"></i>
+              <span data-i18n="trust.itemOne">稳定身份与所有权标记</span>
+            </div>
+            <div>
+              <i data-lucide="file-check-2" aria-hidden="true"></i>
+              <span data-i18n="trust.itemTwo">Schema、快照与完整 hash</span>
+            </div>
+            <div>
+              <i data-lucide="eye" aria-hidden="true"></i>
+              <span data-i18n="trust.itemThree">导入后逐消息回读对账</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section quickstart-section" id="quickstart">
+        <div class="section-inner reveal">
+          <div class="section-heading">
+            <p class="section-index">04</p>
+            <div>
+              <p class="eyebrow eyebrow-dark" data-i18n="quickstart.eyebrow">快速开始</p>
+              <h2 data-i18n="quickstart.title">准备好两个应用，然后运行一条命令</h2>
+            </div>
+          </div>
+
+          <div class="quickstart-layout">
+            <ol class="steps">
+              <li>
+                <span>1</span>
+                <div>
+                  <h3 data-i18n="quickstart.stepOneTitle">安装依赖</h3>
+                  <p data-i18n="quickstart.stepOneText">克隆仓库，并使用 Node.js 18.18 或更高版本。</p>
+                </div>
+              </li>
+              <li>
+                <span>2</span>
+                <div>
+                  <h3 data-i18n="quickstart.stepTwoTitle">启动 TRAE 调试端口</h3>
+                  <p data-i18n="quickstart.stepTwoText">打开包含目标会话的项目窗口。</p>
+                </div>
+              </li>
+              <li>
+                <span>3</span>
+                <div>
+                  <h3 data-i18n="quickstart.stepThreeTitle">运行迁移</h3>
+                  <p data-i18n="quickstart.stepThreeText">按列表选择会话，等待回读核验完成。</p>
+                </div>
+              </li>
+            </ol>
+
+            <div class="command-workbench">
+              <div class="platform-tabs" role="tablist" aria-label="操作系统">
+                <button type="button" role="tab" aria-selected="true" data-platform="macos">macOS</button>
+                <button type="button" role="tab" aria-selected="false" data-platform="windows">Windows</button>
+                <button type="button" role="tab" aria-selected="false" data-platform="linux">Linux</button>
+              </div>
+              <div class="command-block">
+                <div class="command-block-heading">
+                  <span data-i18n="quickstart.terminal">Terminal</span>
+                  <button class="copy-button" type="button" data-copy-target="platform-command" aria-label="复制命令" title="复制">
+                    <i data-lucide="copy" aria-hidden="true"></i>
+                  </button>
+                </div>
+                <pre id="platform-command" data-platform-command><code>"/Applications/Trae CN.app/Contents/MacOS/Electron" \
+  --remote-debugging-address=127.0.0.1 \
+  --remote-debugging-port=9222
+
+npm run migrate:local</code></pre>
+              </div>
+              <a
+                class="text-link"
+                href="https://github.com/yororoA/Trae2OpenCode/blob/main/docs/operation-manual.md"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <span data-i18n="quickstart.manual">阅读完整操作手册</span>
+                <i data-lucide="arrow-up-right" aria-hidden="true"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="compatibility-band">
+        <div class="section-inner reveal">
+          <div class="compatibility-heading">
+            <p class="eyebrow" data-i18n="compatibility.eyebrow">明确的兼容边界</p>
+            <h2 data-i18n="compatibility.title">只迁移经过验证的组合</h2>
+          </div>
+          <div class="compatibility-table" role="table" aria-label="兼容版本">
+            <div class="compatibility-row compatibility-row-header" role="row">
+              <span role="columnheader" data-i18n="compatibility.component">组件</span>
+              <span role="columnheader" data-i18n="compatibility.supported">已验证范围</span>
+              <span role="columnheader" data-i18n="compatibility.behavior">超出范围</span>
+            </div>
+            <div class="compatibility-row" role="row">
+              <strong role="cell">TRAE CN</strong>
+              <span role="cell">3.3.104</span>
+              <span role="cell" data-i18n="compatibility.reject">拒绝写入</span>
+            </div>
+            <div class="compatibility-row" role="row">
+              <strong role="cell">OpenCode</strong>
+              <span role="cell">2.0.12 / 2.0.16</span>
+              <span role="cell" data-i18n="compatibility.reject">拒绝写入</span>
+            </div>
+            <div class="compatibility-row" role="row">
+              <strong role="cell">Node.js</strong>
+              <span role="cell">≥ 18.18</span>
+              <span role="cell" data-i18n="compatibility.upgrade">提示升级</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="final-cta">
+        <div class="section-inner reveal">
+          <p class="eyebrow" data-i18n="cta.eyebrow">上下文不该被困在一个工具里</p>
+          <h2>Trae2OpenCode</h2>
+          <p data-i18n="cta.copy">保留过程，验证结果，然后从原来的地方继续工作。</p>
+          <div class="hero-actions">
+            <a
+              class="button button-primary"
+              href="https://github.com/yororoA/Trae2OpenCode"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <i data-lucide="github" aria-hidden="true"></i>
+              <span data-i18n="cta.github">在 GitHub 获取</span>
+            </a>
+            <a class="button button-secondary" href="#quickstart">
+              <i data-lucide="book-open" aria-hidden="true"></i>
+              <span data-i18n="cta.guide">查看使用方式</span>
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="section-inner footer-inner">
+        <div>
+          <img class="footer-icon" src="./assets/trae2opencode-app-icon.png" alt="" width="48" height="48">
+          <p data-i18n="footer.copy">开放源码的 TRAE 会话迁移工具。</p>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/yororoA/Trae2OpenCode" target="_blank" rel="noreferrer">GitHub</a>
+          <a href="https://github.com/yororoA/Trae2OpenCode#readme" target="_blank" rel="noreferrer" data-i18n="footer.readme">README</a>
+          <a href="https://github.com/yororoA/Trae2OpenCode/blob/main/docs/troubleshooting.md" target="_blank" rel="noreferrer" data-i18n="footer.help">故障排查</a>
+        </div>
+        <div class="footer-legal">
+          <p>© 2026 yororoA</p>
+          <a
+            href="https://github.com/yororoA/Trae2OpenCode/blob/main/LICENSE"
+            target="_blank"
+            rel="noreferrer"
+            data-i18n="footer.license"
+          >ISC License</a>
+        </div>
+      </div>
+    </footer>
+
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
