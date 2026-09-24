@@ -8,6 +8,7 @@ import {
   mapOpenCodeSession,
   MISSING_TOOL_ERROR_TEXT,
   MISSING_TOOL_OUTPUT_TEXT,
+  MISSING_TOOL_TIME_TEXT,
 } from "../opencode/mapping.js";
 
 const fixture = JSON.parse(readFileSync(new URL(
@@ -99,6 +100,33 @@ describe("OpenCode IR mapping", () => {
     assert.ok(diagnostics.some((item) => item.code === "T2O_OPENCODE_TOOL_COMPLETION_TIME_MISSING"));
   });
 
+  it("preserves an untimed partial tool as explicitly marked text", () => {
+    const complete = structuredClone(fixture);
+    delete tool(complete).createdAt;
+    assert.throws(() => map(complete), expectedRejection);
+
+    complete.sessions[0].recovery = "partial";
+    const { transfer, diagnostics } = map(complete);
+    const block = (transfer.messages[1].content as JsonObject[])[3];
+    const text = block.text as string;
+
+    assert.equal(block.type, "text");
+    assert.equal(text.startsWith(MISSING_TOOL_TIME_TEXT), true);
+    assert.equal(JSON.parse(text.slice(MISSING_TOOL_TIME_TEXT.length)).callId, tool(complete).callId);
+    assert.ok(diagnostics.some((item) => item.code === "T2O_OPENCODE_TOOL_TIMING_MISSING"));
+  });
+
+  it("uses the native unknown finish reason only for partial assistant messages", () => {
+    const bundle = structuredClone(fixture);
+    assistant(bundle).status = "unknown";
+    assert.throws(() => map(bundle), expectedRejection);
+
+    bundle.sessions[0].recovery = "partial";
+    const { transfer, diagnostics } = map(bundle);
+    assert.equal(transfer.messages[1].finish, "unknown");
+    assert.ok(diagnostics.some((item) => item.code === "T2O_OPENCODE_ASSISTANT_STATUS_PROJECTED"));
+  });
+
   it("retains verified running and streaming tools in a completed assistant", () => {
     for (const status of ["running", "streaming"] as const) {
       const bundle = structuredClone(fixture);
@@ -167,7 +195,6 @@ describe("OpenCode IR mapping", () => {
       (b: MigrationBundle) => { delete assistant(b).completedAt; },
       (b: MigrationBundle) => { assistant(b).status = "running"; },
       (b: MigrationBundle) => { assistant(b).status = "unknown"; },
-      (b: MigrationBundle) => { delete tool(b).createdAt; },
     ];
     for (const mutate of mutations) {
       const bundle = structuredClone(fixture);

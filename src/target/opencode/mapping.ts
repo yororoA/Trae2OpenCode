@@ -36,6 +36,8 @@ export const MISSING_TOOL_OUTPUT_TEXT =
   "[TRAE tool completed without persisted output]";
 export const MISSING_TOOL_ERROR_TEXT =
   "[TRAE tool failed without a persisted error message]";
+export const MISSING_TOOL_TIME_TEXT =
+  "[TRAE tool record without persisted timing]";
 
 const PARTIAL_PROJECTION_CODES = new Set([
   "T2O_IR_REPLY_REFERENCE_INVALID",
@@ -116,7 +118,20 @@ function mapContent(
   if (block.type === "reasoning") {
     return { type: "reasoning", text: block.text, ...(time ? { time } : {}) };
   }
-  if (!time) reject(session, `${field}.createdAt`);
+  if (!time) {
+    if (session.recovery !== "partial") reject(session, `${field}.createdAt`);
+    const { sourceRefs: _sourceRefs, ...sourceTool } = block;
+    diagnostics.push(diagnostic(
+      session,
+      "T2O_OPENCODE_TOOL_TIMING_MISSING",
+      "A TRAE tool without a persisted start time is preserved as an explicitly marked text block.",
+      `${field}.createdAt`,
+    ));
+    return {
+      type: "text",
+      text: `${MISSING_TOOL_TIME_TEXT}\n${canonicalizeJson(sourceTool as unknown as JsonValue)}`,
+    };
+  }
   if (block.status === "streaming") {
     if (typeof block.input !== "string" || block.output !== undefined) reject(session, `${field}.input/output`);
     return {
@@ -318,14 +333,26 @@ export function mapOpenCodeSession(
     if (event.type === "user") {
       return { ...common, type: "user", time: { created: event.createdAt }, text: event.text };
     }
-    const hasFinalState = event.status === "completed" || event.status === "error";
+    const projectsUnknownState = session.recovery === "partial" && event.status === "unknown";
+    const hasFinalState = event.status === "completed" || event.status === "error" ||
+      projectsUnknownState;
     if (!hasFinalState || event.completedAt === undefined) reject(session, `${field}.completedAt/status`);
+    if (projectsUnknownState) {
+      diagnostics.push(diagnostic(
+        session,
+        "T2O_OPENCODE_ASSISTANT_STATUS_PROJECTED",
+        "An unknown TRAE assistant status is preserved with OpenCode's native unknown finish reason.",
+        `${field}.status`,
+      ));
+    }
     return {
       ...common, type: "assistant",
       time: { created: event.createdAt, completed: event.completedAt },
       agent: "trae-import-unknown",
       model: { id: "unknown", providerID: "trae-import-unknown" },
-      ...(event.status === "error" ? { finish: "error" } : {}),
+      ...(event.status === "error" || projectsUnknownState
+        ? { finish: event.status === "error" ? "error" : "unknown" }
+        : {}),
       content: event.content.map((block, i) =>
         mapContent(block, session, `${field}.content[${i}]`, diagnostics)),
     };
