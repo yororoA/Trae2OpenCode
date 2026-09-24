@@ -85,6 +85,8 @@ Git。重复选择同一会话时会复用并校验对应 bundle，选择其他�
 session/message ID、项目路径或来源定位等不能安全改写的字段，迁移仍会停止。
 TRAE 若将工具标记为 completed 但没有持久化 output，会保留该工具调用、写入明确的
 缺失输出占位符并按 `partial` 迁移，不把缺失值伪装成真实输出。
+若工具连开始时间也未持久化，其原始记录会保存在消息
+`metadata.trae2opencode.deferredContent` 中，不会把内部 JSON 显示成聊天正文。
 
 ## 从 TRAE 导出
 

@@ -8,7 +8,6 @@ import {
   mapOpenCodeSession,
   MISSING_TOOL_ERROR_TEXT,
   MISSING_TOOL_OUTPUT_TEXT,
-  MISSING_TOOL_TIME_TEXT,
 } from "../opencode/mapping.js";
 
 const fixture = JSON.parse(readFileSync(new URL(
@@ -100,19 +99,22 @@ describe("OpenCode IR mapping", () => {
     assert.ok(diagnostics.some((item) => item.code === "T2O_OPENCODE_TOOL_COMPLETION_TIME_MISSING"));
   });
 
-  it("preserves an untimed partial tool as explicitly marked text", () => {
+  it("retains an untimed partial tool in metadata without rendering JSON as chat text", () => {
     const complete = structuredClone(fixture);
     delete tool(complete).createdAt;
     assert.throws(() => map(complete), expectedRejection);
 
     complete.sessions[0].recovery = "partial";
     const { transfer, diagnostics } = map(complete);
-    const block = (transfer.messages[1].content as JsonObject[])[3];
-    const text = block.text as string;
+    const content = transfer.messages[1].content as JsonObject[];
+    const metadata = (transfer.messages[1].metadata as JsonObject).trae2opencode as JsonObject;
+    const deferred = metadata.deferredContent as JsonObject[];
+    const deferredBlock = deferred[0].block as JsonObject;
 
-    assert.equal(block.type, "text");
-    assert.equal(text.startsWith(MISSING_TOOL_TIME_TEXT), true);
-    assert.equal(JSON.parse(text.slice(MISSING_TOOL_TIME_TEXT.length)).callId, tool(complete).callId);
+    assert.deepEqual(content.map((block) => block.type), ["reasoning", "text", "reasoning", "text"]);
+    assert.equal(deferred[0].sourceIndex, 3);
+    assert.equal(deferredBlock.callId, tool(complete).callId);
+    assert.deepEqual(deferredBlock.output, tool(complete).output);
     assert.ok(diagnostics.some((item) => item.code === "T2O_OPENCODE_TOOL_TIMING_MISSING"));
   });
 

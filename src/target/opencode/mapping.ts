@@ -36,8 +36,6 @@ export const MISSING_TOOL_OUTPUT_TEXT =
   "[TRAE tool completed without persisted output]";
 export const MISSING_TOOL_ERROR_TEXT =
   "[TRAE tool failed without a persisted error message]";
-export const MISSING_TOOL_TIME_TEXT =
-  "[TRAE tool record without persisted timing]";
 
 const PARTIAL_PROJECTION_CODES = new Set([
   "T2O_IR_REPLY_REFERENCE_INVALID",
@@ -108,7 +106,7 @@ function mapContent(
   session: SessionIR,
   field: string,
   diagnostics: Diagnostic[],
-): JsonObject {
+): JsonObject | undefined {
   if (!hasVerifiedRuntimeRefs(block.sourceRefs, session.sourceId)) reject(session, `${field}.sourceRefs`);
   const time = block.createdAt === undefined ? undefined : {
     created: block.createdAt,
@@ -120,17 +118,13 @@ function mapContent(
   }
   if (!time) {
     if (session.recovery !== "partial") reject(session, `${field}.createdAt`);
-    const { sourceRefs: _sourceRefs, ...sourceTool } = block;
     diagnostics.push(diagnostic(
       session,
       "T2O_OPENCODE_TOOL_TIMING_MISSING",
-      "A TRAE tool without a persisted start time is preserved as an explicitly marked text block.",
+      "A TRAE tool without a persisted start time is retained in message metadata and omitted from visible content.",
       `${field}.createdAt`,
     ));
-    return {
-      type: "text",
-      text: `${MISSING_TOOL_TIME_TEXT}\n${canonicalizeJson(sourceTool as unknown as JsonValue)}`,
-    };
+    return undefined;
   }
   if (block.status === "streaming") {
     if (typeof block.input !== "string" || block.output !== undefined) reject(session, `${field}.input/output`);
@@ -243,6 +237,12 @@ function hasValidReply(session: SessionIR, event: EventIR): boolean {
 }
 
 function eventMetadata(event: EventIR, validReply: boolean): JsonObject {
+  const deferredContent = event.type === "assistant"
+    ? event.content.flatMap((block, sourceIndex) =>
+      block.type === "tool" && block.createdAt === undefined
+        ? [{ sourceIndex, block: block as unknown as JsonValue }]
+        : [])
+    : [];
   return {
     sourceId: event.sourceId, order: event.order,
     ...(event.turnSourceId ? { turnSourceId: event.turnSourceId } : {}),
@@ -259,6 +259,7 @@ function eventMetadata(event: EventIR, validReply: boolean): JsonObject {
         ...(block.createdAt === undefined ? {} : { createdAt: block.createdAt }),
         ...(block.completedAt === undefined ? {} : { completedAt: block.completedAt }),
       })),
+      ...(deferredContent.length > 0 ? { deferredContent } : {}),
     } : {}),
   };
 }
@@ -353,8 +354,10 @@ export function mapOpenCodeSession(
       ...(event.status === "error" || projectsUnknownState
         ? { finish: event.status === "error" ? "error" : "unknown" }
         : {}),
-      content: event.content.map((block, i) =>
-        mapContent(block, session, `${field}.content[${i}]`, diagnostics)),
+      content: event.content.flatMap((block, i) => {
+        const mapped = mapContent(block, session, `${field}.content[${i}]`, diagnostics);
+        return mapped ? [mapped] : [];
+      }),
     };
   });
   const transfer: OpenCodeTransfer = {
@@ -366,7 +369,7 @@ export function mapOpenCodeSession(
       time: { created: session.createdAt, updated: session.updatedAt },
       location: { directory: options.directory },
       metadata: { trae2opencode: {
-        mappingVersion: 1, sourceSessionId: session.sourceId,
+        mappingVersion: 2, sourceSessionId: session.sourceId,
         sourceSessionSha256: hashCanonicalJson(session as unknown as JsonValue),
         unknownSourceFields: ["cost", "tokens", "agent", "model"],
         resourceCount: session.resources.length,

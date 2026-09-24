@@ -17,7 +17,7 @@ import {
 import { OPENCODE_VERSION } from "../target/opencode/contract.js";
 
 const MAX_BUNDLE_BYTES = 128 * 1024 * 1024;
-const INTERACTIVE_EXPORT_REVISION = 4;
+const INTERACTIVE_EXPORT_REVISION = 5;
 const MANAGED_OPENCODE_PORT = 4097;
 const WORKBENCH_URL =
   /\/out\/vs\/code\/electron-browser\/workbench\/workbench\.html(?:\?|$)/;
