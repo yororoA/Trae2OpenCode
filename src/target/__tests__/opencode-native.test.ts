@@ -80,6 +80,15 @@ async function setup(run: (harness: {
 }
 
 describe("native OpenCode CLI adapter", () => {
+  it("rejects credential-bearing transfers before invoking CLI or persisting temporary input", async () => {
+    await setup(async ({ transfer, adapter, calls, root }) => {
+      transfer.messages[0].text = "apiKey=synthetic-private-value";
+      await assert.rejects(adapter.importSession(transfer), { code: "T2O_SENSITIVE_CONTENT_REQUIRES_REBINDING" });
+      assert.deepEqual(calls, []);
+      assert.deepEqual(await fs.readdir(root), []);
+    });
+  });
+
   it("imports through literal CLI arguments, reads target data and cleans private temporary files", async () => {
     await setup(async ({ transfer, adapter, calls, root }) => {
       assert.deepEqual(await adapter.importSession(transfer), transfer);

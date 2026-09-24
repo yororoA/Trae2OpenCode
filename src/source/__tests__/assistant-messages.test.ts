@@ -353,6 +353,24 @@ describe("parseTraeRuntimeAssistantMessages", () => {
     assert.deepEqual(report.messages[0].textBlocks.map((block) => block.text), ["final answer"]);
   });
 
+  it("projects the verified solo agent finish summary", () => {
+    const report = parseTraeRuntimeAssistantMessages([runtimeAssistant({
+      message_type: "task",
+      agent_type: "solo_agent",
+      content: { messages: [{
+        type: "plan_item",
+        plan_item: {
+          id: "plan-solo-finish",
+          thought: "internal plan thought",
+          tool_call_info: { name: "finish", params: { summary: "visible solo answer" } },
+        },
+      }] },
+    })], "3.3.104");
+    assert.deepEqual(report.messages[0].textBlocks.map((block) => block.text),
+      ["visible solo answer"]);
+    assert.doesNotMatch(JSON.stringify(report.messages[0].textBlocks), /internal plan thought/);
+  });
+
   it("isolates invalid timing and status without leaking content", () => {
     const privateContent = "private assistant response";
     const report = parseTraeRuntimeAssistantMessages(

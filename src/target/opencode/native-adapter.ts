@@ -2,6 +2,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
+import { assertNoCredentials } from "../../shared/sensitive.js";
 import { requireOpenCodeCapabilities } from "./capability-probe.js";
 import { assertOpenCodeTransfer, EXPORT_ROUTE, isRecord } from "./contract.js";
 import type { OpenCodeTransfer } from "./mapping.js";
@@ -67,6 +68,7 @@ export function createNativeOpenCodeAdapter(options: NativeOpenCodeAdapterOption
       return transferFrom(value, id);
     },
     async importSession(value: OpenCodeTransfer): Promise<OpenCodeTransfer> {
+      assertNoCredentials(value);
       // Snapshot before the first await so caller mutation cannot alter checked data.
       const transfer = structuredClone(value);
       assertOpenCodeTransfer(transfer);

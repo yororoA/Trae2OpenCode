@@ -1,6 +1,6 @@
 # Trae2OpenCode 实现规划
 
-> 状态：M0 至 M3 已合入 `main`；M4-1 至 M4-6 已完成，位于 `m4/opencode-import`
+> 状态：M0 至 M4 已合入 `main`；M5-1 至 M5-6 与真实 runtime 端到端验收已完成，PR #16 待合入
 > 核验日期：2026-09-24
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
@@ -37,12 +37,14 @@ M0 已用真实会话确认该结构化入口，并固化为脱敏 fixture。MVP
 | M2 SQLite 快照 | 已集成 | 已实现 Online Backup、WAL 一致性、完整性校验和自动清理 |
 | M2 能力探测 | 已集成 | 已输出 storage profile、字段覆盖率和 runtime adapter 状态 |
 | M2 recovery grading | 已集成 | 已实现逐会话四级分级、稳定缺失原因和 metadata session discovery |
-| M3 TRAE 读取 | 已集成，PR #14 | 已实现各类 parser、profile 注册、IR 组装与完整性/golden 校验；production runtime bridge 尚未接入 |
-| M4 OpenCode adapter | M4-1 至 M4-6 已完成 | 能力探测、IR 映射、稳定 ID、CLI adapter、路径映射与完整对账；五组 macOS 隔离实机通过 |
-| M5-M7 | 未开始 | 编排、安全、资源迁移、兼容与发布能力均未实现 |
+| M3 TRAE 读取 | 已集成，PR #14 | 已实现各类 parser、profile 注册、IR 组装与完整性/golden 校验；production runtime bridge 在 M5 接入 |
+| M4 OpenCode adapter | 已集成，PR #15 | 能力探测、IR 映射、稳定 ID、CLI adapter、路径映射与完整对账；五组 macOS 隔离实机通过 |
+| M5 迁移编排 | 已完成，PR #16 | 编排、安全能力与已登录 renderer → 隔离 OpenCode 端到端验收通过 |
+| M6-M7 | 未开始 | 资源迁移、兼容与发布能力待实现 |
 
-当前结论不能表述为“迁移工具已可用”。准确状态是：M0 已解除源数据可恢复性
-阻塞，项目可以进入工程实现阶段；目前仍不能执行真实 TRAE 会话迁移。
+M5 的生产迁移路径和实机验收已完成，等待 PR #16 合入 main。真实可写样本为
+准确标记的 partial 会话，覆盖 text/tool；reasoning 为 M0 真实来源与 M4/M7
+目标往返的拆分证据，不宣称单一实机会话整链覆盖。尚未发布 npm 包。
 
 ## 2. 目标与边界
 
@@ -545,16 +547,46 @@ M4-6 已将完整回读对账接入 adapter，累计 249 项测试。五组 macO
 2.0.12 隔离 import/export 全部 verified；详见
 [M4-6 回读对账](./m4-6-readback-reconciliation.md)。
 
+M4 已通过 PR #15 合入 `main`，合并提交为 `e80d744`；里程碑 CI 通过。
+
 ### M5：迁移编排与安全性，3-5 天
 
 | ID | 任务 | 依赖 | 验收 |
 | --- | --- | --- | --- |
-| M5-1 | `doctor/scan/preview/export` | M2, M3 | 全流程无目标写入 |
-| M5-2 | `migrate --dry-run` | M4 | 计划与实际映射使用同一代码路径 |
-| M5-3 | manifest、checkpoint、resume | M4 | 中断后从最后成功会话继续 |
-| M5-4 | 冲突与幂等策略 | M5-3 | 默认 skip，显式 replace 才覆盖本工具产物 |
-| M5-5 | rollback | M5-3 | 只删除 manifest 记录的新会话 |
-| M5-6 | 敏感信息过滤 | M1-3 | 日志、报告、fixture 不含凭据和默认正文 |
+| M5-1 | `doctor/scan/preview/export` | M2, M3 | 已实现并通过本机只读及已登录 CDP 正文端到端验收 |
+| M5-2 | `migrate --dry-run` | M4 | 已实现：共享 transfer 计划、目录策略、恢复筛选与脱敏统计 |
+| M5-3 | manifest、checkpoint、resume | M4 | 已实现：持久化先于写入、原子 checkpoint、失败隔离、恢复与 verify |
+| M5-4 | 冲突与幂等策略 | M5-3 | 已实现：默认 skip，旧 manifest + 完整 hash + 显式独占声明保护替换 |
+| M5-5 | rollback | M5-3 | 已实现：默认预览、本轮归属/hash/子会话保护、显式确认与中断恢复 |
+| M5-6 | 敏感信息过滤 | M1-3 | 已实现：已识别凭据阻断 IR 导出/目标写入，日志/报告/fixture 输出前过滤 |
+
+M5-1 累计 265 项测试通过，CLI 实机发现 62 个会话、25 个项目；无 runtime 时
+明确标记 metadata-only。接口与验证边界见 [M5-1 只读 CLI](./m5-1-readonly-cli.md)。
+
+M5-2 累计 275 项测试通过；实机 dry-run 排除全部 62 个 metadata-only 会话，
+未误报可导入。详见 [M5-2 dry-run](./m5-2-dry-run.md)。
+
+M5-3 累计 292 项测试通过；隔离 OpenCode 实机已验证导入响应丢失后的恢复，
+重复执行只 import 一次。详见 [M5-3 manifest/resume](./m5-3-manifest-resume.md)。
+
+M5-4 累计 310 项测试通过；隔离实机已验证父子图默认 skip、外来子会话保护、
+原生删除响应丢失后的续跑与 2 个会话完整替换。删除依赖暂停目标其他写入者的
+显式声明；没有条件删除时不宣称跨进程原子保护。详见
+[M5-4 幂等与替换](./m5-4-idempotency-replacement.md)。
+
+M5-5 累计 325 项测试通过；隔离实机验证默认预览、外来子会话保护、原生删除
+响应丢失后的恢复与重复回滚。回滚开始后禁止原 manifest 再次用于迁移续跑；
+verify 校验已回滚 ID 不存在。详见 [M5-5 回滚](./m5-5-rollback.md)。
+
+M5-6 累计 339 项测试通过，已覆盖已识别凭据格式、结构化字段、嵌套编码、
+动态 key、日志与所有 JSON fixture。隔离实机确认凭据 transfer 未写入目标、
+凭据 export 未创建目录，正常正文完整导入并对账。未知编码/无标记密码不在
+检测保证内。详见 [M5-6 凭据边界](./m5-6-sensitive-content.md)。
+
+M5 真实来源验收累计 344 项测试通过；已登录 TRAE CN 3.3.104 经生产 CDP
+读取后，partial 会话的 4 条消息、2 个 text 和 2 个 completed tool 原生导入
+OpenCode 2.0.12，expected/actual 计数和 hash 一致。resume 与重复跳过通过，
+实际 import 1 次。详见 [真实端到端报告](./m5-7-live-runtime-e2e.md)。
 
 ### M6：资源迁移，4-7 天，可独立发布
 

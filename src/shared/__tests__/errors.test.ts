@@ -57,6 +57,24 @@ describe("diagnostics", () => {
 });
 
 describe("JsonLogger", () => {
+  it("redacts credential values in message, event, code, allowed fields and dynamic keys", () => {
+    let output = "";
+    const logger = new JsonLogger((line) => { output += line; });
+    const synthetic = `ghp_${"A".repeat(36)}`;
+    logger.log({
+      level: "warning", event: synthetic, code: synthetic, message: `api_key=${synthetic}`,
+      context: { status: synthetic, diagnosticIds: [synthetic], [synthetic]: "hidden" },
+    });
+    const record = JSON.parse(output);
+    assert.equal(record.message, "[REDACTED_SECRET]");
+    assert.equal(record.event, "[REDACTED_SECRET]");
+    assert.equal(record.code, "[REDACTED_SECRET]");
+    assert.equal(record.context.status, "[REDACTED_SECRET]");
+    assert.deepEqual(record.context.diagnosticIds, ["[REDACTED_SECRET]"]);
+    assert.equal(record.context["[REDACTED_SECRET]"], "[REDACTED]");
+    assert.ok(!output.includes(synthetic));
+  });
+
   it("redacts context fields unless they are explicitly allowlisted", () => {
     const context = sanitizeLogContext({
       command: "scan",

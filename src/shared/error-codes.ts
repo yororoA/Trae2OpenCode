@@ -15,9 +15,105 @@ export const ERROR_DEFINITIONS = {
     exitCode: 3,
     message: "Migration bundle failed schema validation.",
   },
+  T2O_SENSITIVE_CONTENT_REQUIRES_REBINDING: {
+    exitCode: 4,
+    message: "Credential-like content was detected. Remove credential values from the selected data and rebind credentials separately.",
+  },
+  T2O_SENSITIVE_SCAN_LIMIT: {
+    exitCode: 4,
+    message: "Data exceeds the sensitive-content inspection limit; select a smaller bundle.",
+  },
   T2O_TRAE_BUNDLE_INPUT_INVALID: {
     exitCode: 4,
     message: "TRAE bundle inputs have inconsistent versions, identities, or counts.",
+  },
+  T2O_TRAE_VERSION_UNAVAILABLE: {
+    exitCode: 4,
+    message: "TRAE CN product version could not be read; provide --product-file.",
+  },
+  T2O_TRAE_RUNTIME_ENDPOINT_INVALID: {
+    exitCode: 4,
+    message: "TRAE runtime requires an explicit loopback HTTP debugging endpoint.",
+  },
+  T2O_TRAE_RUNTIME_UNAVAILABLE: {
+    exitCode: 4,
+    message: "TRAE runtime is unavailable or ambiguous; open TRAE with a debugging port and select --cdp-target if needed.",
+  },
+  T2O_TRAE_RUNTIME_READ_INVALID: {
+    exitCode: 4,
+    message: "TRAE runtime returned invalid, conflicting, or incomplete pages.",
+  },
+  T2O_TRAE_RUNTIME_LIMIT: {
+    exitCode: 4,
+    message: "TRAE data exceeds the supported read limit; select fewer sessions.",
+  },
+  T2O_MIGRATION_SELECTION_EMPTY: {
+    exitCode: 4,
+    message: "No sessions match the requested selection.",
+  },
+  T2O_MIGRATION_BUNDLE_READ_FAILED: {
+    exitCode: 4,
+    message: "The migration bundle could not be read within the supported size limit.",
+  },
+  T2O_MIGRATION_EXPORT_FAILED: {
+    exitCode: 4,
+    message: "Export failed; choose a new output directory with an existing writable parent.",
+  },
+  T2O_MIGRATION_MANIFEST_INVALID: {
+    exitCode: 4,
+    message: "The migration manifest is invalid, incompatible, or unreadable.",
+  },
+  T2O_MIGRATION_CHECKPOINT_FAILED: {
+    exitCode: 4,
+    message: "The migration checkpoint could not be saved; target writes stopped.",
+  },
+  T2O_MIGRATION_LOCKED: {
+    exitCode: 4,
+    message: "Another process is using this migration manifest.",
+  },
+  T2O_MIGRATION_PLAN_CHANGED: {
+    exitCode: 4,
+    message: "The source bundle or migration options differ from the manifest.",
+  },
+  T2O_MIGRATION_TARGET_CHANGED: {
+    exitCode: 5,
+    message: "The target endpoint, contract, or previously created session has changed.",
+  },
+  T2O_MIGRATION_PARTIAL_WRITE: {
+    exitCode: 5,
+    message: "A session from this migration exists but failed reconciliation; no overwrite was attempted.",
+  },
+  T2O_MIGRATION_EXCLUSIVE_REQUIRED: {
+    exitCode: 2,
+    message: "Stop other target writers, then provide --exclusive-target to acknowledge exclusive use during deletion.",
+  },
+  T2O_MIGRATION_REPLACEMENT_INVALID: {
+    exitCode: 5,
+    message: "Replacement requires a verified tool-owned session and its unchanged readback hash in the previous manifest.",
+  },
+  T2O_MIGRATION_CHILDREN_PROTECTED: {
+    exitCode: 5,
+    message: "A child session is outside the deletion plan; no cascading deletion is allowed.",
+  },
+  T2O_MIGRATION_CONFIRMATION_REQUIRED: {
+    exitCode: 2,
+    message: "Review rollback preview and provide --confirm with its exact migration run ID.",
+  },
+  T2O_MIGRATION_ROLLBACK_STARTED: {
+    exitCode: 5,
+    message: "Rollback has started for this manifest; migration resume and replacement are disabled.",
+  },
+  T2O_MIGRATION_ROLLBACK_EVIDENCE_MISSING: {
+    exitCode: 5,
+    message: "Rollback requires the original readback hash or a fully reconciled interrupted import.",
+  },
+  T2O_OPENCODE_DELETE_FAILED: {
+    exitCode: 5,
+    message: "Session deletion did not complete; resume with the same manifest.",
+  },
+  T2O_OPENCODE_DELETE_UNSUPPORTED: {
+    exitCode: 5,
+    message: "The target lacks the verified session deletion and child-listing contract.",
   },
   T2O_TRAE_ROOT_NOT_FOUND: {
     exitCode: 4,

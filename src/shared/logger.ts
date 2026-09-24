@@ -1,5 +1,6 @@
 import type { Diagnostic, JsonObject, JsonValue } from "../ir/types.js";
 import { getDiagnosticLocation } from "./diagnostics.js";
+import { redactSensitiveText } from "./sensitive.js";
 import {
   normalizeError,
   type Trae2OpenCodeError,
@@ -62,6 +63,7 @@ function safeScalar(value: unknown): JsonValue {
     return "[REDACTED]";
   }
 
+  if (redactSensitiveText(value) !== value) return "[REDACTED_SECRET]";
   if (ABSOLUTE_PATH_PATTERN.test(value)) {
     return "[REDACTED_PATH]";
   }
@@ -81,7 +83,7 @@ export function sanitizeLogContext(
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([key, value]) => {
         if (!SAFE_CONTEXT_KEYS.has(key)) {
-          return [key, "[REDACTED]"];
+          return [safeScalar(key) as string, "[REDACTED]"];
         }
 
         if (Array.isArray(value)) {
@@ -109,9 +111,9 @@ export class JsonLogger {
     const record: StructuredLogRecord = {
       timestamp: this.clock().toISOString(),
       level: event.level,
-      event: event.event,
-      message: event.message,
-      ...(event.code ? { code: event.code } : {}),
+      event: redactSensitiveText(event.event),
+      message: redactSensitiveText(event.message),
+      ...(event.code ? { code: redactSensitiveText(event.code) } : {}),
       ...(context && Object.keys(context).length > 0 ? { context } : {}),
     };
 

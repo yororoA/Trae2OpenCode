@@ -5,6 +5,7 @@ import { canonicalizeMigrationBundle } from "../../ir/canonical.js";
 import { validateMigrationBundleIntegrity } from "../../ir/integrity.js";
 import type { JsonObject } from "../../ir/types.js";
 import { assembleTraeMigrationBundle, type AssembleTraeBundleOptions } from "../trae/assemble-bundle.js";
+import { selectBundle } from "../trae/collect.js";
 import { runtimeHash } from "../trae/reasoning-plan.js";
 
 const fixturePath = "fixtures/source/trae-cn-3.3.104/assembly.json";
@@ -142,6 +143,29 @@ describe("assembleTraeMigrationBundle", () => {
     assert.equal(bundle.sessions[0].resources.length, 1);
     assert.equal(bundle.sessions[0].resources[0].sourceRefs.length, 2);
     assert.equal(bundle.sessions[0].recovery, "partial");
+  });
+
+  it("scopes workspace resource failures to sessions in that workspace", () => {
+    const options = input();
+    const second = structuredClone(options.metadata.sessions[0]);
+    second.sourceSessionId = "session-other";
+    second.workspaceStorageIds = ["workspace-other"];
+    second.sources = second.sources.map((source) => ({
+      ...source, workspaceStorageId: "workspace-other",
+    }));
+    options.metadata.sessions.push(second);
+    options.resources.issues.push({
+      code: "T2O_TRAE_RESOURCE_SCAN_FAILED",
+      severity: "error",
+      message: "A TRAE resource directory could not be scanned.",
+      workspaceStorageId: "workspace-other",
+    });
+    const bundle = assembleTraeMigrationBundle(options);
+    const issue = bundle.diagnostics.find((diagnostic) =>
+      diagnostic.code === "T2O_TRAE_RESOURCE_SCAN_FAILED");
+    assert.deepEqual(issue?.subject, { type: "session", sourceId: "session-other" });
+    assert.equal(selectBundle(bundle, { session: "session-synthetic" }).diagnostics
+      .some((diagnostic) => diagnostic.code === "T2O_TRAE_RESOURCE_SCAN_FAILED"), false);
   });
 
   it("guards product versions, count evidence and contradictory session reads", () => {

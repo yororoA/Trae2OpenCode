@@ -1,6 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { normalizeTraeStructuredRuntimeEvidence } from "../src/source/trae/structured-runtime-evidence";
+import { normalizeError } from "../src/shared/errors.js";
+import { assertNoCredentials } from "../src/shared/sensitive.js";
 
 function argument(name: string): string {
   const index = process.argv.indexOf(name);
@@ -18,11 +20,12 @@ try {
     fs.readFileSync(probePath, "utf8"),
   );
 
+  assertNoCredentials(report);
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, `${JSON.stringify(report, null, 2)}\n`);
   process.stdout.write(
     `${JSON.stringify({
-      output: outputPath,
+      written: true,
       status: report.verification.status,
       messages: report.counts.messages,
       planItems: report.counts.planItems,
@@ -33,7 +36,7 @@ try {
 } catch (error) {
   process.stderr.write(
     `Structured runtime evidence collection failed: ${
-      error instanceof Error ? error.message : String(error)
+      normalizeError(error).code
     }\n`,
   );
   process.exitCode = 1;

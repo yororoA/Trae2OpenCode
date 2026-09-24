@@ -3,6 +3,8 @@ import { parseArgs } from "node:util";
 import { getDiagnosticLocation } from "../shared/diagnostics.js";
 import { Trae2OpenCodeError, normalizeError } from "../shared/errors.js";
 import { type Clock, JsonLogger } from "../shared/logger.js";
+import { assertNoCredentials, redactSensitiveText } from "../shared/sensitive.js";
+import { executeReadCommand } from "./commands.js";
 
 export interface CliIO {
   stdout(message: string): void;
@@ -66,6 +68,39 @@ Options:
       --json          Emit machine-readable output and errors
       --trae-root <path>
                       Override the TRAE data root
+      --product-file <path>
+                      Installed TRAE CN product.json
+      --cdp <http://127.0.0.1:port>
+                      Read local history through the TRAE renderer
+      --cdp-target <id>
+                      Select a workbench when several windows are open
+      --input <path>  Read a previously exported IR bundle
+      --output <dir>  Create a private export or migration directory
+      --resume <path>
+                      Resume migration using a manifest and the same source/options
+      --replace <path>
+                      Replace unchanged tool sessions proven by a previous manifest
+      --exclusive-target
+                      Acknowledge all other target writers are stopped during deletion
+      --manifest <path>
+                      Manifest to verify or preview rollback
+      --confirm <run-id>
+                      Execute rollback of this run (requires --exclusive-target)
+      --session <id>  Select one source session
+      --project <path>
+                      Select sessions by source project
+      --server <url> Check a local OpenCode server
+      --binary <path>
+                      OpenCode executable (default: opencode)
+      --dry-run       Plan migration without target writes
+      --recovery <complete,partial>
+                      Select recovery grades (default: complete,partial)
+      --namespace <name>
+                      Stable identity namespace (default: trae-cn)
+      --path-map <from=to>
+                      Map source project roots; may be repeated
+      --fallback-directory <path>
+                      Existing directory for unavailable project paths
 `;
 }
 
@@ -93,7 +128,7 @@ function writeError(
     const location = getDiagnosticLocation(diagnostic);
     const locationPrefix = location ? `${location}: ` : "";
     io.stderr(
-      `  - [${diagnostic.code}] ${locationPrefix}${diagnostic.message}\n`,
+      `  - [${redactSensitiveText(diagnostic.code)}] ${redactSensitiveText(locationPrefix)}${redactSensitiveText(diagnostic.message)}\n`,
     );
   }
 
@@ -107,12 +142,12 @@ function writeError(
   return normalized.exitCode;
 }
 
-export function runCli(
+export async function runCli(
   args: readonly string[],
   io: CliIO = defaultIO,
   version?: string,
   runtime: CliRuntime = {},
-): number {
+): Promise<number> {
   let parsed: ReturnType<typeof parseArgs>;
   const jsonRequested = args.includes("--json");
 
@@ -136,6 +171,25 @@ export function runCli(
         "trae-root": {
           type: "string",
         },
+        "product-file": { type: "string" },
+        cdp: { type: "string" },
+        "cdp-target": { type: "string" },
+        input: { type: "string" },
+        output: { type: "string" },
+        session: { type: "string" },
+        project: { type: "string" },
+        server: { type: "string" },
+        binary: { type: "string" },
+        "dry-run": { type: "boolean" },
+        recovery: { type: "string" },
+        namespace: { type: "string" },
+        "path-map": { type: "string", multiple: true },
+        "fallback-directory": { type: "string" },
+        manifest: { type: "string" },
+        resume: { type: "string" },
+        replace: { type: "string" },
+        confirm: { type: "string" },
+        "exclusive-target": { type: "boolean" },
       },
     });
   } catch (cause) {
@@ -212,17 +266,31 @@ export function runCli(
 
   const isPlannedCommand = PLANNED_COMMANDS.some(([name]) => name === command);
   if (isPlannedCommand) {
-    return writeError(
-      io,
-      new Trae2OpenCodeError("T2O_CLI_COMMAND_NOT_IMPLEMENTED"),
-      {
-        json: useJson,
-        clock: runtime.clock,
-        context: {
-          command,
-        },
-      },
-    );
+    try {
+      const stringOption = (key: string) => typeof parsed.values[key] === "string"
+        ? parsed.values[key] as string : undefined;
+      const result = await executeReadCommand(command, {
+        traeRoot: stringOption("trae-root"), productFile: stringOption("product-file"),
+        cdp: stringOption("cdp"), cdpTarget: stringOption("cdp-target"),
+        input: stringOption("input"), output: stringOption("output"),
+        session: stringOption("session"), project: stringOption("project"),
+        server: stringOption("server"), binary: stringOption("binary"),
+        dryRun: parsed.values["dry-run"] === true,
+        recovery: stringOption("recovery"), namespace: stringOption("namespace"),
+        pathMaps: parsed.values["path-map"] as string[] | undefined,
+        fallbackDirectory: stringOption("fallback-directory"),
+        manifest: stringOption("manifest"), resume: stringOption("resume"),
+        replace: stringOption("replace"), exclusiveTarget: parsed.values["exclusive-target"] === true,
+        confirm: stringOption("confirm"),
+      });
+      assertNoCredentials(result);
+      io.stdout(`${JSON.stringify(result, null, useJson ? undefined : 2)}\n`);
+      const failed = typeof result === "object" && result !== null &&
+        "hasFailures" in result && result.hasFailures === true;
+      return failed ? 5 : 0;
+    } catch (error) {
+      return writeError(io, error, { json: useJson, clock: runtime.clock, context: { command } });
+    }
   }
 
   return writeError(
