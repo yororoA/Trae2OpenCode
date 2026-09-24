@@ -87,6 +87,8 @@ TRAE 若将工具标记为 completed 但没有持久化 output，会保留该工
 缺失输出占位符并按 `partial` 迁移，不把缺失值伪装成真实输出。
 若工具连开始时间也未持久化，其原始记录会保存在消息
 `metadata.trae2opencode.deferredContent` 中，不会把内部 JSON 显示成聊天正文。
+若某轮没有持久化最终 assistant 正文，会显示明确的缺失提示，不会拿过程推理或
+工具结果冒充最终回答。
 
 ## 从 TRAE 导出
 

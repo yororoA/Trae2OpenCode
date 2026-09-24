@@ -36,6 +36,8 @@ export const MISSING_TOOL_OUTPUT_TEXT =
   "[TRAE tool completed without persisted output]";
 export const MISSING_TOOL_ERROR_TEXT =
   "[TRAE tool failed without a persisted error message]";
+export const MISSING_ASSISTANT_TEXT =
+  "[TRAE assistant response ended before final text was persisted]";
 
 const PARTIAL_PROJECTION_CODES = new Set([
   "T2O_IR_REPLY_REFERENCE_INVALID",
@@ -81,6 +83,11 @@ function concernsSession(issue: Diagnostic, session: SessionIR): boolean {
     case "event": return session.events.some((event) => event.sourceId === subject.sourceId);
     case "resource": return session.resources.some((resource) => resource.sourceId === subject.sourceId);
   }
+}
+
+function concernsEvent(issue: Diagnostic, event: EventIR): boolean {
+  return (issue.subject?.type === "event" && issue.subject.sourceId === event.sourceId) ||
+    issue.context?.sourceMessageId === event.sourceId;
 }
 
 function hasErrorPayload(value: JsonValue | undefined): boolean {
@@ -346,6 +353,23 @@ export function mapOpenCodeSession(
         `${field}.status`,
       ));
     }
+    const content = event.content.flatMap((block, i) => {
+      const mapped = mapContent(block, session, `${field}.content[${i}]`, diagnostics);
+      return mapped ? [mapped] : [];
+    });
+    const sourceTextMissing = session.recovery === "partial" &&
+      issues.some((issue) =>
+        issue.code === "T2O_TRAE_ASSISTANT_MESSAGE_TEXT_MISSING" &&
+        concernsEvent(issue, event));
+    if (sourceTextMissing && !content.some((block) => block.type === "text")) {
+      content.push({ type: "text", text: MISSING_ASSISTANT_TEXT });
+      diagnostics.push(diagnostic(
+        session,
+        "T2O_OPENCODE_ASSISTANT_TEXT_MISSING",
+        "TRAE did not persist final assistant text; the target contains an explicit placeholder.",
+        `${field}.content`,
+      ));
+    }
     return {
       ...common, type: "assistant",
       time: { created: event.createdAt, completed: event.completedAt },
@@ -354,10 +378,7 @@ export function mapOpenCodeSession(
       ...(event.status === "error" || projectsUnknownState
         ? { finish: event.status === "error" ? "error" : "unknown" }
         : {}),
-      content: event.content.flatMap((block, i) => {
-        const mapped = mapContent(block, session, `${field}.content[${i}]`, diagnostics);
-        return mapped ? [mapped] : [];
-      }),
+      content,
     };
   });
   const transfer: OpenCodeTransfer = {
@@ -369,7 +390,7 @@ export function mapOpenCodeSession(
       time: { created: session.createdAt, updated: session.updatedAt },
       location: { directory: options.directory },
       metadata: { trae2opencode: {
-        mappingVersion: 2, sourceSessionId: session.sourceId,
+        mappingVersion: 3, sourceSessionId: session.sourceId,
         sourceSessionSha256: hashCanonicalJson(session as unknown as JsonValue),
         unknownSourceFields: ["cost", "tokens", "agent", "model"],
         resourceCount: session.resources.length,

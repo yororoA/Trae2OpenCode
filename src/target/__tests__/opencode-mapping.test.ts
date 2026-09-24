@@ -6,6 +6,7 @@ import type { AssistantEventIR, JsonObject, MigrationBundle, ToolContentIR } fro
 import { assertOpenCodeTransfer } from "../opencode/contract.js";
 import {
   mapOpenCodeSession,
+  MISSING_ASSISTANT_TEXT,
   MISSING_TOOL_ERROR_TEXT,
   MISSING_TOOL_OUTPUT_TEXT,
 } from "../opencode/mapping.js";
@@ -127,6 +128,24 @@ describe("OpenCode IR mapping", () => {
     const { transfer, diagnostics } = map(bundle);
     assert.equal(transfer.messages[1].finish, "unknown");
     assert.ok(diagnostics.some((item) => item.code === "T2O_OPENCODE_ASSISTANT_STATUS_PROJECTED"));
+  });
+
+  it("marks a partial assistant whose final text was not persisted", () => {
+    const bundle = structuredClone(fixture);
+    assistant(bundle).content = assistant(bundle).content.filter((block) => block.type !== "text");
+    bundle.sessions[0].recovery = "partial";
+    bundle.diagnostics.push({
+      id: "missing-text", code: "T2O_TRAE_ASSISTANT_MESSAGE_TEXT_MISSING",
+      message: "synthetic", severity: "warning",
+      subject: { type: "session", sourceId: "session-synthetic" },
+      sourceRefs: [], context: { sourceMessageId: "assistant-synthetic" },
+    });
+
+    const { transfer, diagnostics } = map(bundle);
+    const content = transfer.messages[1].content as JsonObject[];
+
+    assert.deepEqual(content.at(-1), { type: "text", text: MISSING_ASSISTANT_TEXT });
+    assert.ok(diagnostics.some((item) => item.code === "T2O_OPENCODE_ASSISTANT_TEXT_MISSING"));
   });
 
   it("retains verified running and streaming tools in a completed assistant", () => {
