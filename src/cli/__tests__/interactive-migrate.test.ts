@@ -231,7 +231,7 @@ describe("interactive migration helpers", () => {
     assert.doesNotMatch(first.exportDirectory, new RegExp(sourceSessionId));
     assert.deepEqual(
       resolveMigrationDirectories(root, "session-a", "/tmp/export", "/tmp/run"),
-      { exportDirectory: "/tmp/export", runDirectory: "/tmp/run" },
+      { exportDirectory: path.resolve("/tmp/export"), runDirectory: path.resolve("/tmp/run") },
     );
   });
 
