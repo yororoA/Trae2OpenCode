@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { assertNoCredentials, containsCredentials, redactSensitiveText } from "../sensitive.js";
+import {
+  assertNoCredentials,
+  containsCredentials,
+  redactCredentialValues,
+  redactSensitiveText,
+} from "../sensitive.js";
 
 describe("credential inspection boundaries", () => {
   it("detects common credential formats without returning their values", () => {
@@ -56,6 +61,45 @@ describe("credential inspection boundaries", () => {
     assert.doesNotThrow(() => assertNoCredentials(safe));
     assert.deepEqual(safe, before);
     assert.equal(redactSensitiveText(safe.text), safe.text);
+  });
+
+  it("redacts recognized values without retaining secrets or mutating input", () => {
+    const secret = `ghp_${"A".repeat(36)}`;
+    const input = {
+      prose: `Use ${secret} only for this command.`,
+      nested: {
+        password: "synthetic-password",
+        encoded: JSON.stringify({ authorization: `Bearer ${"B".repeat(24)}` }),
+      },
+      safe: "Keep this text.",
+    };
+    const before = structuredClone(input);
+
+    const result = redactCredentialValues(input);
+
+    assert.deepEqual(input, before);
+    assert.ok(result.redactedCount >= 3);
+    assert.equal(result.value.safe, input.safe);
+    assert.match(result.value.prose, /Use \[REDACTED_SECRET\] only/);
+    assert.equal(result.value.nested.password, "[REDACTED_SECRET]");
+    assert.doesNotThrow(() => assertNoCredentials(result.value));
+    assert.doesNotMatch(JSON.stringify(result.value), new RegExp(secret));
+  });
+
+  it("redacts credential-bearing dynamic keys and fails closed for CLI secrets", () => {
+    const secret = `ghp_${"A".repeat(36)}`;
+    const keyed = redactCredentialValues({
+      [secret]: "value",
+      "[REDACTED_KEY_1]": "existing",
+    });
+    assert.deepEqual(keyed.value, {
+      "[REDACTED_KEY_2]": "value",
+      "[REDACTED_KEY_1]": "existing",
+    });
+    assert.equal(
+      redactCredentialValues("curl --token synthetic https://example.test").value,
+      "[REDACTED_SECRET]",
+    );
   });
 
   it("fails closed on unsupported nesting and safely handles shared or cyclic objects", () => {

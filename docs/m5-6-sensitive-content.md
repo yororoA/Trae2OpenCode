@@ -12,9 +12,19 @@ migrate、manifest、原生 import 和 CLI 最终报告均执行凭据检查。f
 提示移除所选数据中的凭据并在目标侧重新绑定。错误不含命中值、上下文片段或正文。
 导出和导入检查在创建目录、写临时 transfer 或调用目标前完成。
 
-不静默改写会话正文，也不提供跳过检查参数。敏感 bundle 的读取或导出会整体
-拒绝；生产采集可以用 `--session` 缩小选择。离线输入需先在用户控制的副本中
-移除凭据，再重新导出与预览。没有命中的文本、消息顺序和来源 hash 保持原样。
+底层命令默认不改写会话正文，也不提供跳过检查参数。敏感 bundle 的读取或导出
+会整体拒绝；生产采集可以用 `--session` 缩小选择。离线输入需先在用户控制的
+副本中移除凭据，再重新导出与预览。
+
+实时 `export` 可显式使用 `--redact-credentials`；交互式
+`npm run migrate:local` 默认启用该模式。它只改写会话标题、用户/Assistant
+正文、reasoning 和工具 input/output/error 中的已识别值，使用
+`[REDACTED_SECRET]` 占位，恢复等级降为 `partial`，并记录
+`T2O_SENSITIVE_CONTENT_REDACTED`。session/message/tool ID、项目路径、资源路径和
+来源定位不自动改写；这些字段命中时继续 fail-closed。迁移对账基于脱敏后的
+bundle，不把它冒充为源正文逐字一致。没有命中的文本、消息顺序和来源 hash 保持
+原样。对于无法可靠隔离具体值的命令行参数、编码文本或私钥块，整个对应文本字段
+会替换为占位符，避免只删掉凭据的一部分。
 
 ## 已识别范围
 

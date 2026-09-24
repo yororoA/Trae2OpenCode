@@ -2,6 +2,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { MigrationBundle } from "../../ir/types.js";
+import { redactMigrationBundleCredentials } from "../../migration/redact-credentials.js";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
 import { assertNoCredentials } from "../../shared/sensitive.js";
 import { assembleTraeMigrationBundle, type TraeSessionMessageRead } from "./assemble-bundle.js";
@@ -38,6 +39,7 @@ export interface CollectTraeOptions extends TraeRootDiscoveryOptions {
   collectedAt?: string;
   session?: string;
   project?: string;
+  redactCredentials?: boolean;
 }
 
 export function selectBundle(bundle: MigrationBundle, selection: { session?: string; project?: string }): MigrationBundle {
@@ -102,6 +104,9 @@ export async function collectTraeBundle(options: CollectTraeOptions): Promise<Mi
     });
   }
   const selected = selectBundle(bundle, options);
+  if (options.redactCredentials) {
+    return redactMigrationBundleCredentials(selected).bundle;
+  }
   assertNoCredentials(selected);
   return selected;
 }

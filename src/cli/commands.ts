@@ -33,6 +33,7 @@ export interface CommandOptions {
   replace?: string;
   confirm?: string;
   exclusiveTarget?: boolean;
+  redactCredentials?: boolean;
 }
 
 export async function loadCommandBundle(options: CommandOptions) {
@@ -51,6 +52,9 @@ export async function loadCommandBundle(options: CommandOptions) {
 }
 
 export async function executeReadCommand(command: string, options: CommandOptions): Promise<unknown> {
+  if (options.redactCredentials && (command !== "export" || options.input)) {
+    throw new Trae2OpenCodeError("T2O_CLI_INVALID_ARGUMENTS");
+  }
   const planningOption = options.dryRun || options.namespace !== undefined ||
     options.recovery !== undefined || options.pathMaps !== undefined || options.fallbackDirectory !== undefined;
   if (command !== "migrate" && planningOption) throw new Trae2OpenCodeError("T2O_CLI_INVALID_ARGUMENTS");

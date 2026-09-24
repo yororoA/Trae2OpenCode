@@ -105,6 +105,14 @@ export function buildSessionChoices(
   });
 }
 
+export function sessionsForWorkspace(
+  sessions: readonly TraeSessionMetadata[],
+  workspaceStorageId: string,
+): TraeSessionMetadata[] {
+  return sessions.filter((session) =>
+    session.workspaceStorageIds.includes(workspaceStorageId));
+}
+
 export function bundleMatchesSession(
   bundle: MigrationBundle,
   sourceSessionId: string,
@@ -133,7 +141,7 @@ function printFailure(outputText: string, server: string): void {
       console.error("所选会话仍然超过大小限制，请选择更小的会话。");
       break;
     case "T2O_SENSITIVE_CONTENT_REQUIRES_REBINDING":
-      console.error("检测到疑似凭据，已停止迁移。请移除凭据后重新导出。");
+      console.error("疑似凭据位于无法安全改写的标识、路径或来源字段，已停止迁移。");
       break;
     case "T2O_OPENCODE_REQUEST_FAILED":
       console.error(`无法连接 OpenCode，请确认服务正在运行：${server}`);
@@ -150,7 +158,27 @@ function printFailure(outputText: string, server: string): void {
   }
 }
 
-async function runCli(args: string[], cliPath: string, server: string): Promise<boolean> {
+type CliRunResult = {
+  ok: boolean;
+  code: string;
+  outputText: string;
+};
+
+export function cliJsonResult(outputText: string): Record<string, unknown> | undefined {
+  for (const line of outputText.trim().split(/\r?\n/).reverse()) {
+    try {
+      const value: unknown = JSON.parse(line);
+      if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+        return value as Record<string, unknown>;
+      }
+    } catch {
+      // Ignore non-JSON progress output.
+    }
+  }
+  return undefined;
+}
+
+async function runCli(args: string[], cliPath: string, server: string): Promise<CliRunResult> {
   const child = spawn(process.execPath, [cliPath, ...args], {
     cwd: process.cwd(),
     env: process.env,
@@ -163,9 +191,9 @@ async function runCli(args: string[], cliPath: string, server: string): Promise<
     child.once("error", () => resolve(1));
     child.once("exit", (exitCode) => resolve(exitCode ?? 1));
   });
-  if (code === 0) return true;
+  if (code === 0) return { ok: true, code: "", outputText };
   printFailure(outputText, server);
-  return false;
+  return { ok: false, code: friendlyCode(outputText), outputText };
 }
 
 async function readJson(url: string): Promise<unknown> {
@@ -240,10 +268,16 @@ async function chooseSession(
   const transport = await connectTraeRuntime(cdp, target.id);
   try {
     const reader = createTraeRuntimeReader(transport);
-    const records = await reader.readMetadata(
-      localReport.sessions.map((session) => session.sourceSessionId),
+    if (!transport.workspaceStorageId) throw new Error("TRAE_WORKSPACE_ID_UNAVAILABLE");
+    const workspaceSessions = sessionsForWorkspace(
+      localReport.sessions,
+      transport.workspaceStorageId,
     );
-    const choices = buildSessionChoices(localReport.sessions, records);
+    if (workspaceSessions.length === 0) throw new Error("TRAE_WORKSPACE_SESSIONS_EMPTY");
+    const records = await reader.readMetadata(
+      workspaceSessions.map((session) => session.sourceSessionId),
+    );
+    const choices = buildSessionChoices(workspaceSessions, records);
     const requested = process.env.T2O_TRAE_SESSION;
     if (requested) {
       const selected = choices.find((choice) => choice.id === requested);
@@ -302,6 +336,8 @@ async function main(): Promise<number> {
       console.error("指定的会话已不存在，请重新运行并选择当前会话。");
     } else if (code === "TRAE_SESSION_INVALID") {
       console.error("会话编号无效，请重新运行。");
+    } else if (code === "TRAE_WORKSPACE_SESSIONS_EMPTY") {
+      console.error("所选 workbench 没有可迁移的本地会话。");
     } else {
       console.error("无法读取 TRAE 会话列表，请确认当前窗口已登录并可查看历史。");
     }
@@ -339,14 +375,31 @@ async function main(): Promise<number> {
     console.log("正在导出所选会话...");
     const exported = await runCli([
       "export", "--cdp", cdp, "--cdp-target", target.id,
-      "--session", sessionId, "--output", exportDirectory, "--json",
+      "--session", sessionId, "--output", exportDirectory,
+      "--redact-credentials", "--json",
     ], cliPath, server);
-    if (!exported) return 4;
+    if (!exported.ok) return 4;
+    if (exported.outputText.includes("T2O_SENSITIVE_CONTENT_REDACTED")) {
+      console.log("已自动将疑似凭据替换为脱敏占位符，该会话按部分恢复迁移。");
+    }
   }
 
   const stat = await fs.stat(inputFile).catch(() => undefined);
   if (!stat || stat.size > MAX_BUNDLE_BYTES) {
     console.error("迁移 bundle 超过 128 MiB，请重新选择更小的会话。");
+    return 4;
+  }
+
+  console.log("正在检查迁移完整性和 OpenCode 兼容性...");
+  const preview = await runCli([
+    "migrate", "--input", inputFile, "--dry-run", "--server", server,
+    "--fallback-directory", rootDirectory, "--json",
+  ], cliPath, server);
+  if (!preview.ok) return 4;
+  const previewResult = cliJsonResult(preview.outputText);
+  if (previewResult?.ready !== 1 || previewResult.blocked !== 0 ||
+    previewResult.excluded !== 0) {
+    console.error("所选会话包含当前无法无损映射的内容，未写入 OpenCode。");
     return 4;
   }
 
@@ -367,7 +420,7 @@ async function main(): Promise<number> {
     "migrate", "--input", inputFile, "--server", server,
     "--fallback-directory", rootDirectory, ...mode, "--json",
   ], cliPath, server);
-  if (!migrated) return 4;
+  if (!migrated.ok) return 4;
   console.log(mode[0] === "--resume"
     ? "迁移续跑完成，已有会话已校验。"
     : `迁移完成，结果已写入：${runDirectory}`);

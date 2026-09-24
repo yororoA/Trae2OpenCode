@@ -5,19 +5,22 @@ import type { TraeSessionMetadata } from "../../source/trae/session-metadata.js"
 import {
   buildSessionChoices,
   bundleMatchesSession,
+  cliJsonResult,
   formatMetadataStatus,
   parseChoiceIndex,
   resolveMigrationDirectories,
+  sessionsForWorkspace,
 } from "../interactive-migrate.js";
 
 function session(
   sourceSessionId: string,
   metadataStatus: TraeSessionMetadata["metadataStatus"],
+  workspaceStorageIds: string[] = [],
 ): TraeSessionMetadata {
   return {
     sourceSessionId,
     metadataStatus,
-    workspaceStorageIds: [],
+    workspaceStorageIds,
     sources: [],
   };
 }
@@ -29,6 +32,14 @@ describe("interactive migration helpers", () => {
     assert.equal(parseChoiceIndex("0", 3), undefined);
     assert.equal(parseChoiceIndex("4", 3), undefined);
     assert.equal(parseChoiceIndex("abc", 3), undefined);
+  });
+
+  it("reads the final structured CLI result without exposing progress text", () => {
+    assert.deepEqual(
+      cliJsonResult('progress\n{"ready":1,"blocked":0}\n'),
+      { ready: 1, blocked: 0 },
+    );
+    assert.equal(cliJsonResult("progress only"), undefined);
   });
 
   it("labels metadata status without presenting it as final recovery", () => {
@@ -62,6 +73,24 @@ describe("interactive migration helpers", () => {
         updatedAt: undefined,
       },
     ]);
+  });
+
+  it("shows only sessions indexed by the selected workbench workspace", () => {
+    const sessions = [
+      session("session-a", "complete", ["workspace-a"]),
+      session("session-b", "partial", ["workspace-b"]),
+      session("session-shared", "complete", ["workspace-a", "workspace-b"]),
+      session("session-global", "complete"),
+    ];
+
+    assert.deepEqual(
+      sessionsForWorkspace(sessions, "workspace-a").map((item) => item.sourceSessionId),
+      ["session-a", "session-shared"],
+    );
+    assert.deepEqual(
+      sessionsForWorkspace(sessions, "workspace-b").map((item) => item.sourceSessionId),
+      ["session-b", "session-shared"],
+    );
   });
 
   it("uses stable opaque directories per selected session", () => {

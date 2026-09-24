@@ -4,6 +4,7 @@ import { isRuntimeObject, runtimeHash } from "./reasoning-plan.js";
 
 export interface TraeRuntimeTransport {
   productVersion: string;
+  workspaceStorageId?: string;
   invoke(method: "getSession" | "getMessages", params: Record<string, unknown>): Promise<unknown>;
   close(): void;
 }

@@ -106,10 +106,19 @@ export async function connectTraeRuntime(endpoint: string, targetId?: string): P
     if (!localSocket) throw unavailable();
     connection = await connectSocket(socketUrl);
     const client = connection;
-    const productVersion = await client.evaluate(`(async () => { ${rendererApi} return product.appVersion; })()`);
-    if (productVersion !== "3.3.104") throw unavailable();
+    const runtime = await client.evaluate(`(async () => { ${rendererApi}
+      const configuration = await window.vscode.context.resolveConfiguration();
+      return {
+        productVersion: product.appVersion,
+        workspaceStorageId: configuration?.workspace?.id,
+      };
+    })()`);
+    if (!isRuntimeObject(runtime) || runtime.productVersion !== "3.3.104" ||
+      typeof runtime.workspaceStorageId !== "string" ||
+      !/^[a-f0-9]{32}$/.test(runtime.workspaceStorageId)) throw unavailable();
     return {
-      productVersion,
+      productVersion: runtime.productVersion,
+      workspaceStorageId: runtime.workspaceStorageId,
       async invoke(method, params) {
         if (method !== "getSession" && method !== "getMessages") throw unavailable();
         const payload = JSON.stringify({ ...params, env: "local" });

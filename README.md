@@ -63,15 +63,21 @@ npm run migrate:local
 程序会交互式完成全部选择，不需要用户输入 workbench ID 或 session ID：
 
 1. 列出当前可用的 TRAE workbench，按编号选择窗口。
-2. 读取该窗口可见的会话名称、元数据状态和更新时间，按编号选择会话。
-3. 自动导出 bundle，并检查大小、凭据和字段完整性。
-4. 自动执行首次迁移，或发现已有 manifest 时自动续跑。
-5. 自动通过 OpenCode 原生 import、回读和 hash 对账。
+2. 读取该窗口的 workspace ID，只列出该 workspace 本地索引中的会话名称、
+   元数据状态和更新时间，按编号选择会话。
+3. 自动导出 bundle，并检查大小、凭据和字段完整性；消息正文或工具 payload
+   中的疑似凭据会替换为 `[REDACTED_SECRET]`。
+4. 自动 dry-run；无法无损映射时在写入 OpenCode 前停止。
+5. 自动执行首次迁移，或发现已有 manifest 时自动续跑。
+6. 自动通过 OpenCode 原生 import、回读和 hash 对账。
 
 如果存在多个 workbench 或超过单 bundle 大小限制，程序会在交互界面中明确提示，
 不会猜选窗口、猜选会话或静默丢失内容。迁移产物写入 `trae-export/` 和
 `migration-run/` 下按所选会话区分的目录；这两个目录包含私人会话数据，不应提交到
 Git。重复选择同一会话时会复用并校验对应 bundle，选择其他会话不会误用旧 bundle。
+发生凭据脱敏时会输出明确提示、把恢复等级降为 `partial` 并记录
+`T2O_SENSITIVE_CONTENT_REDACTED`；对账针对脱敏后的 bundle。若疑似凭据位于
+session/message ID、项目路径或来源定位等不能安全改写的字段，迁移仍会停止。
 
 ## 从 TRAE 导出
 
@@ -104,6 +110,11 @@ trae2opencode export --cdp http://127.0.0.1:9222 --session <源会话ID> --outpu
 有多个 workbench 时，从 `http://127.0.0.1:9222/json/list` 获取所需窗口的 `id`，
 额外传 `--cdp-target <id>`。只接受显式 loopback HTTP 地址和端口。
 不传 `--cdp` 仍能盘点元数据，但不能据此宣称正文可恢复。
+
+底层 `export` 默认遇到疑似凭据即拒绝。仅对实时 TRAE 导出，可显式增加
+`--redact-credentials`，将标题、消息正文和工具 payload 中的已识别凭据替换为
+占位符；无法可靠定位具体值的命令行或编码文本会整体替换为占位符。
+`npm run migrate:local` 已自动启用该选项。
 
 `scan` / `preview` 只输出数量、ID、hash 和诊断码。导出的
 `trae-export/migration-bundle.json` **包含私人正文**；输出目录必须不存在，

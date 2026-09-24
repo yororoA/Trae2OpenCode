@@ -64,6 +64,21 @@ describe("TRAE bundle collection", () => {
           return result;
         },
       } }), { code: "T2O_SENSITIVE_CONTENT_REQUIRES_REBINDING" });
+      const redacted = await collectTraeBundle({
+        ...options,
+        redactCredentials: true,
+        transport: {
+          ...transport,
+          async invoke(method, args) {
+            const result = await transport.invoke(method, args) as { code: number; data: Record<string, unknown> };
+            if (method === "getSession") result.data.title = "apiKey=synthetic-value";
+            return result;
+          },
+        },
+      });
+      assert.equal(redacted.sessions[0].title, 'apiKey="[REDACTED_SECRET]"');
+      assert.equal(redacted.sessions[0].recovery, "partial");
+      assert.ok(redacted.diagnostics.some((item) => item.code === "T2O_SENSITIVE_CONTENT_REDACTED"));
       await assert.rejects(collectTraeBundle({ ...options, productVersion: "3.3.105" }),
         { code: "T2O_TRAE_PROFILE_VERSION_UNSUPPORTED" });
     } finally { await fs.rm(root, { recursive: true, force: true }); }
