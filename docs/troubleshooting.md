@@ -80,6 +80,10 @@ macOS 的 `open -a "Trae CN" --args ...` 经 3.3.104 实机确认可能丢弃调
 | `T2O_MIGRATION_EXCLUSIVE_REQUIRED` | 暂停其他目标写入者后才可声明 `--exclusive-target` |
 | `T2O_MIGRATION_ROLLBACK_STARTED` | 已进入回滚，只能继续同一 rollback；不能 migrate resume |
 
+`npm run migrate:local` 检测到同一来源会话的旧 verified manifest 时，会要求输入
+`OVERWRITE` 后调用受保护 replacement。目标已被修改、含外来子会话或缺少可信
+manifest 时不会覆盖。多选迁移逐会话隔离执行，一个会话失败不会停止后续会话。
+
 中断后 OS 会释放 manifest 的 SQLite 排他锁；用同一 manifest 续跑即可。
 端点 hash 不是数据库身份；保留同一个 server 数据目录和端口，不在中途切库。
 Windows 不承诺 POSIX `0700/0600` 权限位的 ACL 效果，应使用自己的受限目录。

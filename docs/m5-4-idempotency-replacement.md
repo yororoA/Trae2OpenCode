@@ -27,6 +27,11 @@ trae2opencode migrate --input updated-bundle.json \
 不是本工具获得了目标全局锁；manifest 文件锁只串行化同一 checkpoint 的使用。
 无法暂停其他目标写入时，应继续使用默认 skip。
 
+`npm run migrate:local` 会在默认 `migration-run/` 中自动寻找同一来源会话最近一次
+可验证的成功 manifest。发现重复目标时统一提示输入 `OVERWRITE`，确认后调用上述
+`--replace --exclusive-target` 流程；多选会话分别保留 bundle/manifest 并逐个覆盖。
+找不到可信 manifest、目标内容已变化或存在范围外子会话时仍拒绝覆盖。
+
 ## 删除证据和恢复
 
 - 原始首次回读的 `deletionHash` 包含所有字段，包括 import 对账允许目标重算的

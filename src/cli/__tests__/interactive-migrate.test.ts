@@ -4,18 +4,24 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, it } from "node:test";
 import { exportBundleFile, readBundleFile } from "../../migration/bundle-file.js";
-import type { MigrationManifest } from "../../migration/manifest.js";
+import { type MigrationManifest, withManifestStore } from "../../migration/manifest.js";
 import type { TraeSessionMetadata } from "../../source/trae/session-metadata.js";
 import {
   buildSessionChoices,
   bundleMatchesSession,
   cleanupObsoleteArtifacts,
   cliJsonResult,
+  confirmsOverwrite,
+  findReplacementManifest,
   formatMetadataStatus,
+  isReplacementManifestForSession,
   isTerminalManifestForSession,
   localServerUrl,
   parseChoiceIndex,
+  parseChoiceIndexes,
   prepareExportDirectory,
+  replacementResumeNeedsExclusiveAccess,
+  resolveInteractiveMigrationMode,
   resolveMigrationDirectories,
 } from "../interactive-migrate.js";
 
@@ -32,6 +38,53 @@ function session(
   };
 }
 
+function replacementManifest(
+  sourceId: string,
+  runId = "00000000-0000-4000-8000-000000000001",
+): MigrationManifest {
+  const hash = `sha256:${"a".repeat(64)}`;
+  const expected = {
+    counts: { messages: 1, users: 0, assistants: 1, text: 1, reasoning: 0, tools: 0 },
+    messagesSha256: hash,
+    infoSha256: hash,
+  };
+  return {
+    manifestVersion: 1,
+    runId,
+    sourceFingerprint: hash,
+    irHash: hash,
+    planHash: hash,
+    target: {
+      endpointHash: hash,
+      binaryVersion: "2.0.12",
+      serverVersion: "2.0.12",
+      schemaHash: hash,
+      fingerprint: hash,
+    },
+    revision: 0,
+    sessions: [{
+      sourceId,
+      targetId: "ses_target",
+      state: "verified",
+      created: true,
+      attempts: 1,
+      codes: [],
+      transferHash: hash,
+      expected,
+      actual: expected,
+      deletionHash: hash,
+    }],
+    checksum: "",
+  };
+}
+
+async function writeManifest(directory: string, manifest: MigrationManifest): Promise<string> {
+  await fs.mkdir(directory);
+  const filename = path.join(directory, "migration-manifest.json");
+  await withManifestStore(filename, async (store) => store.save(manifest));
+  return filename;
+}
+
 describe("interactive migration helpers", () => {
   it("parses only visible one-based choices within the list", () => {
     assert.equal(parseChoiceIndex("1", 3), 0);
@@ -39,6 +92,24 @@ describe("interactive migration helpers", () => {
     assert.equal(parseChoiceIndex("0", 3), undefined);
     assert.equal(parseChoiceIndex("4", 3), undefined);
     assert.equal(parseChoiceIndex("abc", 3), undefined);
+  });
+
+  it("parses individual, ranged and all session selections", () => {
+    assert.deepEqual(parseChoiceIndexes("1, 3-5, 3", 6), [0, 2, 3, 4]);
+    assert.deepEqual(parseChoiceIndexes("1，2 4", 4), [0, 1, 3]);
+    assert.deepEqual(parseChoiceIndexes("all", 3), [0, 1, 2]);
+    assert.deepEqual(parseChoiceIndexes("全部", 2), [0, 1]);
+    assert.equal(parseChoiceIndexes("0,1", 3), undefined);
+    assert.equal(parseChoiceIndexes("2-1", 3), undefined);
+    assert.equal(parseChoiceIndexes("1,4", 3), undefined);
+    assert.equal(parseChoiceIndexes("1-two", 3), undefined);
+  });
+
+  it("requires an explicit overwrite confirmation", () => {
+    assert.equal(confirmsOverwrite("OVERWRITE"), true);
+    assert.equal(confirmsOverwrite(" OVERWRITE "), true);
+    assert.equal(confirmsOverwrite("overwrite"), false);
+    assert.equal(confirmsOverwrite("yes"), false);
   });
 
   it("reads the final structured CLI result without exposing progress text", () => {
@@ -151,6 +222,104 @@ describe("interactive migration helpers", () => {
     assert.equal(isTerminalManifestForSession(manifest, "session-a"), false);
     manifest.sessions[0].state = "verified";
     assert.equal(isTerminalManifestForSession(manifest, "session-b"), false);
+  });
+
+  it("accepts only verified tool-owned manifests as replacement evidence", () => {
+    const manifest = replacementManifest("session-a");
+    assert.equal(isReplacementManifestForSession(manifest, "session-a"), true);
+    assert.equal(isReplacementManifestForSession(manifest, "session-b"), false);
+
+    manifest.sessions[0].created = false;
+    assert.equal(isReplacementManifestForSession(manifest, "session-a"), false);
+    manifest.sessions[0].created = true;
+    manifest.sessions[0].state = "skipped";
+    assert.equal(isReplacementManifestForSession(manifest, "session-a"), false);
+    manifest.sessions[0].state = "verified";
+    manifest.rollbackState = "in-progress";
+    assert.equal(isReplacementManifestForSession(manifest, "session-a"), false);
+  });
+
+  it("requires exclusive access while a replacement deletion is incomplete", () => {
+    const manifest = replacementManifest("session-a");
+    assert.equal(replacementResumeNeedsExclusiveAccess(manifest), false);
+    manifest.sessions[0].replacement = {
+      runId: "00000000-0000-4000-8000-000000000002",
+      deletionHash: `sha256:${"b".repeat(64)}`,
+      state: "pending",
+    };
+    assert.equal(replacementResumeNeedsExclusiveAccess(manifest), true);
+    manifest.sessions[0].replacement.state = "deleted";
+    assert.equal(replacementResumeNeedsExclusiveAccess(manifest), false);
+  });
+
+  it("selects create, replacement and exclusive resume modes safely", () => {
+    const base = {
+      manifest: "/private/current/migration-manifest.json",
+      runDirectory: "/private/current",
+      manifestExists: false,
+      runDirectoryExists: false,
+      resumeNeedsExclusiveAccess: false,
+    };
+    assert.deepEqual(resolveInteractiveMigrationMode(base), {
+      name: "create",
+      args: ["--output", "/private/current"],
+    });
+    assert.deepEqual(resolveInteractiveMigrationMode({
+      ...base,
+      replacementManifest: "/private/previous/migration-manifest.json",
+    }), {
+      name: "replace",
+      args: [
+        "--output", "/private/current",
+        "--replace", "/private/previous/migration-manifest.json",
+        "--exclusive-target",
+      ],
+    });
+    assert.deepEqual(resolveInteractiveMigrationMode({
+      ...base,
+      manifestExists: true,
+      resumeNeedsExclusiveAccess: true,
+    }), {
+      name: "resume",
+      args: ["--resume", "/private/current/migration-manifest.json", "--exclusive-target"],
+    });
+    assert.equal(resolveInteractiveMigrationMode({
+      ...base,
+      runDirectoryExists: true,
+    }), undefined);
+  });
+
+  it("finds the newest safe replacement manifest and ignores the current run", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "trae2opencode-replacement-"));
+    const current = path.join(root, "session-1111111111111111");
+    const older = path.join(root, "session-2222222222222222");
+    const newest = path.join(root, "session-3333333333333333");
+    const unrelated = path.join(root, "session-4444444444444444");
+    try {
+      await writeManifest(current, replacementManifest("session-a"));
+      await writeManifest(older, replacementManifest(
+        "session-a",
+        "00000000-0000-4000-8000-000000000002",
+      ));
+      await writeManifest(newest, replacementManifest(
+        "session-a",
+        "00000000-0000-4000-8000-000000000003",
+      ));
+      await writeManifest(unrelated, replacementManifest(
+        "session-b",
+        "00000000-0000-4000-8000-000000000004",
+      ));
+      await fs.utimes(older, new Date(1_000), new Date(1_000));
+      await fs.utimes(newest, new Date(2_000), new Date(2_000));
+
+      assert.equal(await findReplacementManifest({
+        sourceSessionId: "session-a",
+        runRoot: root,
+        currentRunDirectory: current,
+      }), path.join(newest, "migration-manifest.json"));
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
   });
 
   it("cleans only validated obsolete exports for the selected session", async () => {
