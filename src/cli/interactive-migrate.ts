@@ -350,6 +350,7 @@ async function main(): Promise<number> {
     return 4;
   }
 
+  await fs.mkdir(path.dirname(runDirectory), { recursive: true, mode: 0o700 });
   const manifest = path.join(runDirectory, "migration-manifest.json");
   const mode = (await fs.stat(manifest).catch(() => undefined))
     ? ["--resume", manifest]
