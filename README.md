@@ -51,6 +51,27 @@ npm exec --offline -- trae2opencode migrate --input ./node_modules/trae2opencode
 下文将 `npm exec --offline -- trae2opencode` 简写为 `trae2opencode`。
 也可用 `npm install -g <tarball绝对路径>` 安装此本地产物。
 
+## 一键迁移（推荐）
+
+确认 TRAE CN 已登录并开启本机 `9222` CDP，OpenCode server 已运行在
+`http://127.0.0.1:4096` 后，在项目目录执行：
+
+```sh
+npm run migrate:local
+```
+
+程序会交互式完成全部选择，不需要用户输入 workbench ID 或 session ID：
+
+1. 列出当前可用的 TRAE workbench，按编号选择窗口。
+2. 读取该窗口可见的会话名称、恢复等级和更新时间，按编号选择会话。
+3. 自动导出 bundle，并检查大小、凭据和字段完整性。
+4. 自动执行首次迁移，或发现已有 manifest 时自动续跑。
+5. 自动通过 OpenCode 原生 import、回读和 hash 对账。
+
+如果存在多个 workbench 或超过单 bundle 大小限制，程序会在交互界面中明确提示，
+不会猜选窗口、猜选会话或静默丢失内容。迁移产物写入 `trae-export/` 和
+`migration-run/`；这两个目录包含私人会话数据，不应提交到 Git。
+
 ## 从 TRAE 导出
 
 先执行 `trae2opencode doctor --json`。默认发现位置：
