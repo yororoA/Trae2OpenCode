@@ -87,7 +87,7 @@ describe("explicit tool-owned replacement", () => {
       fingerprint: jsonHash("next-fingerprint"),
       schemaHash: jsonHash("target"),
       binaryVersion: "2.0.12",
-      serverVersion: "2.0.12",
+      serverVersion: "2.0.16",
     });
     plan.sessions[0].transfer!.info.title = "Updated after service restart";
     const result = await migrate(plan, api, {

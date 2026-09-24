@@ -55,7 +55,7 @@ macOS 的 `open -a "Trae CN" --args ...` 经 3.3.104 实机确认可能丢弃调
 | --- | --- |
 | `T2O_OPENCODE_DIRECTORY_INVALID` | 指定已存在的绝对项目目录；工具不会 mkdir |
 | `T2O_OPENCODE_PATH_MAP_INVALID` | `--path-map` 两侧及 `--fallback-directory` 均需绝对路径；含空格整体加引号 |
-| `T2O_OPENCODE_VERSION_UNSUPPORTED` | CLI 和 server 必须均为 2.0.12；2.0.11 是拒写验收对象 |
+| `T2O_OPENCODE_VERSION_UNSUPPORTED` | CLI 和 server 必须分别为 2.0.12 或 2.0.16；其他版本不会仅凭“较新”自动放行 |
 | `T2O_OPENCODE_SCHEMA_UNSUPPORTED` | 实际 schema 与固定契约不同；保留 IR，等待经验证的 adapter |
 | `T2O_OPENCODE_REQUEST_FAILED` | 检查 server 进程、端口和认证环境变量；server URL 不含凭据 |
 | `T2O_OPENCODE_MAPPING_REJECTED` | 源会话缺少完成时间/映射证据或包含不支持内容；不会补造字段 |

@@ -32,10 +32,16 @@
 - Post-fix line 2: only the endpoint changed; binary version, server version, and schema all match.
 - Post-fix line 3: one candidate exists and passes presence, ownership, snapshot, and deletion hash checks.
 - Post-fix line 4: endpoint rebinding was authorized.
+- OpenCode 2.0.16 exposes the same import/export routes and exact SessionTransfer schema hash as 2.0.12.
+- Isolated 2.0.16 native and mixed 2.0.12-client/2.0.16-server import/export round trips passed.
+- Isolated 2.0.16 replacement, child protection, deletion recovery, and final readback passed.
+- Mapping v6 projects real M2 structure to 110 reasoning parts, 268 tool parts, 4 final text parts,
+  and zero separator parts.
 
 ## Verification Conclusion
 
 Pre-fix, the exited Desktop left a reachable `2.0.16` service with PPID 1, so the migration correctly
 refused to start a concurrent `2.0.12` writer. After terminating that orphan, the managed service
 started on `4097`, the endpoint-only change was safely rebound, and M2 completed with
-`迁移续跑完成，已有会话已校验。`. No target content mismatch remains.
+`迁移续跑完成，已有会话已校验。`. No target content mismatch remains. OpenCode 2.0.16 is
+compatible with the exact migration surfaces verified above; future versions remain fail-closed.

@@ -18,10 +18,13 @@ import {
   parseTraeRuntimeSessionMetadata,
   type TraeSessionMetadata,
 } from "../source/trae/session-metadata.js";
-import { OPENCODE_VERSION } from "../target/opencode/contract.js";
+import {
+  isSupportedOpenCodeVersion,
+  SUPPORTED_OPENCODE_VERSIONS,
+} from "../target/opencode/contract.js";
 
 const MAX_BUNDLE_BYTES = 128 * 1024 * 1024;
-const INTERACTIVE_EXPORT_REVISION = 9;
+const INTERACTIVE_EXPORT_REVISION = 10;
 const MANAGED_OPENCODE_PORT = 4097;
 const ARTIFACT_DIRECTORY = /^session-[a-f0-9]{16}$/;
 const WORKBENCH_URL =
@@ -387,7 +390,7 @@ function printFailure(outputText: string, server: string): void {
       break;
     case "T2O_OPENCODE_VERSION_UNSUPPORTED":
     case "T2O_OPENCODE_SCHEMA_UNSUPPORTED":
-      console.error("OpenCode 版本或协议不受支持，需要经过验证的 2.0.12。");
+      console.error(`OpenCode 版本或协议不受支持，需要 ${SUPPORTED_OPENCODE_VERSIONS.join(" 或 ")}。`);
       break;
     case "T2O_MIGRATION_PLAN_CHANGED":
       console.error("迁移内容与已有续跑记录不一致，请恢复原会话或使用新的迁移目录。");
@@ -557,7 +560,7 @@ async function startManagedOpenCodeServer(): Promise<{
       try {
         const descriptor: unknown = JSON.parse(await fs.readFile(descriptorFile, "utf8"));
         const service = parseOpenCodeServiceDescriptor(descriptor);
-        if (service?.version === OPENCODE_VERSION &&
+        if (service && isSupportedOpenCodeVersion(service.version) &&
           await canAccessOpenCodeServer(service.url, service.password)) {
           return {
             url: service.url,
@@ -963,22 +966,23 @@ async function main(): Promise<number> {
     if (!process.env.T2O_OPENCODE_SERVER) {
       const discovered = await discoverOpenCodeService();
       if (discovered) {
-        if (discovered.version !== OPENCODE_VERSION) {
+        if (!isSupportedOpenCodeVersion(discovered.version)) {
           // #region debug-point A:unsupported-active-service
           await fs.readFile(path.join(process.cwd(), ".dbg/resume-target-mismatch.env"), "utf8").then(async (content) => {
             const debugUrl = content.match(/^DEBUG_SERVER_URL=(.+)$/m)?.[1];
-            if (debugUrl) await fetch(debugUrl, { method: "POST", body: JSON.stringify({ sessionId: "resume-target-mismatch", runId: "post-fix", hypothesisId: "A", location: "interactive-migrate:service-selection", msg: "[DEBUG] Active OpenCode service blocks managed fallback", data: { discoveredVersion: discovered.version, supportedVersion: OPENCODE_VERSION }, ts: Date.now() }) });
+            if (debugUrl) await fetch(debugUrl, { method: "POST", body: JSON.stringify({ sessionId: "resume-target-mismatch", runId: "post-fix", hypothesisId: "A", location: "interactive-migrate:service-selection", msg: "[DEBUG] Active OpenCode service blocks managed fallback", data: { discoveredVersion: discovered.version, supportedVersions: SUPPORTED_OPENCODE_VERSIONS }, ts: Date.now() }) });
           }).catch(() => {});
           // #endregion
           console.error(
-            `检测到正在运行的 OpenCode ${discovered.version}，当前仅支持 ${OPENCODE_VERSION}。` +
+            `检测到正在运行的 OpenCode ${discovered.version}，当前仅支持 ` +
+            `${SUPPORTED_OPENCODE_VERSIONS.join(" 或 ")}。` +
             "请完全退出 OpenCode 桌面端或停止该服务后重试。",
           );
           return 4;
         }
         server = discovered.url;
         serverPassword = discovered.password;
-        console.log("已连接当前 OpenCode 2.0.12 本机服务。");
+        console.log(`已连接当前 OpenCode ${discovered.version} 本机服务。`);
       } else if (!await canAccessOpenCodeServer(server, serverPassword)) {
         console.log("默认 OpenCode 服务不可访问，正在临时启动本机服务...");
         try {
@@ -986,7 +990,7 @@ async function main(): Promise<number> {
           server = managedServer.url;
           serverPassword = managedServer.password;
         } catch {
-          console.error("无法自动启动 OpenCode，请确认已安装 2.0.12。");
+          console.error(`无法自动启动 OpenCode，请确认已安装 ${SUPPORTED_OPENCODE_VERSIONS.join(" 或 ")}。`);
           return 4;
         }
       }

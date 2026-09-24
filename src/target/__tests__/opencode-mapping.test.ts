@@ -9,7 +9,6 @@ import {
   MISSING_ASSISTANT_TEXT,
   MISSING_TOOL_ERROR_TEXT,
   MISSING_TOOL_OUTPUT_TEXT,
-  TASK_PROCESS_SEPARATOR_TEXT,
 } from "../opencode/mapping.js";
 
 const fixture = JSON.parse(readFileSync(new URL(
@@ -62,9 +61,15 @@ describe("OpenCode IR mapping", () => {
     assert.deepEqual(transfer.messages[1].model, { id: "unknown", providerID: "trae-import-unknown" });
   });
 
-  it("separates task process content from the final response summary", () => {
+  it("folds task progress as reasoning and keeps the final response as text", () => {
     const bundle = structuredClone(fixture);
     const event = assistant(bundle);
+    const progressText = event.content[1];
+    assert.equal(progressText?.type, "text");
+    progressText!.sourceRefs[0].locator = {
+      type: "runtime-field",
+      value: 'runtime:getMessages#message["assistant-synthetic"].content.messages[0].plan_item.thought',
+    };
     const finalText = event.content.at(-1);
     assert.equal(finalText?.type, "text");
     finalText!.sourceRefs[0].locator = {
@@ -73,12 +78,11 @@ describe("OpenCode IR mapping", () => {
     };
 
     const content = map(bundle).transfer.messages[1].content as JsonObject[];
-    assert.deepEqual(content.slice(-3).map((block) =>
-      block.type === "text" ? block.text : block.type), [
-      "tool",
-      TASK_PROCESS_SEPARATOR_TEXT,
-      "Final response.\n",
-    ]);
+    assert.deepEqual(content.map((block) => block.type),
+      ["reasoning", "reasoning", "reasoning", "tool", "text"]);
+    assert.equal(content[1].text, "Opening text.\n");
+    assert.equal(content.at(-1)?.text, "Final response.\n");
+    assert.equal(content.some((block) => block.type === "text" && block.text === "---"), false);
 
     event.content = [finalText!];
     const summaryOnly = map(bundle).transfer.messages[1].content as JsonObject[];

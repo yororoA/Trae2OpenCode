@@ -152,11 +152,12 @@ describe("migration executor", () => {
     assert.deepEqual((await readManifest(filename)).sessions[0].codes, ["T2O_MIGRATION_TARGET_CHANGED"]);
   }));
 
-  it("rebinds an endpoint-only change after exact target proof", () => setup(async ({ plan, fake, filename, outputDirectory }) => {
+  it("rebinds a compatible endpoint and version change after exact target proof", () => setup(async ({ plan, fake, filename, outputDirectory }) => {
     await migrate(plan, fake.api, { outputDirectory });
     const reboundDescriptor = {
       ...descriptor,
       endpointHash: hashCanonicalJson("other-endpoint"),
+      serverVersion: "2.0.16",
       fingerprint: hashCanonicalJson("other-fingerprint"),
     };
     fake.api.describe = async () => structuredClone(reboundDescriptor);

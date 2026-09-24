@@ -68,6 +68,20 @@ describe("probeOpenCodeCapabilities", () => {
     assert.doesNotMatch(JSON.stringify(report), /secret-path|0.0.1/);
   });
 
+  it("accepts reviewed 2.0.12 and 2.0.16 client/server combinations", async () => {
+    for (const binaryVersion of ["2.0.12", "2.0.16"]) {
+      for (const serverVersion of ["2.0.12", "2.0.16"]) {
+        const report = await requireOpenCodeCapabilities(
+          connection({ binaryVersion, serverVersion }).transport,
+        );
+        assert.equal(report.binaryVersion, binaryVersion);
+        assert.equal(report.serverVersion, serverVersion);
+        assert.equal(report.schemaHash, TRANSFER_SCHEMA_HASH);
+        assert.equal(report.writable, true);
+      }
+    }
+  });
+
   it("refuses unknown, adjacent and malformed binary versions before network access", async () => {
     for (const binaryVersion of ["2.0.13", "2.0.11", "2.0.12-dev", "secret output", "v2.0.12", "2.0.12\nextra"]) {
       const { calls, transport } = connection({ binaryVersion });
@@ -77,7 +91,10 @@ describe("probeOpenCodeCapabilities", () => {
       assert.deepStrictEqual(calls, ["version"]);
       assert.doesNotMatch(JSON.stringify(report), /secret output|extra/);
     }
-    for (const binaryVersion of ["opencode 2.0.12", "opencode v2.0.12"]) {
+    for (const binaryVersion of [
+      "opencode 2.0.12", "opencode v2.0.12",
+      "opencode 2.0.16", "opencode v2.0.16",
+    ]) {
       assert.equal((await probeOpenCodeCapabilities(connection({ binaryVersion }).transport)).writable, true);
     }
   });

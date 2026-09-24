@@ -4,7 +4,7 @@ import type { ErrorCode } from "../../shared/error-codes.js";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
 import {
   assertOpenCodeSchema, EXPORT_ROUTE, IMPORT_ROUTE, isRecord,
-  OPENCODE_VERSION, TRANSFER_REF,
+  isSupportedOpenCodeVersion, TRANSFER_REF,
 } from "./contract.js";
 import type { OpenCodeTransport } from "./transport.js";
 
@@ -62,13 +62,13 @@ export async function probeOpenCodeCapabilities(transport: OpenCodeTransport): P
   };
   try {
     report.binaryVersion = parseVersion(await transport.run(["--version"]));
-    if (report.binaryVersion !== OPENCODE_VERSION) {
+    if (!isSupportedOpenCodeVersion(report.binaryVersion)) {
       throw new Trae2OpenCodeError("T2O_OPENCODE_VERSION_UNSUPPORTED");
     }
     // OpenAPI's info.version is the HTTP surface version (0.0.1), not OpenCode's.
     const info = await transport.request("/api/info");
     report.serverVersion = info.status === 200 && isRecord(info.body) ? parseVersion(info.body.version) : null;
-    if (report.serverVersion !== OPENCODE_VERSION) {
+    if (!isSupportedOpenCodeVersion(report.serverVersion)) {
       throw new Trae2OpenCodeError("T2O_OPENCODE_VERSION_UNSUPPORTED");
     }
     const response = await transport.request("/openapi.json");

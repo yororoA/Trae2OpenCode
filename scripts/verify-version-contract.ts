@@ -13,6 +13,8 @@ import { createOpenCodeTransport, type OpenCodeTransport } from "../src/target/o
 const adjacent = path.resolve(process.env.T2O_TEST_ADJACENT_BINARY ??
   "tmp/opencode-adjacent/node_modules/@opencode/cli/bin/opencode.exe");
 const current = process.env.T2O_TEST_OPENCODE_BINARY;
+const compatible = process.env.T2O_TEST_COMPATIBLE_BINARY;
+let baselineReport: Record<string, unknown> | undefined;
 await withIsolatedOpenCodeServer({
   temporaryRoot: "tmp", ...(current ? { binary: path.resolve(current) } : {}),
 }, async (server) => {
@@ -67,11 +69,60 @@ await withIsolatedOpenCodeServer({
   assert.equal((await fs.readdir(server.directory)).some((name) => name.startsWith("t2o-opencode-")), false);
   const actual = await native.importSession(transfer);
   assert.deepEqual(await native.exportSession(transfer.info.id), actual);
-  const report = {
+  baselineReport = {
     platform: process.platform, current: capabilities, adjacent: rejected,
     adjacentImportCalls: 0, adjacentServerRequests: requests,
     adjacentTargetAbsent: true, currentRoundTrip: true, status: "verified",
   };
-  await fs.writeFile("tmp/m7-2-version-report.json", JSON.stringify(report, null, 2) + "\n");
-  console.log(JSON.stringify(report));
 });
+
+let compatibleReport: Record<string, unknown> | undefined;
+if (compatible) {
+  const compatibleBinary = path.resolve(compatible);
+  await withIsolatedOpenCodeServer({
+    temporaryRoot: "tmp",
+    binary: compatibleBinary,
+  }, async (server) => {
+    const nativeCapabilities = await requireOpenCodeCapabilities(server.transport);
+    assert.equal(nativeCapabilities.binaryVersion, "2.0.16");
+    assert.equal(nativeCapabilities.serverVersion, "2.0.16");
+    assert.equal(nativeCapabilities.schemaHash, TRANSFER_SCHEMA_HASH);
+
+    const mixedTransport = server.createTransport(
+      current ? path.resolve(current) : "opencode",
+    );
+    const mixedCapabilities = await requireOpenCodeCapabilities(mixedTransport);
+    assert.equal(mixedCapabilities.binaryVersion, "2.0.12");
+    assert.equal(mixedCapabilities.serverVersion, "2.0.16");
+    assert.equal(mixedCapabilities.schemaHash, TRANSFER_SCHEMA_HASH);
+
+    const bundle = await readBundleFile("fixtures/ir/v1/valid-trae-assembled.json");
+    const { transfer } = mapOpenCodeSession(bundle, "session-synthetic", {
+      sessionId: "ses_version_contract_2016",
+      directory: server.directory,
+      messageIds: new Map([
+        ["user-synthetic", "msg_version_2016_u"],
+        ["assistant-synthetic", "msg_version_2016_a"],
+      ]),
+    });
+    const mixed = createNativeOpenCodeAdapter({
+      serverUrl: server.serverUrl,
+      transport: mixedTransport,
+      temporaryRoot: server.directory,
+    });
+    const actual = await mixed.importSession(transfer);
+    assert.deepEqual(await mixed.exportSession(transfer.info.id), actual);
+    compatibleReport = {
+      server: nativeCapabilities,
+      mixedClient: mixedCapabilities,
+      mixedRoundTrip: true,
+    };
+  });
+}
+
+const report = {
+  ...baselineReport,
+  ...(compatibleReport ? { compatible: compatibleReport } : {}),
+};
+await fs.writeFile("tmp/m7-2-version-report.json", JSON.stringify(report, null, 2) + "\n");
+console.log(JSON.stringify(report));

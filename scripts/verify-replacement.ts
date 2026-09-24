@@ -11,13 +11,18 @@ import { createMigrationTarget } from "../src/migration/target.js";
 import { Trae2OpenCodeError } from "../src/shared/errors.js";
 import { withIsolatedOpenCodeServer } from "../src/target/opencode/isolated-server.js";
 
-await withIsolatedOpenCodeServer({ temporaryRoot: "tmp" }, async (server) => {
+const binary = process.env.T2O_TEST_OPENCODE_BINARY;
+await withIsolatedOpenCodeServer({
+  temporaryRoot: "tmp",
+  ...(binary ? { binary: path.resolve(binary) } : {}),
+}, async (server) => {
   const bundle = await readBundleFile("fixtures/ir/v1/valid-trae-assembled.json");
   const child = JSON.parse(JSON.stringify(bundle.sessions[0]).replaceAll("session-synthetic", "session-child"));
   child.parentSourceId = bundle.sessions[0].sourceId;
   bundle.sessions.push(child);
   const plan = await buildMigrationPlan(bundle, { fallbackDirectory: server.directory });
   const target = createMigrationTarget({ ...server, temporaryRoot: server.directory });
+  const descriptor = await target.describe();
   const first = path.join(server.directory, "first");
   const previous = path.join(first, "migration-manifest.json");
   assert.equal((await migrate(plan, target, { outputDirectory: first })).verified, 2);
@@ -67,7 +72,10 @@ await withIsolatedOpenCodeServer({ temporaryRoot: "tmp" }, async (server) => {
   assert.equal((await verifyMigration(filename, target)).hasFailures, false);
   assert.equal((await nativeRead(plan.sessions[0].targetId))!.info.title, "Updated synthetic source");
   const report = {
-    platform: process.platform, version: "2.0.12", source: "synthetic-parser-to-ir-fixture",
+    platform: process.platform,
+    binaryVersion: descriptor.binaryVersion,
+    serverVersion: descriptor.serverVersion,
+    source: "synthetic-parser-to-ir-fixture",
     duplicateSkipped: duplicate.skipped, protectedForeignChildren: 1,
     fault: "native child delete succeeds, acknowledgement and immediate readback fail",
     deleted: deleted.length, replaced: resumed.replaced, newlyCreated: resumed.created,

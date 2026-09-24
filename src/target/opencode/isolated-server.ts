@@ -5,7 +5,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
-import { OPENCODE_VERSION } from "./contract.js";
+import { isSupportedOpenCodeVersion } from "./contract.js";
 import { createOpenCodeTransport, type OpenCodeTransport } from "./transport.js";
 
 async function stop(server: ChildProcess): Promise<void> {
@@ -21,6 +21,7 @@ export interface IsolatedOpenCodeServer {
   serverUrl: string;
   directory: string;
   transport: OpenCodeTransport;
+  createTransport(binary?: string): OpenCodeTransport;
 }
 
 /** Disposable contract/doctor probe. Never reads the user's OpenCode configuration. */
@@ -55,13 +56,13 @@ export async function withIsolatedOpenCodeServer<T>(
     OPENCODE_SERVER_PASSWORD: password,
     OPENCODE_PASSWORD: password,
   };
-  const connect = (serverUrl: string) =>
-    createOpenCodeTransport({ serverUrl, binary, env, cwd: root, password });
+  const connect = (serverUrl: string, clientBinary = binary) =>
+    createOpenCodeTransport({ serverUrl, binary: clientBinary, env, cwd: root, password });
   let server: ChildProcess | undefined;
   try {
     const version = (await connect("http://127.0.0.1").run(["--version"])).trim();
-    if (version !== OPENCODE_VERSION && version !== `opencode ${OPENCODE_VERSION}` &&
-        version !== `opencode v${OPENCODE_VERSION}`) {
+    const parsedVersion = /^(?:opencode v?)?(\d+\.\d+\.\d+)$/.exec(version)?.[1] ?? null;
+    if (!isSupportedOpenCodeVersion(parsedVersion)) {
       throw new Trae2OpenCodeError("T2O_OPENCODE_VERSION_UNSUPPORTED");
     }
     server = spawn(binary, ["serve", "--hostname", "127.0.0.1", "--port", "0"], {
@@ -80,7 +81,12 @@ export async function withIsolatedOpenCodeServer<T>(
       const serverUrl = output.match(/http:\/\/127\.0\.0\.1:\d+/)?.[0];
       if (serverUrl) {
         const transport = connect(serverUrl);
-        return await operation({ directory: root, serverUrl, transport });
+        return await operation({
+          directory: root,
+          serverUrl,
+          transport,
+          createTransport: (clientBinary) => connect(serverUrl, clientBinary),
+        });
       }
       await delay(200);
     }

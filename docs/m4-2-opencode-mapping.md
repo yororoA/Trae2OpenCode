@@ -29,11 +29,11 @@
 
 ## 验证
 
-映射版本 5 使用真实 M1 来源完成隔离 OpenCode 验收：44 段任务进度正文进入
-bundle；176 个 `exec_command` 全部映射为原生 `shell` 并通过 import/readback，
+映射版本 6 使用真实 M1 来源完成结构核验：任务进度正文按来源精确识别并进入
+assistant reasoning part；176 个 `exec_command` 全部映射为原生 `shell`，
 其中 127 个完成态从 `content` 展示输出，49 个运行态从 `metadata.output`
-展示已持久化输出；存在任务过程时在最终 summary 前插入水平分隔线。验收仅记录
-计数，不保存或输出正文与命令。
+展示已持久化输出。reasoning 与工具在 OpenCode 中折叠展示，最终 summary 保持
+普通正文，不再插入水平分隔线。验收仅记录计数，不保存或输出正文与命令。
 
 2026-09-24，13 项新增单测覆盖内容、时间、来源、状态、错误诊断、ID、父关系、
 资源告警与输入不可变性；首轮全部通过，TypeScript 与 lint 通过。

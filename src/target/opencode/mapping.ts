@@ -38,7 +38,6 @@ export const MISSING_TOOL_ERROR_TEXT =
   "[TRAE tool failed without a persisted error message]";
 export const MISSING_ASSISTANT_TEXT =
   "[TRAE assistant response ended before final text was persisted]";
-export const TASK_PROCESS_SEPARATOR_TEXT = "---";
 
 const PARTIAL_PROJECTION_CODES = new Set([
   "T2O_IR_REPLY_REFERENCE_INVALID",
@@ -172,6 +171,12 @@ function projectToolPresentation(block: Extract<AssistantContentIR, { type: "too
   };
 }
 
+function isTaskProgressText(block: AssistantContentIR): boolean {
+  return block.type === "text" && block.sourceRefs.some((ref) =>
+    ref.locator.type === "runtime-field" &&
+    ref.locator.value.endsWith(".plan_item.thought"));
+}
+
 function mapContent(
   block: AssistantContentIR,
   session: SessionIR,
@@ -183,7 +188,11 @@ function mapContent(
     created: block.createdAt,
     ...(block.completedAt === undefined ? {} : { completed: block.completedAt }),
   };
-  if (block.type === "text") return { type: "text", text: block.text };
+  if (block.type === "text") {
+    return isTaskProgressText(block)
+      ? { type: "reasoning", text: block.text, ...(time ? { time } : {}) }
+      : { type: "text", text: block.text };
+  }
   if (block.type === "reasoning") {
     return { type: "reasoning", text: block.text, ...(time ? { time } : {}) };
   }
@@ -318,12 +327,6 @@ function hasValidReply(session: SessionIR, event: EventIR): boolean {
   return reply?.type === "user" && reply.order < event.order;
 }
 
-function isFinalResponseText(block: AssistantContentIR): boolean {
-  return block.type === "text" && block.sourceRefs.some((ref) =>
-    ref.locator.type === "runtime-field" &&
-    ref.locator.value.endsWith(".plan_item.tool_call_info.params.summary"));
-}
-
 function eventMetadata(event: EventIR, validReply: boolean): JsonObject {
   const deferredContent = event.type === "assistant"
     ? event.content.flatMap((block, sourceIndex) =>
@@ -438,9 +441,6 @@ export function mapOpenCodeSession(
     event.content.forEach((block, i) => {
       const mapped = mapContent(block, session, `${field}.content[${i}]`, diagnostics);
       if (!mapped) return;
-      if (content.length > 0 && isFinalResponseText(block)) {
-        content.push({ type: "text", text: TASK_PROCESS_SEPARATOR_TEXT });
-      }
       content.push(mapped);
     });
     const sourceTextMissing = session.recovery === "partial" &&
@@ -476,7 +476,7 @@ export function mapOpenCodeSession(
       time: { created: session.createdAt, updated: session.updatedAt },
       location: { directory: options.directory },
       metadata: { trae2opencode: {
-        mappingVersion: 5, sourceSessionId: session.sourceId,
+        mappingVersion: 6, sourceSessionId: session.sourceId,
         sourceSessionSha256: hashCanonicalJson(session as unknown as JsonValue),
         unknownSourceFields: ["cost", "tokens", "agent", "model"],
         resourceCount: session.resources.length,

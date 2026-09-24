@@ -41,6 +41,14 @@ describe("migration manifest persistence", () => {
     ]);
   }));
 
+  it("accepts manifests for each reviewed OpenCode version", () => temporary(async (filename) => {
+    const manifest = emptyManifest();
+    manifest.target.binaryVersion = "2.0.16";
+    manifest.target.serverVersion = "2.0.16";
+    await withManifestStore(filename, async (store) => store.save(manifest));
+    assert.deepEqual((await readManifest(filename)).target, manifest.target);
+  }));
+
   it("rejects concurrent users of a checkpoint and releases the lock after failure", () => temporary(async (filename) => {
     await assert.rejects(withManifestStore(filename, async () => {
       await assert.rejects(withManifestStore(filename, async () => assert.fail("Concurrent writer")),

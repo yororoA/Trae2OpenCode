@@ -102,6 +102,14 @@ describe("native OpenCode CLI adapter", () => {
     });
   });
 
+  it("accepts the reviewed 2.0.16 transfer contract", async () => {
+    await setup(async ({ transfer, adapter, state }) => {
+      state.version = "2.0.16";
+      assert.deepEqual(await adapter.importSession(transfer), transfer);
+      assert.deepEqual(await adapter.readSession(transfer.info.id), transfer);
+    });
+  });
+
   it("refuses existing targets and missing parents without starting an import", async () => {
     await setup(async ({ transfer, adapter, state, calls }) => {
       state.stored = structuredClone(transfer);

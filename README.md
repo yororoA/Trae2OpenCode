@@ -17,7 +17,7 @@ workbench ID 或 session ID。
 | 组件 | 要求 |
 | --- | --- |
 | TRAE 来源 | TRAE CN **3.3.104**，已登录，并以本机 CDP 端口 `9222` 启动 |
-| OpenCode 目标 | **2.0.12** |
+| OpenCode 目标 | **2.0.12** 或 **2.0.16** |
 | 系统 | macOS、Windows 可直接读取本机 TRAE；Linux 只支持导入已导出的 bundle |
 | Node.js | `>=18.18`，推荐 Node.js 22 |
 
@@ -43,22 +43,21 @@ node --version
 npm run check
 ```
 
-### 2. 安装 OpenCode 2.0.12
+### 2. 安装受支持的 OpenCode
 
 ```sh
-npm install -g @opencode/cli@2.0.12
+npm install -g @opencode/cli@2.0.16
 opencode --version
 ```
 
-看到版本为 `2.0.12` 后即可继续。`migrate:local` 会读取 OpenCode 当前 service
+看到版本为 `2.0.12` 或 `2.0.16` 后即可继续。`migrate:local` 会读取 OpenCode 当前 service
 descriptor 发现动态端口，并检查本机 `http://127.0.0.1:4096`。没有可用服务时会
 临时启动仅监听本机的 `4097` 进程，沿用当前本地 OpenCode 会话库，迁移结束后只关闭
 该临时进程。
 因此通常不需要手动启动 OpenCode server。
 
-如果发现正在运行的 OpenCode 桌面端或服务不是 `2.0.12`，程序会要求先停止该服务，
-不会再启动一个共享同一数据库的 `2.0.12` 进程。OpenCode 桌面端 `2.0.16` 用户应在
-迁移前完全退出桌面端，迁移完成后再重新打开。
+如果发现正在运行的 OpenCode 桌面端或服务不在已验证版本范围内，程序会要求先停止
+该服务，不会再启动另一个进程并发访问同一数据库。`2.0.16` 桌面端可直接作为迁移目标。
 
 ### 3. 以调试模式启动 TRAE
 
@@ -139,9 +138,9 @@ TRAE 本身的历史被删除，源数据始终保持只读。
 - 单个 bundle 最大为 `128 MiB`。超过限制时需选择更小的会话。
 - 发现可安全定位的凭据会替换为 `[REDACTED_SECRET]`，会话标记为 `partial`；
   若凭据位于 ID、路径或来源定位等不可安全改写字段，迁移会停止。
-- assistant 在任务执行期间已持久化的进度描述会按原顺序保留，并与最终输出共同显示；
-  私有 `reasoning_content` 不会被当作进度正文。存在任务过程时，最终正文前会插入
-  Markdown 水平分隔线，便于区分过程与结果。
+- assistant 在任务执行期间已持久化的进度描述会按原顺序映射为 OpenCode 原生
+  reasoning part，与命令工具共同显示在可折叠的任务过程中；最终输出保持为普通正文，
+  不再插入 Markdown 分隔线。私有 `reasoning_content` 仍保持独立的 reasoning part。
 - TRAE 的 `exec_command` 会映射为 OpenCode 原生 shell 工具，可展开查看具体命令和
   已持久化的终端输出；原始工具字段仍保存在 metadata 中。
 - TRAE 未持久化的工具输出或最终 assistant 正文不会被编造。工具记录会保留缺失标识；
@@ -166,8 +165,8 @@ TRAE 本身的历史被删除，源数据始终保持只读。
 | --- | --- |
 | `无法发现 TRAE workbench` | 完全退出后，用上面的终端命令重新启动 TRAE；确认目标项目窗口已打开。 |
 | `所选 workbench 没有可迁移的本地会话` | 选择正确的项目窗口，并在 TRAE 中打开该项目后再运行。 |
-| `无法自动启动 OpenCode` | 安装并确认 `@opencode/cli@2.0.12`，再运行命令。 |
-| `检测到正在运行的 OpenCode 2.0.16` | 完全退出 OpenCode 桌面端或停止该服务，再重新运行；不要让不同版本并发使用同一数据库。 |
+| `无法自动启动 OpenCode` | 安装并确认 `@opencode/cli@2.0.12` 或 `2.0.16`，再运行命令。 |
+| `OpenCode 版本或协议不受支持` | 使用 `2.0.12` 或 `2.0.16`；其他版本即使能打开数据库也不会自动放行。 |
 | `所选会话包含当前无法无损映射的内容` | 工具尚未写入 OpenCode。保留产物并查看[故障排查](docs/troubleshooting.md)。 |
 | `目标会话已存在，但缺少可验证的旧 manifest` | 目标归属无法证明，因此不会覆盖；恢复对应 manifest 或在 OpenCode 中人工确认处理。 |
 | `迁移 bundle 超过 128 MiB` | 选择更小的会话；不要修改 bundle 来绕过限制。 |

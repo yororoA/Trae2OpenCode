@@ -4,6 +4,7 @@ import * as path from "node:path";
 import type { JsonObject } from "../ir/types.js";
 import { normalizeError, Trae2OpenCodeError } from "../shared/errors.js";
 import { assertNoCredentials } from "../shared/sensitive.js";
+import { isSupportedOpenCodeVersion } from "../target/opencode/contract.js";
 import type { OpenCodeTransfer } from "../target/opencode/mapping.js";
 import { reconcileOpenCodeTransfer } from "../target/opencode/reconciliation.js";
 import {
@@ -50,19 +51,24 @@ function requireTarget(manifest: MigrationManifest, target: MigrationTargetDescr
   }
 }
 
-function isEndpointOnlyChange(
+function isCompatibleTargetChange(
   previous: MigrationTargetDescriptor,
   current: MigrationTargetDescriptor,
 ): boolean {
-  return previous.endpointHash !== current.endpointHash &&
-    previous.binaryVersion === current.binaryVersion &&
-    previous.serverVersion === current.serverVersion &&
+  const endpointOrVersionChanged = previous.endpointHash !== current.endpointHash ||
+    previous.binaryVersion !== current.binaryVersion ||
+    previous.serverVersion !== current.serverVersion;
+  return endpointOrVersionChanged &&
+    isSupportedOpenCodeVersion(previous.binaryVersion) &&
+    isSupportedOpenCodeVersion(previous.serverVersion) &&
+    isSupportedOpenCodeVersion(current.binaryVersion) &&
+    isSupportedOpenCodeVersion(current.serverVersion) &&
     previous.schemaHash === current.schemaHash;
 }
 
 /**
- * A dynamic port can be rebound only when an unchanged, tool-owned target
- * session proves that the current endpoint reaches the same migration data.
+ * A supported endpoint/version change can be rebound only when an unchanged,
+ * tool-owned target session proves that the target reaches the same data.
  */
 async function requireOrRebindTarget(
   manifest: MigrationManifest,
@@ -77,7 +83,7 @@ async function requireOrRebindTarget(
   }).catch(() => {});
   // #endregion
   if (jsonHash(manifest.target) === jsonHash(descriptor)) return;
-  if (!isEndpointOnlyChange(manifest.target, descriptor)) {
+  if (!isCompatibleTargetChange(manifest.target, descriptor)) {
     throw new Trae2OpenCodeError("T2O_MIGRATION_TARGET_CHANGED");
   }
   const candidates = manifest.sessions.filter((item) =>

@@ -8,6 +8,7 @@ import { hashCanonicalJson } from "../ir/canonical.js";
 import type { JsonValue } from "../ir/types.js";
 import { Trae2OpenCodeError } from "../shared/errors.js";
 import { assertNoCredentials } from "../shared/sensitive.js";
+import { SUPPORTED_OPENCODE_VERSIONS } from "../target/opencode/contract.js";
 import type { OpenCodeReconciliation } from "../target/opencode/reconciliation.js";
 import type { MigrationTargetDescriptor } from "./target.js";
 
@@ -74,7 +75,8 @@ const validate = new Ajv().compile({
       required: ["endpointHash", "binaryVersion", "serverVersion", "schemaHash", "fingerprint"],
       properties: {
         endpointHash: hash, schemaHash: hash, fingerprint: hash,
-        binaryVersion: { const: "2.0.12" }, serverVersion: { const: "2.0.12" },
+        binaryVersion: { enum: [...SUPPORTED_OPENCODE_VERSIONS] },
+        serverVersion: { enum: [...SUPPORTED_OPENCODE_VERSIONS] },
       },
     },
     sessions: {
