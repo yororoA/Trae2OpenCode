@@ -40,7 +40,7 @@ CI [35932162689](https://github.com/yororoA/Trae2OpenCode/actions/runs/359321626
 （commit `ce990ed`）六任务全部成功，六份安装报告及三份原生目标集成报告均已上传。
 本机完整 `npm run check` 340 项通过。M7 已建立草稿
 [PR #17](https://github.com/yororoA/Trae2OpenCode/pull/17)，暂以 M5 分支为 base，
-等待 M5 合并后再改向 main。
+M5 合入后改向 main 并执行最终 CI。
 
 ## 文档交付
 

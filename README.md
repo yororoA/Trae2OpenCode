@@ -3,7 +3,7 @@
 将可恢复的 TRAE 会话转换为版本化 IR，通过 OpenCode 原生导入，并逐会话核对
 消息、reasoning、工具输入输出及 hash。提供只读盘点、dry-run、断点续跑和回滚。
 
-**P0 工程与实机验收已完成，尚待里程碑 PR 合入 main；未发布 npm 包。**
+**P0 工程与实机验收已完成，M5 已合入 main，M7 PR #17 待合入；未发布 npm 包。**
 三端目标/打包矩阵和真实已登录 TRAE 经生产 CDP reader 到隔离 OpenCode 的
 端到端验收均已通过。真实样本为准确标记的 partial 会话，覆盖 text/tool；
 reasoning 的真实来源与目标往返仍由拆分证据覆盖。

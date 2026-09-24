@@ -47,7 +47,8 @@ resume 仍为 verified；独立重复迁移 created=0、skipped=1。verify 的 e
 5. 带 workspaceStorageId 的资源错误此前成为 bundle 级错误并阻止所有 workspace。
    现在只归属该 workspace 的会话；无法归属的错误仍保持全局 fail-closed。
 
-每项修复均有回归测试。完整质量门禁在提交前重新执行。
+每项修复均有回归测试。完整质量门禁为 344 项测试、lint、双 TypeScript
+类型检查、构建和 CLI smoke，全部通过。
 
 ## 覆盖边界
 
