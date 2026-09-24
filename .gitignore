@@ -2,3 +2,7 @@ tmp/
 node_modules/
 dist/
 fixtures/fixture-report.json
+
+# 迁移运行产物
+migration-run/
+trae-export/
