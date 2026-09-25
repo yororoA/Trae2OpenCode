@@ -70,8 +70,9 @@ macOS 的 `open -a "Trae CN" --args ...` 经 3.3.104 实机确认可能丢弃调
 
 mapping v6 的哈希消息 ID 不满足 OpenCode Desktop 2.0.16 对时间顺序的字符串比较，
 实时 Revert 后可能暂时清空当前窗口；超大历史也可能在首次自动 compaction 时被 provider
-拒绝。mapping v7 使用稳定递增 ID，并为超大历史加入原生 completed-compaction 边界。
-原始时间线仍完整保留。
+拒绝。mapping v8 使用稳定递增 ID，并为超大历史加入原生 completed-compaction 边界；
+角色化摘录写入只供后续模型读取的 `recent`，可见 `summary` 保持为空，因此不会把
+`[User]`、`[Assistant]` 重复显示为普通正文。原始时间线仍完整保留。
 
 更新代码后重新执行 `npm run migrate:local` 并按提示安全覆盖。目标会话若已在 OpenCode
 中新增内容，覆盖保护会停止；先保留新增内容，再人工删除旧目标会话并重新迁移。

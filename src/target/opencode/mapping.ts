@@ -39,7 +39,7 @@ export const MISSING_TOOL_ERROR_TEXT =
 export const MISSING_ASSISTANT_TEXT =
   "[TRAE assistant response ended before final text was persisted]";
 export const MAX_CONTINUATION_CONTEXT_BYTES = 192 * 1024;
-export const MAX_CONTINUATION_SUMMARY_BYTES = 16 * 1024;
+export const MAX_CONTINUATION_RECENT_BYTES = 16 * 1024;
 
 const PARTIAL_PROJECTION_CODES = new Set([
   "T2O_IR_REPLY_REFERENCE_INVALID",
@@ -394,15 +394,26 @@ function tailUtf8(value: string, limit: number): string {
   return reversed.reverse().join("");
 }
 
-function updateSummaryExcerpt(previous: string, message: JsonObject): string {
+function recentEntry(role: "User" | "Assistant", text: string): string {
+  const prefix = `[${role}]: `;
+  return `${prefix}${tailUtf8(
+    text,
+    MAX_CONTINUATION_RECENT_BYTES - Buffer.byteLength(prefix, "utf8"),
+  )}`;
+}
+
+function updateRecentContext(previous: string, message: JsonObject): string {
   const text = message.type === "user" && typeof message.text === "string"
-    ? `[User]\n${message.text}`
+    ? recentEntry("User", message.text)
     : message.type === "assistant" && Array.isArray(message.content)
       ? message.content.flatMap((block) =>
         isRecord(block) && block.type === "text" && typeof block.text === "string"
-          ? [`[Assistant]\n${block.text}`] : []).join("\n\n")
+          ? [recentEntry("Assistant", block.text)] : []).join("\n\n")
       : "";
-  return tailUtf8([previous, text].filter(Boolean).join("\n\n"), MAX_CONTINUATION_SUMMARY_BYTES);
+  return tailUtf8(
+    [previous, text].filter(Boolean).join("\n\n"),
+    MAX_CONTINUATION_RECENT_BYTES,
+  );
 }
 
 function addContinuationBoundaries(
@@ -412,37 +423,35 @@ function addContinuationBoundaries(
 ): JsonObject[] {
   const messages: JsonObject[] = [];
   let activeBytes = 0;
-  let excerpt = "";
+  let recent = "";
   let boundaries = 0;
   for (const message of source) {
     messages.push(message);
     activeBytes += contextBytes(message);
-    excerpt = updateSummaryExcerpt(excerpt, message);
+    recent = updateRecentContext(recent, message);
     if (message.type !== "assistant" || activeBytes <= MAX_CONTINUATION_CONTEXT_BYTES) continue;
     const time = isRecord(message.time) ? message.time : {};
     const created = typeof time.completed === "number"
       ? time.completed : typeof time.created === "number" ? time.created : session.updatedAt!;
-    const summary = [
-      "Imported TRAE transcript checkpoint. Earlier messages remain visible in this session.",
-      excerpt ? `Recent recoverable user and assistant text:\n${excerpt}` :
-        "No recoverable user or assistant text was available for this checkpoint.",
-    ].join("\n\n");
+    const retainedContext = recent ||
+      "[Assistant]: Earlier imported TRAE messages remain stored in this session.";
     messages.push({
       id: `${String(message.id)}_compact`,
       type: "compaction",
       time: { created },
       status: "completed",
       reason: "manual",
-      summary,
-      recent: "",
+      // OpenCode renders summary in the timeline; recent is model context only.
+      summary: "",
+      recent: retainedContext,
       metadata: { trae2opencode: {
-        mappingVersion: 7,
+        mappingVersion: 8,
         kind: "continuation-boundary",
         activeContextBytes: activeBytes,
       } },
     });
     boundaries++;
-    activeBytes = Buffer.byteLength(summary, "utf8");
+    activeBytes = Buffer.byteLength(retainedContext, "utf8");
   }
   if (boundaries > 0) {
     diagnostics.push(diagnostic(
@@ -578,7 +587,7 @@ export function mapOpenCodeSession(
       time: { created: session.createdAt, updated: session.updatedAt },
       location: { directory: options.directory },
       metadata: { trae2opencode: {
-        mappingVersion: 7, sourceSessionId: session.sourceId,
+        mappingVersion: 8, sourceSessionId: session.sourceId,
         sourceSessionSha256: hashCanonicalJson(session as unknown as JsonValue),
         unknownSourceFields: ["cost", "tokens", "agent", "model"],
         resourceCount: session.resources.length,

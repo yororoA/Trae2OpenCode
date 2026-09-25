@@ -304,7 +304,8 @@ import/export 路由和 schema；即使版本号在白名单内，协议漂移�
 
 这是旧 mapping v6 生成的无序消息 ID 或无界历史上下文造成的兼容问题。更新本仓库后
 重新运行 `npm run migrate:local`，选择同一会话并按提示输入 `OVERWRITE`，让工具以
-mapping v7 重新导入。
+mapping v8 重新导入。v8 还会将 checkpoint 的角色化上下文放入不直接展示的 `recent`
+字段，避免 `[User]`、`[Assistant]` 摘录在时间线中重复显示。
 
 如果该目标会话已在 OpenCode 中继续过对话，受保护覆盖会拒绝删除它。先保留或导出新增
 内容，再在 OpenCode 中人工删除旧目标会话并重新迁移；不要删除 manifest 后强行覆盖。
