@@ -3017,6 +3017,19 @@ body {
   scroll-margin-top: calc(var(--header-height) + 20px);
 }
 
+/* Keep the fracture system structural: detached solid ornaments no longer render. */
+.fault-field,
+.trace-fragment,
+.transformation-side:first-child .message-stack::after,
+.transformation::before,
+.transformation::after,
+.demo-section::before,
+.demo-window::after,
+.compatibility-table::before {
+  display: none;
+  content: none;
+}
+
 @media (max-width: 760px) {
   .proof-item:nth-child(2) strong {
     font-size: 15px;
