@@ -273,8 +273,73 @@ svg {
   display: none;
 }
 
+.fault-field {
+  position: absolute;
+  z-index: 0;
+  inset: var(--header-height) 0 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.fault-shard {
+  position: absolute;
+  display: block;
+  opacity: 0.9;
+  animation: fault-drift 8s var(--ease) infinite;
+}
+
+.fault-shard-one {
+  top: 13%;
+  left: 47%;
+  width: 190px;
+  height: 28px;
+  background: var(--trae);
+  clip-path: polygon(0 18%, 100% 0, 83% 58%, 39% 42%, 22% 100%);
+}
+
+.fault-shard-two {
+  top: 25%;
+  left: 53%;
+  width: 110px;
+  height: 46px;
+  background: var(--opencode);
+  clip-path: polygon(20% 0, 100% 14%, 72% 48%, 93% 100%, 0 76%);
+  animation-delay: -2.1s;
+}
+
+.fault-shard-three {
+  right: 2%;
+  bottom: 13%;
+  width: 210px;
+  height: 22px;
+  background: var(--trae);
+  clip-path: polygon(0 20%, 62% 0, 100% 44%, 72% 100%, 24% 62%);
+  animation-delay: -4.4s;
+}
+
+.fault-shard-four {
+  bottom: 22%;
+  left: 49%;
+  width: 150px;
+  height: 34px;
+  background: var(--opencode);
+  clip-path: polygon(8% 0, 100% 22%, 71% 55%, 90% 100%, 0 68%);
+  animation-delay: -6.2s;
+}
+
+.fault-shard-five {
+  top: 48%;
+  left: 51%;
+  width: 84px;
+  height: 14px;
+  background: var(--trae);
+  clip-path: polygon(0 0, 100% 22%, 79% 100%, 18% 72%);
+  animation-delay: -1.2s;
+}
+
 .hero-scene {
   position: absolute;
+  z-index: 1;
   top: 19%;
   right: 4%;
   bottom: 9%;
@@ -321,11 +386,15 @@ svg {
 .scene-source {
   left: 0;
   border-top-color: var(--trae);
+  clip-path: polygon(0 0, 100% 0, 100% 39%, 94% 44%, 100% 49%, 100% 100%, 0 100%);
+  box-shadow: 8px 9px 0 rgba(0, 132, 61, 0.13);
 }
 
 .scene-target {
   right: 0;
   border-top-color: var(--opencode);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 58%, 6% 52%, 0 46%);
+  box-shadow: -8px -9px 0 rgba(17, 18, 20, 0.1);
 }
 
 .scene-caption {
@@ -504,6 +573,22 @@ svg {
   }
 }
 
+@keyframes fault-drift {
+  0%,
+  82%,
+  100% {
+    transform: translate(0, 0);
+  }
+
+  86% {
+    transform: translate(7px, -2px);
+  }
+
+  90% {
+    transform: translate(-4px, 2px);
+  }
+}
+
 .hero-inner {
   position: relative;
   z-index: 2;
@@ -535,12 +620,69 @@ svg {
 }
 
 .hero h1 {
+  position: relative;
+  display: inline-block;
   max-width: 760px;
   margin: 0;
   font-size: 70px;
   font-weight: 790;
   line-height: 0.98;
   letter-spacing: 0;
+}
+
+.hero h1::before,
+.hero h1::after {
+  position: absolute;
+  inset: 0;
+  content: attr(data-text);
+  opacity: 0.82;
+  pointer-events: none;
+}
+
+.hero h1::before {
+  color: var(--trae);
+  clip-path: polygon(0 17%, 100% 10%, 100% 35%, 0 43%);
+  transform: translateX(3px);
+  animation: title-fracture-top 7s linear infinite;
+}
+
+.hero h1::after {
+  color: var(--opencode);
+  clip-path: polygon(0 58%, 100% 51%, 100% 72%, 0 80%);
+  transform: translateX(-3px);
+  animation: title-fracture-bottom 7s linear infinite;
+}
+
+@keyframes title-fracture-top {
+  0%,
+  77%,
+  100% {
+    transform: translateX(3px);
+  }
+
+  80% {
+    transform: translateX(8px);
+  }
+
+  83% {
+    transform: translateX(1px);
+  }
+}
+
+@keyframes title-fracture-bottom {
+  0%,
+  77%,
+  100% {
+    transform: translateX(-3px);
+  }
+
+  80% {
+    transform: translateX(-7px);
+  }
+
+  83% {
+    transform: translateX(0);
+  }
 }
 
 .hero-statement {
@@ -800,6 +942,7 @@ svg {
 }
 
 .message-stack {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(12, 1fr);
   gap: 7px;
@@ -812,11 +955,52 @@ svg {
   background: var(--paper-bright);
 }
 
+.transformation-side:first-child .message-stack {
+  clip-path: polygon(0 0, 100% 0, 100% 41%, 96% 46%, 100% 53%, 100% 100%, 0 100%);
+  box-shadow: 7px 7px 0 rgba(0, 132, 61, 0.13);
+}
+
+.transformation-side:first-child .message-stack::after {
+  position: absolute;
+  top: 42%;
+  right: -2px;
+  width: 48px;
+  height: 24px;
+  background: var(--trae);
+  clip-path: polygon(0 0, 100% 28%, 68% 52%, 100% 100%, 15% 76%);
+  content: "";
+}
+
+.transformation-side:last-child .message-stack {
+  box-shadow: -7px -7px 0 rgba(17, 18, 20, 0.08);
+}
+
 .message-stack span {
   display: block;
   height: 11px;
   border-radius: 0;
   background: #c9ced2;
+  transition: transform 420ms var(--ease);
+}
+
+.transformation-side:first-child .message-stack > span:nth-child(1) {
+  transform: translateX(-7px);
+}
+
+.transformation-side:first-child .message-stack > span:nth-child(2) {
+  transform: translateX(9px);
+}
+
+.transformation-side:first-child .message-stack > span:nth-child(3) {
+  transform: translateX(-4px);
+}
+
+.transformation-side:first-child .message-stack > span:nth-child(4) {
+  transform: translateX(8px);
+}
+
+.transformation-side:first-child .message-stack > span:nth-child(5) {
+  transform: translateX(-10px);
 }
 
 .message-stack .line-long {
@@ -1077,9 +1261,33 @@ svg {
 }
 
 .terminal-panel {
+  position: relative;
   min-width: 0;
+  overflow: hidden;
   padding: 24px;
   background: #101114;
+}
+
+.terminal-panel::after {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: rgba(98, 211, 145, 0.42);
+  content: "";
+  pointer-events: none;
+  animation: terminal-scan 5.4s linear infinite;
+}
+
+@keyframes terminal-scan {
+  from {
+    top: 0;
+  }
+
+  to {
+    top: 100%;
+  }
 }
 
 .terminal-line {
@@ -1187,12 +1395,14 @@ svg {
   background: transparent;
   transition:
     color 200ms var(--ease),
-    background-color 200ms var(--ease);
+    background-color 200ms var(--ease),
+    transform 200ms var(--ease);
 }
 
 .feature-card:hover {
   color: #ffffff;
   background: var(--ink);
+  transform: translateX(8px);
 }
 
 .feature-card > svg {
@@ -1744,6 +1954,21 @@ svg {
   .hero-scene::before {
     top: -40px;
     bottom: -40px;
+  }
+
+  .fault-shard-three,
+  .fault-shard-four,
+  .fault-shard-five {
+    display: none;
+  }
+
+  .fault-shard {
+    animation: none;
+  }
+
+  .hero h1::before,
+  .hero h1::after {
+    animation: none;
   }
 
   .hero-inner {
