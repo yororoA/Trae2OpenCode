@@ -4,8 +4,8 @@
   "description": "把可恢复的 TRAE 会话迁移到 OpenCode。",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#f4f5f0",
-  "theme_color": "#08763d",
+  "background_color": "#f4f5f1",
+  "theme_color": "#ef4a34",
   "icons": [
     {
       "src": "./assets/favicon-48.png",
