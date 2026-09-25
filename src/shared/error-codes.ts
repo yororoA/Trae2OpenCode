@@ -275,6 +275,10 @@ export const ERROR_DEFINITIONS = {
     exitCode: 5,
     message: "The source session cannot be mapped to OpenCode without unverified or missing data.",
   },
+  T2O_OPENCODE_V1_UNSUPPORTED_STATE: {
+    exitCode: 5,
+    message: "The source session contains a state that OpenCode 1.x cannot persist without inventing data.",
+  },
   T2O_OPENCODE_IDENTITY_INVALID: {
     exitCode: 5,
     message: "Source identifiers or parent dependencies cannot form a unique OpenCode import plan.",

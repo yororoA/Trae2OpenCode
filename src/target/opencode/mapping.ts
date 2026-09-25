@@ -11,13 +11,19 @@ import {
 } from "../../source/trae/profile-definitions.js";
 import { assertOpenCodeTransfer, isRecord } from "./contract.js";
 
-export interface OpenCodeTransfer {
+/** A session payload as a target persists it. Each dialect validates its own fields. */
+export interface OpenCodeSession {
+  info: JsonObject;
+  messages: JsonObject[];
+}
+
+/** The v2 transfer: exactly what `SessionTransfer.Data` guarantees. */
+export interface OpenCodeTransfer extends OpenCodeSession {
   info: JsonObject & {
     id: string;
     time: { created: number; updated: number };
     location: { directory: string };
   };
-  messages: JsonObject[];
 }
 
 export interface OpenCodeMappingOptions {
