@@ -5,13 +5,41 @@ import type { JsonValue } from "../../ir/types.js";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
 
 export const OPENCODE_VERSION = "2.0.12";
-export const SUPPORTED_OPENCODE_VERSIONS = ["2.0.12", "2.0.16"] as const;
+/** OpenCode v2 (`@opencode/cli`): HTTP session transfer plus a service descriptor. */
+export const OPENCODE_V2_VERSIONS = ["2.0.12", "2.0.16"] as const;
+/** OpenCode v1 (`opencode-ai`): CLI-only session transfer, no service descriptor. */
+export const OPENCODE_V1_VERSIONS = ["1.17.9", "1.18.32"] as const;
+export const SUPPORTED_OPENCODE_VERSIONS = [...OPENCODE_V2_VERSIONS, ...OPENCODE_V1_VERSIONS] as const;
 export const IMPORT_ROUTE = "/api/experimental/session/import";
 export const EXPORT_ROUTE = "/api/experimental/session/{sessionID}/export";
 export const TRANSFER_REF = "#/components/schemas/SessionTransfer.Data";
 
+export type OpenCodeDialect = "v2" | "v1";
+
+/**
+ * The dialect decides how a session is read and written, so it is derived from the
+ * verified executable version and never from a capability guess.
+ */
+export function openCodeDialectForVersion(value: string | null): OpenCodeDialect | undefined {
+  if (value === null) return undefined;
+  if ((OPENCODE_V2_VERSIONS as readonly string[]).includes(value)) return "v2";
+  if ((OPENCODE_V1_VERSIONS as readonly string[]).includes(value)) return "v1";
+  return undefined;
+}
+
+export function supportedVersionsForDialect(dialect: OpenCodeDialect): readonly string[] {
+  return dialect === "v2" ? OPENCODE_V2_VERSIONS : OPENCODE_V1_VERSIONS;
+}
+
 export function isSupportedOpenCodeVersion(value: string | null): boolean {
-  return value !== null && SUPPORTED_OPENCODE_VERSIONS.some((version) => version === value);
+  return openCodeDialectForVersion(value) !== undefined;
+}
+
+/** Every supported release reports the same `--version` / health version shape. */
+export function parseOpenCodeVersion(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  return /^(?:opencode v?)?(\d{1,5}\.\d{1,5}\.\d{1,5}(?:-[a-zA-Z0-9.-]{1,40})?)$/
+    .exec(value.trim())?.[1] ?? null;
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
