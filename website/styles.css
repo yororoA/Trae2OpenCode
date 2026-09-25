@@ -3030,7 +3030,68 @@ body {
   content: none;
 }
 
+.hero-wordmark {
+  top: 16%;
+  right: 3%;
+  bottom: 16%;
+  left: 52%;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  justify-items: center;
+}
+
+.wordmark-glyph,
+.wordmark-two-trae,
+.wordmark-two-opencode {
+  font-size: 280px;
+}
+
+.wordmark-t,
+.wordmark-o,
+.wordmark-two {
+  transform: none;
+}
+
+.wordmark-two {
+  width: 180px;
+  height: 260px;
+}
+
+.wordmark-two-trae {
+  clip-path: polygon(0 0, 64% 0, 48% 100%, 0 100%);
+  transform: translateX(-2px);
+}
+
+.wordmark-two-opencode {
+  clip-path: polygon(64% 0, 100% 0, 100% 100%, 48% 100%);
+  transform: translateX(2px);
+}
+
+@media (max-width: 1080px) {
+  .hero-wordmark {
+    top: 17%;
+    right: -3%;
+    bottom: 17%;
+    left: 52%;
+  }
+
+  .wordmark-glyph,
+  .wordmark-two-trae,
+  .wordmark-two-opencode {
+    font-size: 230px;
+  }
+
+  .wordmark-two {
+    width: 150px;
+    height: 220px;
+  }
+}
+
 @media (max-width: 760px) {
+  .hero-wordmark {
+    display: none;
+  }
+
   .proof-item:nth-child(2) strong {
     font-size: 15px;
   }
