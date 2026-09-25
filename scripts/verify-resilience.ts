@@ -155,7 +155,7 @@ async function parent(): Promise<void> {
               assert.equal(checkpoint.sessions.filter((item) => item.state === "verified").length, killAtImport - 1);
               assert.equal(checkpoint.sessions.find((item) => item.targetId === transfer.info.id)?.state, "importing");
               await assert.rejects(withManifestStore(filename, async () => {}), { code: "T2O_MIGRATION_LOCKED" });
-              killedTargetId = transfer.info.id;
+              killedTargetId = String(transfer.info.id);
             }
             if (!shouldKill || mode === "after-import") {
               value = await target.importSession(transfer);

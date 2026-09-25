@@ -5,9 +5,12 @@ import { Trae2OpenCodeError } from "../../shared/errors.js";
 import { assertNoCredentials } from "../../shared/sensitive.js";
 import { requireOpenCodeCapabilities } from "./capability-probe.js";
 import { assertOpenCodeTransfer, EXPORT_ROUTE, isRecord } from "./contract.js";
-import type { OpenCodeTransfer } from "./mapping.js";
+import type { OpenCodeSession, OpenCodeTransfer } from "./mapping.js";
 import { requireOpenCodeReconciliation } from "./reconciliation.js";
+import { createOpenCodeDeletionAdapter } from "./deletion.js";
+import { withTemporaryInput } from "./temporary-input.js";
 import { createOpenCodeTransport, type OpenCodeTransport } from "./transport.js";
+import { createOpenCodeV1Adapter } from "./v1/adapter.js";
 
 export interface NativeOpenCodeAdapterOptions {
   serverUrl: string;
@@ -34,8 +37,12 @@ function transferFrom(value: unknown, expectedId: string): OpenCodeTransfer {
 }
 
 /**
- * Native CLI only. The existing-session check is advisory: OpenCode's atomic 409
- * conflict remains authoritative if another process imports the ID concurrently.
+ * Native CLI only for v2, whose `session export`/`session import` subcommands drive the
+ * server. The existing-session check is advisory: OpenCode's atomic 409 conflict remains
+ * authoritative if another process imports the ID concurrently.
+ *
+ * OpenCode v1 keeps no such route or subcommand pair, so the v1 adapter reads and writes
+ * through the executable's top-level `export`/`import` subcommands instead.
  */
 export function createNativeOpenCodeAdapter(options: NativeOpenCodeAdapterOptions) {
   // Always validate the endpoint, including when transport is injected.
@@ -43,7 +50,8 @@ export function createNativeOpenCodeAdapter(options: NativeOpenCodeAdapterOption
   createOpenCodeTransport({ serverUrl: options.serverUrl });
   const serverUrl = new URL(options.serverUrl).origin;
   const temporaryRoot = path.resolve(options.temporaryRoot ?? os.tmpdir());
-  const read = async (id: string): Promise<OpenCodeTransfer | null> => {
+
+  const readV2 = async (id: string): Promise<OpenCodeTransfer | null> => {
     assertId(id);
     const result = await transport.request(EXPORT_ROUTE.replace("{sessionID}", id));
     if (result.status === 404) return null;
@@ -52,73 +60,83 @@ export function createNativeOpenCodeAdapter(options: NativeOpenCodeAdapterOption
     }
     return transferFrom(result.body.data, id);
   };
+  const v2 = {
+    read: readV2,
+    ...createOpenCodeDeletionAdapter(transport, options.serverUrl, readV2),
+  };
+  const v1 = createOpenCodeV1Adapter({ transport, temporaryRoot });
+
+  const importV2 = async (value: OpenCodeSession): Promise<OpenCodeTransfer> => {
+    assertNoCredentials(value);
+    assertOpenCodeTransfer(value);
+    const transfer = value as OpenCodeTransfer;
+    const id = transfer.info.id;
+    assertId(id);
+    const directory = transfer.info.location.directory;
+    if (!path.isAbsolute(directory)) throw new Trae2OpenCodeError("T2O_OPENCODE_DIRECTORY_INVALID");
+    const losesAssistant = transfer.messages.some((message) =>
+      message.type === "assistant" && (!isRecord(message.time) || typeof message.time.completed !== "number"));
+    if (losesAssistant) throw new Trae2OpenCodeError("T2O_OPENCODE_MAPPING_REJECTED");
+    const serialized = JSON.stringify(transfer);
+    if (Buffer.byteLength(serialized, "utf8") > 32 * 1024 * 1024) {
+      throw new Trae2OpenCodeError("T2O_OPENCODE_TRANSFER_TOO_LARGE");
+    }
+    try {
+      if (!(await fs.stat(directory)).isDirectory()) throw new Error("Not a directory");
+    } catch {
+      throw new Trae2OpenCodeError("T2O_OPENCODE_DIRECTORY_INVALID");
+    }
+    if (await readV2(id)) throw new Trae2OpenCodeError("T2O_OPENCODE_SESSION_CONFLICT");
+    const parentId = transfer.info.parentID;
+    if (typeof parentId === "string" && !await readV2(parentId)) {
+      throw new Trae2OpenCodeError("T2O_OPENCODE_PARENT_MISSING");
+    }
+    await withTemporaryInput(temporaryRoot, serialized, (filename) =>
+      transport.run(["session", "import", filename, "--server", serverUrl, "--directory", directory]));
+    const actual = await readV2(id);
+    if (!actual) throw new Trae2OpenCodeError("T2O_OPENCODE_READBACK_INVALID");
+    requireOpenCodeReconciliation(transfer, actual);
+    return actual;
+  };
+
   return {
-    async readSession(id: string): Promise<OpenCodeTransfer | null> {
+    async readSession(id: string): Promise<OpenCodeSession | null> {
       assertId(id);
-      await requireOpenCodeCapabilities(transport);
-      return read(id);
+      const capabilities = await requireOpenCodeCapabilities(transport);
+      return capabilities.dialect === "v1" ? v1.read(id) : readV2(id);
     },
-    async exportSession(id: string): Promise<OpenCodeTransfer> {
+    async exportSession(id: string): Promise<OpenCodeSession> {
       assertId(id);
-      await requireOpenCodeCapabilities(transport);
+      const capabilities = await requireOpenCodeCapabilities(transport);
+      if (capabilities.dialect === "v1") {
+        const session = await v1.read(id);
+        if (!session) throw new Trae2OpenCodeError("T2O_OPENCODE_READBACK_INVALID");
+        return session;
+      }
       const output = await transport.run(["session", "export", id, "--server", serverUrl]);
       let value: unknown;
       try { value = JSON.parse(output); }
       catch { throw new Trae2OpenCodeError("T2O_OPENCODE_READBACK_INVALID"); }
       return transferFrom(value, id);
     },
-    async importSession(value: OpenCodeTransfer): Promise<OpenCodeTransfer> {
+    async importSession(value: OpenCodeSession): Promise<OpenCodeSession> {
       assertNoCredentials(value);
       // Snapshot before the first await so caller mutation cannot alter checked data.
       const transfer = structuredClone(value);
-      assertOpenCodeTransfer(transfer);
-      const id = transfer.info.id;
+      const capabilities = await requireOpenCodeCapabilities(transport);
+      return capabilities.dialect === "v1" ? v1.importSession(transfer) : importV2(transfer);
+    },
+    async listChildren(id: string): Promise<string[]> {
       assertId(id);
-      const directory = transfer.info.location.directory;
-      if (!path.isAbsolute(directory)) throw new Trae2OpenCodeError("T2O_OPENCODE_DIRECTORY_INVALID");
-      const losesAssistant = transfer.messages.some((message) =>
-        message.type === "assistant" && (!isRecord(message.time) || typeof message.time.completed !== "number"));
-      if (losesAssistant) throw new Trae2OpenCodeError("T2O_OPENCODE_MAPPING_REJECTED");
-      const serialized = JSON.stringify(transfer);
-      if (Buffer.byteLength(serialized, "utf8") > 32 * 1024 * 1024) {
-        throw new Trae2OpenCodeError("T2O_OPENCODE_TRANSFER_TOO_LARGE");
-      }
-      try {
-        if (!(await fs.stat(directory)).isDirectory()) throw new Error("Not a directory");
-      } catch {
-        throw new Trae2OpenCodeError("T2O_OPENCODE_DIRECTORY_INVALID");
-      }
-      await requireOpenCodeCapabilities(transport);
-      if (await read(id)) throw new Trae2OpenCodeError("T2O_OPENCODE_SESSION_CONFLICT");
-      const parentId = transfer.info.parentID;
-      if (typeof parentId === "string" && !await read(parentId)) {
-        throw new Trae2OpenCodeError("T2O_OPENCODE_PARENT_MISSING");
-      }
-      let root: string | undefined;
-      let actual: OpenCodeTransfer | null = null;
-      let failure: Trae2OpenCodeError | undefined;
-      try {
-        await fs.mkdir(temporaryRoot, { recursive: true });
-        root = await fs.mkdtemp(path.join(temporaryRoot, "t2o-import-"));
-        await fs.chmod(root, 0o700);
-        const input = path.join(root, "session.json");
-        await fs.writeFile(input, serialized, { mode: 0o600, flag: "wx" });
-        await transport.run(["session", "import", input, "--server", serverUrl, "--directory", directory]);
-        actual = await read(id);
-        if (!actual) throw new Trae2OpenCodeError("T2O_OPENCODE_READBACK_INVALID");
-        requireOpenCodeReconciliation(transfer, actual);
-      } catch (error) {
-        failure = error instanceof Trae2OpenCodeError
-          ? error : new Trae2OpenCodeError("T2O_OPENCODE_IMPORT_FAILED");
-      }
-      if (root) {
-        try { await fs.rm(root, { recursive: true, force: true }); }
-        catch {
-          throw new Trae2OpenCodeError("T2O_OPENCODE_TEMP_CLEANUP_FAILED", { cause: failure });
-        }
-      }
-      if (failure) throw failure;
-      return actual!;
+      const capabilities = await requireOpenCodeCapabilities(transport);
+      return capabilities.dialect === "v1" ? v1.listChildren(id) : v2.listChildren(id);
+    },
+    async deleteSession(id: string, expectedHash: string, exclusiveTarget: boolean): Promise<void> {
+      assertId(id);
+      const capabilities = await requireOpenCodeCapabilities(transport);
+      return capabilities.dialect === "v1"
+        ? v1.deleteSession(id, expectedHash, exclusiveTarget)
+        : v2.deleteSession(id, expectedHash, exclusiveTarget);
     },
   };
 }

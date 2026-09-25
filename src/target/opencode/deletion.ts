@@ -3,7 +3,7 @@ import type { JsonValue } from "../../ir/types.js";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
 import { requireOpenCodeCapabilities } from "./capability-probe.js";
 import { isRecord } from "./contract.js";
-import type { OpenCodeTransfer } from "./mapping.js";
+import type { OpenCodeSession } from "./mapping.js";
 import type { OpenCodeTransport } from "./transport.js";
 
 // Captured from an isolated OpenCode 2.0.12 server on 2026-09-24.
@@ -27,7 +27,7 @@ export function assertDeletionContract(api: unknown): void {
 
 export function createOpenCodeDeletionAdapter(
   transport: OpenCodeTransport, serverUrl: string,
-  read: (id: string) => Promise<OpenCodeTransfer | null>,
+  read: (id: string) => Promise<OpenCodeSession | null>,
 ) {
   const requireContract = async () => {
     await requireOpenCodeCapabilities(transport);
