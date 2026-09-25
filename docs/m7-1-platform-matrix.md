@@ -57,3 +57,23 @@ Windows 两个版本有 17 个历史测试失败：fixture 路径工具没有遵
 **六个任务全部成功**（commit `bd90132`）：三系统 Node 18.20.8/22 的质量门禁、
 三系统 Node 22 的默认路径/原生导入及 2.0.12/2.0.11 版本契约检查均通过，
 三个平台报告已上传。M7-1/2 的跨平台退出条件满足。
+
+## 本机 Windows 复验（OpenCode v1 目标）
+
+在 Windows 11 + Node 24.13.0 + PowerShell 5.1 上复验，并新增 OpenCode v1 目标支持。
+
+- 质量门禁：`npm run check` 全部通过（lint、425 项单测、typecheck、build、smoke）。
+  在 agent 沙箱内运行时会有 4 项 symlink 用例因沙箱禁止创建符号链接而失败，
+  写 biome 缓存也会被拦截；在沙箱外运行全部通过，属环境限制而非代码缺陷。
+- `npm run migrate:local`：原脚本使用 POSIX 重定向 `>/dev/null 2>&1`，在 cmd/PowerShell
+  下 `build` 与后续 node 调用都不会执行。已改为跨平台写法，复验可正常进入
+  TRAE workbench 发现阶段（未开启调试端口时按既有逻辑提示并退出 4）。
+- OpenCode 可执行文件解析：npm 在 Windows 只生成 `.cmd` / `.ps1` / 无扩展名的垫片，
+  Node 的 `execFile` / `spawn` 对它们分别得到 `ENOENT` / `EINVAL`，默认的 `opencode`
+  因此完全无法启动。新增 `resolveOpenCodeBinary`，从 PATH 上的垫片内容解析出其中的原生
+  `opencode.exe`（已实测 `opencode-ai` 的三种垫片形态），并跳过 Node 托管的垫片。
+- 来源侧：`%APPDATA%\Trae CN\User` 命中默认候选，路径发现无需额外参数。
+- 目标侧：本机只有 v1（CLI `opencode-ai@1.18.32`、桌面端 `@opencode-aidesktop` 1.17.9），
+  新增的 v1 adapter 在隔离数据目录中完成 import、export 回读、对账、verify、冲突检测
+  与 rollback，详见 [M7-2](m7-2-version-contract.md#opencode-v1-契约opencode-ai)。
+  合成 runtime 仍不能替代真实已登录 TRAE 的最终验收。

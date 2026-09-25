@@ -47,18 +47,26 @@ npm run check
 
 ### 第 2 步：安装受支持版本的 OpenCode
 
-安装并确认 OpenCode `2.0.12` 或 `2.0.16`：
+安装并确认 OpenCode v2 `2.0.12` / `2.0.16`，或 v1 `1.18.32` / `1.17.9`：
 
 ```sh
-npm install -g @opencode/cli@2.0.16
+npm install -g @opencode/cli@2.0.16   # v2
+npm install -g opencode-ai@1.18.32    # v1
 opencode --version
 ```
 
-版本不在 `2.0.12`、`2.0.16` 范围内时不要继续迁移。工具会拒绝写入未验证的版本。
+版本不在上述范围内时不要继续迁移。工具会拒绝写入未验证的版本。目标方言由可执行文件
+版本决定，不接受手动指定：v2 使用 HTTP `SessionTransfer`，v1 使用 `opencode import` /
+`opencode export` 子命令。
 
 不必先启动 OpenCode server。迁移程序会读取当前 OpenCode service descriptor
 发现动态端口，并检查 `127.0.0.1:4096`。都不可用时会临时启动仅本机可访问的
 `127.0.0.1:4097` 进程，沿用当前本地 OpenCode 会话库，迁移结束后只关闭该进程。
+v1 没有 service descriptor，工具会自行以同一会话库启动 `opencode serve` 并生成
+一次性随机口令，仅监听回环地址。
+
+Windows 上 npm 只生成 `.cmd` / `.ps1` 垫片，Node 无法直接执行它们，因此工具会自动解析
+垫片指向的原生 `opencode.exe`。解析失败时用 `T2O_OPENCODE_BINARY` 指向该文件。
 
 如果 service descriptor 指向正在运行的未验证版本，程序会立即停止，不会并发启动
 另一个服务访问同一数据库。OpenCode `2.0.16` 桌面端已经过 schema 和真实往返验证，
