@@ -4,6 +4,7 @@ import * as path from "node:path";
 import type { MigrationBundle } from "../../ir/types.js";
 import { redactMigrationBundleCredentials } from "../../migration/redact-credentials.js";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
+import { MAX_RUNTIME_TOTAL_BYTES } from "../../shared/limits.js";
 import { assertNoCredentials } from "../../shared/sensitive.js";
 import { assembleTraeMigrationBundle, type TraeSessionMessageRead } from "./assemble-bundle.js";
 import { requireTraeRoot, type TraeRootDiscoveryOptions } from "./path-discovery.js";
@@ -123,9 +124,14 @@ export async function collectTraeBundle(options: CollectTraeOptions): Promise<Mi
     if (!reader) continue;
     try {
       const read = await reader.readMessages(session.sourceSessionId);
-      totalBytes += Buffer.byteLength(JSON.stringify(read.value), "utf8");
-      if (totalBytes > 128 * 1024 * 1024) throw new Trae2OpenCodeError("T2O_TRAE_RUNTIME_LIMIT");
-      messageReads.push({ sourceSessionId: session.sourceSessionId, status: "available", ...read });
+      totalBytes += read.responseBytes;
+      if (totalBytes > MAX_RUNTIME_TOTAL_BYTES) throw new Trae2OpenCodeError("T2O_TRAE_RUNTIME_LIMIT");
+      messageReads.push({
+        sourceSessionId: session.sourceSessionId,
+        status: "available",
+        value: read.value,
+        expectedMessageCount: read.expectedMessageCount,
+      });
     } catch (error) {
       if (error instanceof Trae2OpenCodeError && error.code === "T2O_TRAE_RUNTIME_LIMIT") throw error;
       messageReads.push({ sourceSessionId: session.sourceSessionId, status: "error" });

@@ -1,31 +1,22 @@
 import { createHash } from "node:crypto";
+import { jsonChunks } from "../shared/json-stream.js";
 import type { JsonValue, MigrationBundle } from "./types.js";
 import { assertMigrationBundle } from "./validation.js";
 
-function sortJsonValue(value: JsonValue): JsonValue {
-  if (Array.isArray(value)) {
-    return value.map(sortJsonValue);
-  }
-
-  if (value !== null && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value)
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, item]) => [key, sortJsonValue(item)]),
-    );
-  }
-
-  return value;
-}
+const CANONICAL_OPTIONS = {
+  pretty: true,
+  sortKeys: true,
+  trailingNewline: true,
+} as const;
 
 export function canonicalizeJson(value: JsonValue): string {
-  return `${JSON.stringify(sortJsonValue(value), null, 2)}\n`;
+  return [...jsonChunks(value, CANONICAL_OPTIONS)].join("");
 }
 
 export function hashCanonicalJson(value: JsonValue): string {
-  return `sha256:${createHash("sha256")
-    .update(canonicalizeJson(value))
-    .digest("hex")}`;
+  const hash = createHash("sha256");
+  for (const chunk of jsonChunks(value, CANONICAL_OPTIONS)) hash.update(chunk);
+  return `sha256:${hash.digest("hex")}`;
 }
 
 export function canonicalizeMigrationBundle(value: unknown): string {
@@ -34,9 +25,8 @@ export function canonicalizeMigrationBundle(value: unknown): string {
 }
 
 export function hashMigrationBundle(value: unknown): string {
-  return `sha256:${createHash("sha256")
-    .update(canonicalizeMigrationBundle(value))
-    .digest("hex")}`;
+  const bundle = assertMigrationBundle(value);
+  return hashCanonicalJson(bundle as unknown as JsonValue);
 }
 
 export function parseCanonicalMigrationBundle(

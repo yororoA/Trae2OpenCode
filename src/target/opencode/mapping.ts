@@ -6,6 +6,7 @@ import type {
 } from "../../ir/types.js";
 import { assertMigrationBundle } from "../../ir/validation.js";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
+import { jsonByteLength, jsonChunks } from "../../shared/json-stream.js";
 import {
   assertTraeParserCapability, RUNTIME_PROFILE,
 } from "../../source/trae/profile-definitions.js";
@@ -357,6 +358,21 @@ function eventMetadata(event: EventIR, validReply: boolean): JsonObject {
   };
 }
 
+const CONTEXT_CANONICAL_OPTIONS = {
+  pretty: true,
+  sortKeys: true,
+  trailingNewline: true,
+} as const;
+
+function jsonPrefix(value: JsonValue, limit: number): string {
+  let result = "";
+  for (const chunk of jsonChunks(value, CONTEXT_CANONICAL_OPTIONS)) {
+    result += chunk.slice(0, limit - result.length);
+    if (result.length === limit) break;
+  }
+  return result;
+}
+
 function contextBytes(message: JsonObject): number {
   if (message.type === "user") {
     return Buffer.byteLength(typeof message.text === "string" ? message.text : "", "utf8") + 32;
@@ -369,29 +385,38 @@ function contextBytes(message: JsonObject): number {
     }
     if (block.type !== "tool") return total;
     const state = isRecord(block.state) ? block.state : {};
-    const input = canonicalizeJson((state.input ?? null) as JsonValue);
     const content = Array.isArray(state.content)
-      ? state.content.flatMap((item) =>
-        isRecord(item) && typeof item.text === "string" ? [item.text] : []).join("\n")
+      ? state.content.reduce<string>((text, item) => {
+        if (text.length >= 2_000 || !isRecord(item) || typeof item.text !== "string") return text;
+        const separator = text ? "\n" : "";
+        return `${text}${separator}${item.text.slice(0, 2_000 - text.length - separator.length)}`;
+      }, "")
       : "";
-    const error = state.error === undefined
-      ? "" : canonicalizeJson(state.error as JsonValue);
-    return total + Buffer.byteLength(input, "utf8") +
-      Buffer.byteLength(content.slice(0, 2_000), "utf8") +
-      Buffer.byteLength(error.slice(0, 2_000), "utf8") + 64;
+    const inputBytes = jsonByteLength((state.input ?? null) as JsonValue, CONTEXT_CANONICAL_OPTIONS);
+    const error = state.error === undefined ? "" : jsonPrefix(state.error as JsonValue, 2_000);
+    return total + inputBytes +
+      Buffer.byteLength(content, "utf8") +
+      Buffer.byteLength(error, "utf8") + 64;
   }, 0);
 }
 
 function tailUtf8(value: string, limit: number): string {
-  const reversed: string[] = [];
+  let start = value.length;
   let bytes = 0;
-  for (const character of Array.from(value).reverse()) {
+  while (start > 0) {
+    let characterStart = start - 1;
+    const last = value.charCodeAt(characterStart);
+    if (last >= 0xdc00 && last <= 0xdfff && characterStart > 0) {
+      const previous = value.charCodeAt(characterStart - 1);
+      if (previous >= 0xd800 && previous <= 0xdbff) characterStart--;
+    }
+    const character = value.slice(characterStart, start);
     const size = Buffer.byteLength(character, "utf8");
     if (bytes + size > limit) break;
-    reversed.push(character);
     bytes += size;
+    start = characterStart;
   }
-  return reversed.reverse().join("");
+  return value.slice(start);
 }
 
 function recentEntry(role: "User" | "Assistant", text: string): string {
@@ -410,8 +435,11 @@ function updateRecentContext(previous: string, message: JsonObject): string {
         isRecord(block) && block.type === "text" && typeof block.text === "string"
           ? [recentEntry("Assistant", block.text)] : []).join("\n\n")
       : "";
+  if (!text) return tailUtf8(previous, MAX_CONTINUATION_RECENT_BYTES);
+  const textTail = tailUtf8(text, MAX_CONTINUATION_RECENT_BYTES);
+  if (Buffer.byteLength(textTail, "utf8") >= MAX_CONTINUATION_RECENT_BYTES) return textTail;
   return tailUtf8(
-    [previous, text].filter(Boolean).join("\n\n"),
+    previous ? `${previous}\n\n${textTail}` : textTail,
     MAX_CONTINUATION_RECENT_BYTES,
   );
 }
