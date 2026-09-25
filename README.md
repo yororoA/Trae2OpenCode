@@ -19,7 +19,8 @@ workbench ID 或 session ID。
 | 组件 | 要求 |
 | --- | --- |
 | TRAE 来源 | TRAE CN **3.3.104**，已登录，并以本机 CDP 端口 `9222` 启动 |
-| OpenCode 目标 | **2.0.12** 或 **2.0.16** |
+| OpenCode 目标服务 | **2.0.12** 或 **2.0.16** |
+| OpenCode CLI | 兼容版本的 `opencode` 命令可从 `PATH` 直接调用 |
 | 系统 | macOS、Windows 可直接读取本机 TRAE；Linux 只支持导入已导出的 bundle |
 | Node.js | `>=18.18`，推荐 Node.js 22 |
 
@@ -52,11 +53,20 @@ npm install -g @opencode/cli@2.0.16
 opencode --version
 ```
 
-看到版本为 `2.0.12` 或 `2.0.16` 后即可继续。`migrate:local` 会读取 OpenCode 当前 service
-descriptor 发现动态端口，并检查本机 `http://127.0.0.1:4096`。没有可用服务时会
-临时启动仅监听本机的 `4097` 进程，沿用当前本地 OpenCode 会话库，迁移结束后只关闭
-该临时进程。
-因此通常不需要手动启动 OpenCode server。
+看到版本为 `2.0.12` 或 `2.0.16` 后即可继续。这里只要求 `opencode` 命令可从 `PATH`
+调用，不需要查找或配置 OpenCode 桌面端的安装路径、正在运行进程的可执行文件路径，
+也不会直接定位或打开 OpenCode 数据库文件。
+
+`migrate:local` 按以下顺序确定目标服务：
+
+1. 使用显式设置的 `T2O_OPENCODE_SERVER`。
+2. 读取 OpenCode 当前 service descriptor，连接其中经过验证的本机动态端口。
+3. 检查默认地址 `http://127.0.0.1:4096`。
+4. 都不可用时，通过 `PATH` 中的 `opencode` 临时启动仅监听本机 `4097` 的服务。
+
+导入命令通过 `--server` 连接已发现的服务，因此 `PATH` 中的 CLI 不需要与桌面端位于同一
+安装目录，但客户端和服务端版本都必须通过兼容性检查。临时服务沿用当前本地 OpenCode
+会话库，迁移结束后只关闭临时进程。因此通常不需要手动启动 OpenCode server。
 
 如果发现正在运行的 OpenCode 桌面端或服务不在已验证版本范围内，程序会要求先停止
 该服务，不会再启动另一个进程并发访问同一数据库。`2.0.16` 桌面端可直接作为迁移目标。
@@ -186,7 +196,7 @@ TRAE 本身的历史被删除，源数据始终保持只读。
 | --- | --- |
 | `无法发现 TRAE workbench` | 完全退出后，用上面的终端命令重新启动 TRAE；确认目标项目窗口已打开。 |
 | `所选 workbench 没有可迁移的本地会话` | 选择正确的项目窗口，并在 TRAE 中打开该项目后再运行。 |
-| `无法自动启动 OpenCode` | 安装并确认 `@opencode/cli@2.0.12` 或 `2.0.16`，再运行命令。 |
+| `无法自动启动 OpenCode` | 执行 `opencode --version` 确认兼容 CLI 可从 `PATH` 调用；无需查找桌面端安装路径。 |
 | `OpenCode 版本或协议不受支持` | 使用 `2.0.12` 或 `2.0.16`；其他版本即使能打开数据库也不会自动放行。 |
 | `所选会话包含当前无法无损映射的内容` | 工具尚未写入 OpenCode。保留产物并查看[故障排查](docs/troubleshooting.md)。 |
 | `目标会话已存在，但缺少可验证的旧 manifest` | 目标归属无法证明，因此不会覆盖；恢复对应 manifest 或在 OpenCode 中人工确认处理。 |

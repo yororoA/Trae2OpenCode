@@ -17,14 +17,15 @@ npm run migrate:local -n  # 自动跳过需要 OVERWRITE 的会话
 `-y` 和 `-n` 只控制覆盖策略，不影响后续的窗口与会话列表选择。不带参数时仍采用人工
 确认。
 
-不需要查找或输入 workbench ID、session ID，也不需要手动导出 bundle 或启动 OpenCode
-server。
+不需要查找或输入 workbench ID、session ID，也不需要手动导出 bundle、查找 OpenCode
+桌面端安装路径或启动 OpenCode server。
 
-## 迁移前先了解三件事
+## 迁移前先了解四件事
 
 1. 当前支持 TRAE CN `3.3.104`，以及 OpenCode `2.0.12` 和 `2.0.16`。
-2. TRAE 必须以本机调试端口 `9222` 启动，工具才能读取完整会话正文。
-3. 目标会话所在的项目窗口必须保持打开。窗口可以在后台或最小化，不需要一直显示在前台。
+2. 兼容版本的 `opencode` 命令必须能从 `PATH` 调用，但不必知道桌面端实际运行路径。
+3. TRAE 必须以本机调试端口 `9222` 启动，工具才能读取完整会话正文。
+4. 目标会话所在的项目窗口必须保持打开。窗口可以在后台或最小化，不需要一直显示在前台。
 
 TRAE 历史不会被修改或删除。工具只读取来源数据，写入 OpenCode 前会先检查可否安全迁移。
 
@@ -66,9 +67,25 @@ opencode --version
 
 版本不在 `2.0.12`、`2.0.16` 范围内时不要继续迁移。工具会拒绝写入未验证的版本。
 
-不必先启动 OpenCode server。迁移程序会读取当前 OpenCode service descriptor
-发现动态端口，并检查 `127.0.0.1:4096`。都不可用时会临时启动仅本机可访问的
-`127.0.0.1:4097` 进程，沿用当前本地 OpenCode 会话库，迁移结束后只关闭该进程。
+#### OpenCode 是怎样被发现的
+
+项目不会扫描 OpenCode 桌面端的安装目录或进程可执行文件，也不会直接查找数据库文件。
+它只需要两类入口：
+
+- **目标服务**：承载实际会话数据的 OpenCode server。
+- **本地 CLI**：`PATH` 中兼容版本的 `opencode` 命令，用于能力探测、原生导入和受保护删除。
+
+目标服务按以下顺序发现：
+
+1. 使用 `T2O_OPENCODE_SERVER` 明确指定的本机地址。
+2. 从 OpenCode service descriptor 读取当前服务的动态端口、认证信息和版本。
+3. 检查默认地址 `http://127.0.0.1:4096`。
+4. 都不可用时，通过 `PATH` 中的 `opencode` 临时启动
+   `http://127.0.0.1:4097`。
+
+CLI 使用 `--server` 连接目标服务，因此它不需要与正在运行的桌面端来自同一安装目录。
+客户端和服务端都必须是已验证版本。临时服务沿用当前本地 OpenCode 会话库，迁移结束后
+只关闭该临时进程，不移动或直接操作数据库文件。
 
 如果 service descriptor 指向正在运行的未验证版本，程序会立即停止，不会并发启动
 另一个服务访问同一数据库。OpenCode `2.0.16` 桌面端已经过 schema 和真实往返验证，
@@ -293,7 +310,10 @@ opencode --version
 npm install -g @opencode/cli@2.0.16
 ```
 
-然后重新运行一键迁移。
+macOS/Linux 可用 `command -v opencode`，Windows 可用 `where opencode` 检查命令是否
+进入 `PATH`。无需查找 OpenCode 桌面端的应用路径；即使桌面端正在运行，迁移仍通过
+service descriptor 连接其服务，并使用 `PATH` 中的 CLI 执行原生命令。确认后重新运行
+一键迁移。
 
 ### 工具提示 OpenCode 版本或协议不受支持
 
