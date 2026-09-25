@@ -9,6 +9,9 @@
 工具会自动导出、脱敏、检查兼容性、导入、回读核验，并在中断后安全续跑。不会要求输入
 workbench ID 或 session ID。
 
+支持在 **macOS 与 Windows** 上直接读取本机 TRAE 会话，并按目标版本自动选择
+OpenCode **v1 或 v2 协议**。
+
 项目网站：[Trae2OpenCode](https://trae2opencode.yororoice.top/)
 
 > **首次使用请按 [操作手册](docs/operation-manual.md) 完成准备。**
@@ -19,12 +22,17 @@ workbench ID 或 session ID。
 | 组件 | 要求 |
 | --- | --- |
 | TRAE 来源 | TRAE CN **3.3.104**，已登录，并以本机 CDP 端口 `9222` 启动 |
-| OpenCode 目标 | **2.0.12** 或 **2.0.16** |
+| OpenCode v2 目标 | `@opencode/cli` **2.0.12** 或 **2.0.16** |
+| OpenCode v1 目标 | `opencode-ai` **1.17.9** 或 **1.18.32** |
 | 系统 | macOS、Windows 可直接读取本机 TRAE；Linux 只支持导入已导出的 bundle |
 | Node.js | `>=18.18`，推荐 Node.js 22 |
 
 附件、Skill 与 MCP 资源不在当前迁移范围内。未知的 TRAE 或 OpenCode 版本会被拒绝，
-而不是按未经验证的规则写入数据。
+而不是按未经验证的规则写入数据。目标协议由 OpenCode 可执行文件版本决定：v2 使用
+HTTP `SessionTransfer`，v1 使用 `opencode import` / `opencode export`。
+
+> **OpenCode v1 当前仅验证了 `1.17.9` 与 `1.18.32` 两个版本。**
+> 这两个版本是离散白名单，不表示二者之间的所有 1.x 版本均受支持。
 
 ## 快速开始
 
@@ -47,16 +55,26 @@ npm run check
 
 ### 2. 安装受支持的 OpenCode
 
+v2：
+
 ```sh
 npm install -g @opencode/cli@2.0.16
 opencode --version
 ```
 
-看到版本为 `2.0.12` 或 `2.0.16` 后即可继续。`migrate:local` 会读取 OpenCode 当前 service
-descriptor 发现动态端口，并检查本机 `http://127.0.0.1:4096`。没有可用服务时会
-临时启动仅监听本机的 `4097` 进程，沿用当前本地 OpenCode 会话库，迁移结束后只关闭
-该临时进程。
-因此通常不需要手动启动 OpenCode server。
+v1：
+
+```sh
+npm install -g opencode-ai@1.18.32
+opencode --version
+```
+
+看到版本为 v2 的 `2.0.12` / `2.0.16`，或 v1 的 `1.17.9` / `1.18.32` 后即可继续。
+`migrate:local` 会先识别目标版本与协议，再发现或启动对应的本地服务，并沿用当前
+OpenCode 会话库。迁移结束后只关闭由本工具启动的临时进程。
+
+Windows 上 npm 通常生成 `.cmd` / `.ps1` 垫片。工具会自动解析其中指向的原生
+`opencode.exe`；解析失败时可用 `T2O_OPENCODE_BINARY` 或 `--binary` 明确指定。
 
 如果发现正在运行的 OpenCode 桌面端或服务不在已验证版本范围内，程序会要求先停止
 该服务，不会再启动另一个进程并发访问同一数据库。`2.0.16` 桌面端可直接作为迁移目标。
@@ -73,6 +91,16 @@ descriptor 发现动态端口，并检查本机 `http://127.0.0.1:4096`。没有
 
 不要使用 `open -a ... --args`：当前 TRAE 版本可能忽略其中的调试参数。
 启动后登录 TRAE，打开包含目标会话的项目窗口，并确认能在历史面板看到这些会话。
+
+Windows PowerShell 示例：
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\Trae CN\Trae CN.exe" `
+  --remote-debugging-address=127.0.0.1 `
+  --remote-debugging-port=9222
+```
+
+如果 TRAE 安装在其他目录，请替换上面的可执行文件路径。
 
 ### 4. 运行一键迁移
 
@@ -163,7 +191,11 @@ TRAE 本身的历史被删除，源数据始终保持只读。
   已持久化的终端输出；原始工具字段仍保存在 metadata 中。
 - 迁移消息使用与 OpenCode 时间线兼容的稳定递增 ID，因此迁移后继续对话、撤销和
   重做不会让当前窗口丢失历史。超大历史会自动加入少量原生 compaction checkpoint；
-  完整旧消息仍可查看，角色化摘录只进入模型上下文，不会在 checkpoint 下重复显示为正文。
+  完整旧消息仍可查看；v2 checkpoint 的角色化摘录只进入模型上下文，不会重复显示为正文。
+- OpenCode v1 没有 carry-summary compaction 消息。超大历史会按原样导入，长对话请在
+  v1 内使用其原生 summarize；逐事件来源保存在会话级 `metadata.trae2opencode.events`。
+- v1 要求逐块 reasoning 时间，但 TRAE 只持久化轮次和工具时间。工具会保守投影可证明的
+  时间；缺少 assistant 完成时间或回复关系时会停止，不会写入不完整数据。
 - TRAE 未持久化的工具输出或最终 assistant 正文不会被编造。工具记录会保留缺失标识；
   缺失的最终正文会显示明确提示，内部工具 JSON 不会作为聊天正文显示。
 
@@ -186,8 +218,8 @@ TRAE 本身的历史被删除，源数据始终保持只读。
 | --- | --- |
 | `无法发现 TRAE workbench` | 完全退出后，用上面的终端命令重新启动 TRAE；确认目标项目窗口已打开。 |
 | `所选 workbench 没有可迁移的本地会话` | 选择正确的项目窗口，并在 TRAE 中打开该项目后再运行。 |
-| `无法自动启动 OpenCode` | 安装并确认 `@opencode/cli@2.0.12` 或 `2.0.16`，再运行命令。 |
-| `OpenCode 版本或协议不受支持` | 使用 `2.0.12` 或 `2.0.16`；其他版本即使能打开数据库也不会自动放行。 |
+| `无法自动启动 OpenCode` | 安装并确认 v2 `2.0.12` / `2.0.16` 或 v1 `1.17.9` / `1.18.32`，再运行命令。 |
+| `OpenCode 版本或协议不受支持` | 使用上述四个精确版本；其他版本即使能打开数据库也不会自动放行。 |
 | `所选会话包含当前无法无损映射的内容` | 工具尚未写入 OpenCode。保留产物并查看[故障排查](docs/troubleshooting.md)。 |
 | `目标会话已存在，但缺少可验证的旧 manifest` | 目标归属无法证明，因此不会覆盖；恢复对应 manifest 或在 OpenCode 中人工确认处理。 |
 | `迁移 bundle 超过 1 GiB` | 选择更小的会话；不要修改 bundle 来绕过限制。 |

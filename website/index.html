@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta
       name="description"
-      content="Trae2OpenCode 将可恢复的 TRAE 会话迁移到 OpenCode，保留消息、推理与工具调用，并完成逐项回读核验。"
+      content="Trae2OpenCode 在 macOS 与 Windows 上迁移 TRAE 会话，支持 OpenCode v1/v2 协议，并完成逐项回读核验。"
     >
     <meta name="author" content="yororoA">
     <meta name="copyright" content="Copyright © 2026 yororoA">
@@ -16,7 +16,7 @@
     <meta property="og:url" content="https://trae2opencode.yororoice.top/">
     <meta
       property="og:description"
-      content="把 TRAE 会话完整带到 OpenCode。自动脱敏、断点续跑、回读核验。"
+      content="支持 macOS、Windows 与 OpenCode v1/v2，把 TRAE 会话完整带到 OpenCode。"
     >
     <meta property="og:image" content="https://trae2opencode.yororoice.top/assets/trae2opencode-social.png">
     <meta property="og:image:alt" content="Trae2OpenCode 项目图标">
@@ -26,9 +26,9 @@
     <link rel="icon" type="image/png" sizes="32x32" href="./assets/favicon-32.png?v=4">
     <link rel="icon" type="image/png" sizes="48x48" href="./assets/favicon-48.png?v=4">
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/apple-touch-icon.png?v=3">
-    <link rel="manifest" href="./site.webmanifest?v=2">
+    <link rel="manifest" href="./site.webmanifest?v=3">
     <link rel="preconnect" href="https://unpkg.com">
-    <link rel="stylesheet" href="./styles.css?v=10">
+    <link rel="stylesheet" href="./styles.css?v=11">
     <title>Trae2OpenCode | 可验证的会话迁移</title>
     <script type="application/ld+json">
       {
@@ -38,7 +38,7 @@
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "macOS, Windows, Linux",
         "softwareVersion": "1.0.0",
-        "description": "Migrate recoverable TRAE sessions to OpenCode with redaction, resume and readback verification.",
+        "description": "Migrate recoverable TRAE sessions on macOS and Windows to verified OpenCode v1 and v2 targets.",
         "url": "https://trae2opencode.yororoice.top/",
         "codeRepository": "https://github.com/yororoA/Trae2OpenCode",
         "license": "https://opensource.org/licenses/ISC"
@@ -126,11 +126,11 @@
             width="64"
             height="64"
           >
-          <p class="eyebrow" data-i18n="hero.eyebrow">开源 · 本地优先 · 可验证</p>
+          <p class="eyebrow" data-i18n="hero.eyebrow">macOS / Windows · OpenCode v1 / v2</p>
           <h1 data-text="Trae2OpenCode">Trae2OpenCode</h1>
           <p class="hero-statement" data-i18n="hero.statement">把 TRAE 会话，完整带到 OpenCode。</p>
           <p class="hero-description" data-i18n="hero.description">
-            一条命令迁移消息、推理与工具调用。自动脱敏，支持中断续跑，并在写入后逐项回读核验。
+            一条命令迁移消息、推理与工具调用。自动识别 OpenCode v1/v2 协议，支持中断续跑，并在写入后逐项回读核验。
           </p>
           <div class="hero-actions">
             <a
@@ -166,12 +166,12 @@
           <span data-i18n="proof.command">条命令完成迁移</span>
         </div>
         <div class="proof-item">
-          <strong>406</strong>
-          <span data-i18n="proof.tests">项自动化测试</span>
+          <strong>macOS + Windows</strong>
+          <span data-i18n="proof.platforms">本机 TRAE 来源读取</span>
         </div>
         <div class="proof-item">
-          <strong>2.0.12 / 2.0.16</strong>
-          <span data-i18n="proof.versions">已验证 OpenCode 版本</span>
+          <strong>v1 + v2</strong>
+          <span data-i18n="proof.protocols">双协议目标适配</span>
         </div>
         <div class="proof-item">
           <strong>Readback</strong>
@@ -388,7 +388,7 @@
                 <span>2</span>
                 <div>
                   <h3 data-i18n="quickstart.stepTwoTitle">启动 TRAE 调试端口</h3>
-                  <p data-i18n="quickstart.stepTwoText">打开包含目标会话的项目窗口。</p>
+                  <p data-i18n="quickstart.stepTwoText">在 macOS 或 Windows 上用调试参数启动 TRAE，并打开目标项目窗口。</p>
                 </div>
               </li>
               <li>
@@ -433,7 +433,7 @@ npm run migrate:local</code></pre>
         </div>
       </section>
 
-      <section class="compatibility-band">
+      <section class="compatibility-band" id="compatibility">
         <div class="section-inner reveal">
           <div class="compatibility-heading">
             <p class="eyebrow" data-i18n="compatibility.eyebrow">明确的兼容边界</p>
@@ -451,9 +451,19 @@ npm run migrate:local</code></pre>
               <span role="cell" data-i18n="compatibility.reject">拒绝写入</span>
             </div>
             <div class="compatibility-row" role="row">
-              <strong role="cell">OpenCode</strong>
+              <strong role="cell">OpenCode v2</strong>
               <span role="cell">2.0.12 / 2.0.16</span>
               <span role="cell" data-i18n="compatibility.reject">拒绝写入</span>
+            </div>
+            <div class="compatibility-row" role="row">
+              <strong role="cell">OpenCode v1</strong>
+              <span role="cell">1.17.9 / 1.18.32</span>
+              <span role="cell" data-i18n="compatibility.reject">拒绝写入</span>
+            </div>
+            <div class="compatibility-row" role="row">
+              <strong role="cell" data-i18n="compatibility.platform">本机来源读取</strong>
+              <span role="cell">macOS / Windows</span>
+              <span role="cell" data-i18n="compatibility.offline">Linux 仅导入 bundle</span>
             </div>
             <div class="compatibility-row" role="row">
               <strong role="cell">Node.js</strong>
@@ -461,6 +471,12 @@ npm run migrate:local</code></pre>
               <span role="cell" data-i18n="compatibility.upgrade">提示升级</span>
             </div>
           </div>
+          <p class="compatibility-note" id="v1-support">
+            <i data-lucide="shield-check" aria-hidden="true"></i>
+            <span data-i18n="compatibility.note">
+              OpenCode v1 当前仅验证 1.17.9 与 1.18.32 两个版本，不表示两者之间的所有版本均受支持。
+            </span>
+          </p>
         </div>
       </section>
 
@@ -512,6 +528,6 @@ npm run migrate:local</code></pre>
     </footer>
 
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
-    <script src="./app.js?v=2"></script>
+    <script src="./app.js?v=3"></script>
   </body>
 </html>

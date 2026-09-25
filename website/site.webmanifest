@@ -1,7 +1,7 @@
 {
   "name": "Trae2OpenCode",
   "short_name": "T2O",
-  "description": "把可恢复的 TRAE 会话迁移到 OpenCode。",
+  "description": "在 macOS 与 Windows 上将 TRAE 会话迁移到 OpenCode v1 或 v2。",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f4f5f1",
