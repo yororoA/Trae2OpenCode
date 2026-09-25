@@ -4,9 +4,9 @@ import * as path from "node:path";
 import type { JsonObject } from "../ir/types.js";
 import { normalizeError, Trae2OpenCodeError } from "../shared/errors.js";
 import { assertNoCredentials } from "../shared/sensitive.js";
-import { isSupportedOpenCodeVersion } from "../target/opencode/contract.js";
-import type { OpenCodeTransfer } from "../target/opencode/mapping.js";
-import { reconcileOpenCodeTransfer } from "../target/opencode/reconciliation.js";
+import { openCodeDialectForVersion, type OpenCodeDialect } from "../target/opencode/contract.js";
+import { targetReconciliation } from "../target/opencode/dialect.js";
+import type { OpenCodeSession } from "../target/opencode/mapping.js";
 import {
   withManifestStore, type ManifestSession, type ManifestStore, type MigrationManifest,
   type ReconciliationSnapshot,
@@ -14,13 +14,17 @@ import {
 import { summarizeMigrationPlan, type MigrationPlan } from "./plan.js";
 import { isOwnedByRun, jsonHash } from "./ownership.js";
 import { authorizeReplacements, removeReplacements } from "./replacement.js";
-import type { MigrationTarget, MigrationTargetDescriptor } from "./target.js";
+import {
+  descriptorDialect, type MigrationTarget, type MigrationTargetDescriptor,
+} from "./target.js";
 
 export { isOwnedByRun } from "./ownership.js";
-const snapshot = (transfer: OpenCodeTransfer) => reconcileOpenCodeTransfer(transfer, transfer).actual;
-const equalSnapshot = (left: ReconciliationSnapshot, right: ReconciliationSnapshot) => jsonHash(left) === jsonHash(right);
+const snapshot = (session: OpenCodeSession, dialect: OpenCodeDialect) =>
+  targetReconciliation(dialect).snapshot(session);
+const equalSnapshot = (left: ReconciliationSnapshot, right: ReconciliationSnapshot) =>
+  jsonHash(left) === jsonHash(right);
 
-function ownedTransfer(transfer: OpenCodeTransfer, runId: string): OpenCodeTransfer {
+function ownedTransfer(transfer: OpenCodeSession, runId: string): OpenCodeSession {
   const copy = structuredClone(transfer);
   const metadata = copy.info.metadata as JsonObject;
   (metadata.trae2opencode as JsonObject).migrationRunId = runId;
@@ -29,6 +33,7 @@ function ownedTransfer(transfer: OpenCodeTransfer, runId: string): OpenCodeTrans
 
 function createManifest(plan: MigrationPlan, target: MigrationTargetDescriptor): MigrationManifest {
   const runId = randomUUID();
+  const dialect = descriptorDialect(target);
   return {
     manifestVersion: 1, runId, sourceFingerprint: plan.sourceFingerprint, irHash: plan.irHash,
     planHash: jsonHash(summarizeMigrationPlan(plan)), target, revision: 0, checksum: "",
@@ -39,7 +44,7 @@ function createManifest(plan: MigrationPlan, target: MigrationTargetDescriptor):
         ...(item.parentId ? { parentId: item.parentId } : {}),
         state: item.status === "ready" ? "pending" : item.status,
         created: false, attempts: 0, codes: [...item.reasons, ...item.diagnosticCodes],
-        ...(transfer ? { transferHash: jsonHash(transfer), expected: snapshot(transfer) } : {}),
+        ...(transfer ? { transferHash: jsonHash(transfer), expected: snapshot(transfer, dialect) } : {}),
       };
     }),
   };
@@ -58,11 +63,13 @@ function isCompatibleTargetChange(
   const endpointOrVersionChanged = previous.endpointHash !== current.endpointHash ||
     previous.binaryVersion !== current.binaryVersion ||
     previous.serverVersion !== current.serverVersion;
-  return endpointOrVersionChanged &&
-    isSupportedOpenCodeVersion(previous.binaryVersion) &&
-    isSupportedOpenCodeVersion(previous.serverVersion) &&
-    isSupportedOpenCodeVersion(current.binaryVersion) &&
-    isSupportedOpenCodeVersion(current.serverVersion) &&
+  const previousDialect = openCodeDialectForVersion(previous.binaryVersion);
+  const currentDialect = openCodeDialectForVersion(current.binaryVersion);
+  // A dialect change reaches a different data model, so it can never be rebound.
+  return endpointOrVersionChanged && previousDialect !== undefined &&
+    previousDialect === currentDialect &&
+    openCodeDialectForVersion(previous.serverVersion) === previousDialect &&
+    openCodeDialectForVersion(current.serverVersion) === currentDialect &&
     previous.schemaHash === current.schemaHash;
 }
 
@@ -75,6 +82,7 @@ async function requireOrRebindTarget(
   descriptor: MigrationTargetDescriptor,
   target: MigrationTarget,
   store: ManifestStore,
+  dialect: OpenCodeDialect,
 ): Promise<void> {
   if (jsonHash(manifest.target) === jsonHash(descriptor)) return;
   if (!isCompatibleTargetChange(manifest.target, descriptor)) {
@@ -83,13 +91,13 @@ async function requireOrRebindTarget(
   const candidates = manifest.sessions.filter((item) =>
     item.state === "verified" && item.created &&
     item.expected !== undefined && item.deletionHash !== undefined);
-  const observed = new Map<string, OpenCodeTransfer | null>();
+  const observed = new Map<string, OpenCodeSession | null>();
   let matched = false;
   for (const item of candidates) {
     const actual = await target.readSession(item.targetId);
     observed.set(item.targetId, actual);
     if (actual && isOwnedByRun(actual, manifest, item) &&
-      equalSnapshot(snapshot(actual), item.expected!) &&
+      equalSnapshot(snapshot(actual, dialect), item.expected!) &&
       jsonHash(actual) === item.deletionHash) {
       matched = true;
       break;
@@ -114,10 +122,11 @@ async function requireOrRebindTarget(
 
 /** All checkpoints are outside failure isolation: a persistence failure stops every later write. */
 async function executeSession(
-  transfer: OpenCodeTransfer, item: ManifestSession, manifest: MigrationManifest,
+  transfer: OpenCodeSession, item: ManifestSession, manifest: MigrationManifest,
   target: MigrationTarget, store: ManifestStore, parentSatisfied: boolean,
+  dialect: OpenCodeDialect,
 ): Promise<void> {
-  let existing: OpenCodeTransfer | null;
+  let existing: OpenCodeSession | null;
   try { existing = await target.readSession(item.targetId); }
   catch (error) {
     item.state = "failed";
@@ -127,7 +136,7 @@ async function executeSession(
   }
   if (existing) {
     const owned = isOwnedByRun(existing, manifest, item);
-    item.actual = snapshot(existing);
+    item.actual = snapshot(existing, dialect);
     if (owned) {
       item.created = true;
       const matches = equalSnapshot(item.expected!, item.actual);
@@ -173,7 +182,7 @@ async function executeSession(
     if (owned) {
       item.created = true;
       item.deletionHash = jsonHash(actual);
-      item.actual = snapshot(actual);
+      item.actual = snapshot(actual, dialect);
       item.state = equalSnapshot(item.expected!, item.actual) ? "verified" : "failed";
       if (item.state === "failed") item.codes.push("T2O_MIGRATION_PARTIAL_WRITE");
     } else {
@@ -214,6 +223,9 @@ export async function migrate(
     throw new Trae2OpenCodeError("T2O_MIGRATION_EXCLUSIVE_REQUIRED");
   }
   const descriptor = await target.describe();
+  const dialect = descriptorDialect(descriptor);
+  const plannedDialect = inputPlan.options.dialect ?? "v2";
+  if (dialect !== plannedDialect) throw new Trae2OpenCodeError("T2O_MIGRATION_TARGET_CHANGED");
   let filename: string;
   if (options.resumeManifest) filename = path.resolve(options.resumeManifest);
   else {
@@ -235,17 +247,17 @@ export async function migrate(
       if (!transfer) continue;
       const owned = ownedTransfer(transfer, manifest.runId);
       const changedPayload = jsonHash(owned) !== item.transferHash ||
-        !equalSnapshot(snapshot(owned), item.expected!);
+        !equalSnapshot(snapshot(owned, dialect), item.expected!);
       if (changedPayload) throw new Trae2OpenCodeError("T2O_MIGRATION_PLAN_CHANGED");
     }
-    await requireOrRebindTarget(manifest, descriptor, target, store);
+    await requireOrRebindTarget(manifest, descriptor, target, store, dialect);
     if (options.replaceManifest) {
       await withManifestStore(options.replaceManifest, async (previousStore) => {
         const previous = await previousStore.read();
         if (previous.rollbackState) {
           throw new Trae2OpenCodeError("T2O_MIGRATION_ROLLBACK_STARTED");
         }
-        await requireOrRebindTarget(previous, descriptor, target, previousStore);
+        await requireOrRebindTarget(previous, descriptor, target, previousStore, dialect);
         authorizeReplacements(manifest, previous);
       });
     }
@@ -264,7 +276,7 @@ export async function migrate(
       const changedReadback = actual && item.deletionHash !== undefined &&
         jsonHash(actual) !== item.deletionHash;
       if (!isOwnedByRun(actual, manifest, item) ||
-        !equalSnapshot(snapshot(actual), item.expected!) || changedReadback) {
+        !equalSnapshot(snapshot(actual, dialect), item.expected!) || changedReadback) {
         throw new Trae2OpenCodeError("T2O_MIGRATION_TARGET_CHANGED");
       }
     }
@@ -275,7 +287,9 @@ export async function migrate(
       const transfer = planned.get(item.targetId)?.transfer;
       if (!transfer || item.state === "verified") continue;
       const parentSatisfied = item.parentId === undefined || byId.get(item.parentId)?.state === "verified";
-      await executeSession(ownedTransfer(transfer, manifest.runId), item, manifest, target, store, parentSatisfied);
+      await executeSession(
+        ownedTransfer(transfer, manifest.runId), item, manifest, target, store, parentSatisfied, dialect,
+      );
     }
     return { command: "migrate", manifest: path.basename(filename), ...summarizeManifest(manifest) };
   });
@@ -283,6 +297,7 @@ export async function migrate(
 
 export async function verifyMigration(filename: string, target: MigrationTarget) {
   const descriptor = await target.describe();
+  const dialect = descriptorDialect(descriptor);
   return withManifestStore(filename, async (store) => {
     const manifest = await store.read();
     requireTarget(manifest, descriptor);
@@ -302,7 +317,7 @@ export async function verifyMigration(filename: string, target: MigrationTarget)
           });
           continue;
         }
-        const observed = actual ? snapshot(actual) : undefined;
+        const observed = actual ? snapshot(actual, dialect) : undefined;
         const verified = actual && isOwnedByRun(actual, manifest, item) &&
           equalSnapshot(item.expected!, observed!);
         sessions.push({

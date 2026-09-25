@@ -8,22 +8,27 @@ import {
   MAX_OPENCODE_TRANSFER_BYTES,
 } from "../shared/limits.js";
 import { assertNoCredentials } from "../shared/sensitive.js";
-import { createOpenCodeIdentityMap } from "../target/opencode/identity.js";
+import { isRecord, OPENCODE_VERSION, type OpenCodeDialect } from "../target/opencode/contract.js";
 import {
-  mapOpenCodeSession,
-  type OpenCodeMapping,
-  type OpenCodeTransfer,
-} from "../target/opencode/mapping.js";
+  mapTargetSession,
+  type TargetMapping,
+  targetReconciliation,
+} from "../target/opencode/dialect.js";
+import { createOpenCodeIdentityMap } from "../target/opencode/identity.js";
+import type { OpenCodeSession } from "../target/opencode/mapping.js";
 import {
   resolveOpenCodeDirectory, type DirectoryResolution, type ProjectPathMap,
 } from "../target/opencode/project-directory.js";
-import { reconcileOpenCodeTransfer, type OpenCodeReconciliation } from "../target/opencode/reconciliation.js";
+import type { OpenCodeReconciliation } from "../target/opencode/reconciliation.js";
 
 export interface MigrationPlanOptions {
   namespace?: string;
   recovery?: readonly RecoveryGrade[];
   pathMaps?: readonly ProjectPathMap[];
   fallbackDirectory?: string;
+  /** Set from the verified target before planning; defaults to the v2 contract. */
+  dialect?: OpenCodeDialect;
+  targetVersion?: string;
 }
 
 export interface PlannedSession {
@@ -35,7 +40,7 @@ export interface PlannedSession {
   reasons: string[];
   diagnosticCodes: string[];
   directory?: DirectoryResolution;
-  transfer?: OpenCodeTransfer;
+  transfer?: OpenCodeSession;
   transferHash?: string;
   expected?: OpenCodeReconciliation["expected"];
 }
@@ -83,6 +88,9 @@ export async function buildMigrationPlan(
   }
   const namespace = options.namespace ?? "trae-cn";
   const sourcePlatform = bundle.source.platform;
+  const dialect = options.dialect ?? "v2";
+  const targetVersion = options.targetVersion ?? OPENCODE_VERSION;
+  const reconciliation = targetReconciliation(dialect);
   const identities = createOpenCodeIdentityMap(bundle, namespace);
   const sessions = new Map(bundle.sessions.map((session) => [session.sourceId, session]));
   const prepared = identities.map((identity) => {
@@ -92,14 +100,16 @@ export async function buildMigrationPlan(
       ...(identity.parentId ? { parentId: identity.parentId } : {}),
       recovery: session.recovery, status: "excluded", reasons: [], diagnosticCodes: [],
     };
-    let mapping: OpenCodeMapping | undefined;
+    let mapping: TargetMapping | undefined;
     let mappingError: string | undefined;
     if (recovery.includes(session.recovery)) {
       try {
         // Mapping snapshots the caller-owned transcript before the first async directory check.
-        mapping = mapOpenCodeSession(bundle, session.sourceId, {
+        mapping = mapTargetSession(bundle, session.sourceId, {
           ...identity,
           directory: process.cwd(),
+          dialect,
+          targetVersion,
         });
       } catch (error) {
         mappingError = normalizeError(error).code;
@@ -141,7 +151,23 @@ export async function buildMigrationPlan(
         continue;
       }
       const mapping = entry.mapping!;
-      mapping.transfer.info.location.directory = directory.targetDirectory;
+      if (dialect === "v2") {
+        const location = mapping.transfer.info.location;
+        if (!isRecord(location)) throw new Trae2OpenCodeError("T2O_OPENCODE_MAPPING_REJECTED");
+        location.directory = directory.targetDirectory;
+      } else {
+        mapping.transfer.info.directory = directory.targetDirectory;
+        for (const message of mapping.transfer.messages) {
+          const info = message.info;
+          if (!isRecord(info) || info.role !== "assistant") continue;
+          const assistantPath = info.path;
+          if (!isRecord(assistantPath)) {
+            throw new Trae2OpenCodeError("T2O_OPENCODE_MAPPING_REJECTED");
+          }
+          assistantPath.cwd = directory.targetDirectory;
+          assistantPath.root = directory.targetDirectory;
+        }
+      }
       let bytes: number;
       try {
         bytes = jsonByteLength(
@@ -161,7 +187,7 @@ export async function buildMigrationPlan(
       totalBytes += bytes;
       item.transfer = mapping.transfer;
       item.transferHash = hashCanonicalJson(mapping.transfer as unknown as JsonValue);
-      item.expected = reconcileOpenCodeTransfer(mapping.transfer, mapping.transfer).expected;
+      item.expected = reconciliation.snapshot(mapping.transfer);
       item.diagnosticCodes = mapping.diagnostics.map((issue) => issue.code);
       item.status = "ready";
     } catch (error) {
@@ -173,8 +199,11 @@ export async function buildMigrationPlan(
 
 /** No transcript, title, directory, raw diagnostic context or target credentials. */
 export function summarizeMigrationPlan(plan: MigrationPlan) {
+  const dialect = plan.options.dialect ?? "v2";
   return {
     planVersion: plan.planVersion, irHash: plan.irHash, sourceFingerprint: plan.sourceFingerprint,
+    // v2 plans keep their published shape; only a v1 plan advertises an extra field.
+    ...(dialect === "v1" ? { dialect, targetVersion: plan.options.targetVersion } : {}),
     ready: plan.sessions.filter((item) => item.status === "ready").length,
     excluded: plan.sessions.filter((item) => item.status === "excluded").length,
     blocked: plan.sessions.filter((item) => item.status === "blocked").length,

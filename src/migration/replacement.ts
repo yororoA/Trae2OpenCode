@@ -1,5 +1,5 @@
 import { Trae2OpenCodeError } from "../shared/errors.js";
-import type { OpenCodeTransfer } from "../target/opencode/mapping.js";
+import type { OpenCodeSession } from "../target/opencode/mapping.js";
 import type { ManifestSession, ManifestStore, MigrationManifest } from "./manifest.js";
 import { isOwnedByRun, jsonHash } from "./ownership.js";
 import type { MigrationTarget } from "./target.js";
@@ -23,7 +23,7 @@ export function authorizeReplacements(manifest: MigrationManifest, previous: Mig
   }
 }
 
-function matchesPrevious(actual: OpenCodeTransfer, item: ManifestSession): boolean {
+function matchesPrevious(actual: OpenCodeSession, item: ManifestSession): boolean {
   const prior = item.replacement!;
   const owned = isOwnedByRun(actual, { runId: prior.runId }, { ...item, attempts: 1 });
   return owned && jsonHash(actual) === prior.deletionHash;

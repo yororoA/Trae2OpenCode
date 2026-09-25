@@ -13,6 +13,7 @@ const npmCli = process.env.npm_execpath;
 assert.ok(npmCli, "Run through npm run verify:package");
 const temporary = await fs.mkdtemp(path.join(os.tmpdir(), "t2o package 中文 "));
 const schema = "fixtures/opencode/2.0.12/evidence/transfer.schema.json";
+const v1Schema = "fixtures/opencode/1.18.32/evidence/session.schema.json";
 const sample = "fixtures/ir/v1/valid-trae-assembled.json";
 const npm = async (args: string[], cwd: string) => {
   const result = await exec(process.execPath, [npmCli, ...args], {
@@ -31,13 +32,14 @@ try {
   assert.equal(packed.length, 1);
   const artifact = packed[0];
   const files = artifact.files.map((file) => file.path);
-  for (const required of ["package.json", "README.md", "LICENSE", "dist/cli/index.js", schema, sample]) {
+  for (const required of ["package.json", "README.md", "LICENSE", "dist/cli/index.js", schema, v1Schema, sample]) {
     assert.ok(files.includes(required), `Missing package file: ${required}`);
   }
   for (const file of files) {
     const allowed = file === "package.json" || file === "README.md" || file === "LICENSE" ||
       (file.startsWith("dist/") && file.endsWith(".js") && !file.includes("/__tests__/")) ||
-      (file.startsWith("docs/") && file.endsWith(".md")) || file === schema || file === sample;
+      (file.startsWith("docs/") && file.endsWith(".md")) ||
+      file === schema || file === v1Schema || file === sample;
     assert.ok(allowed, `Unexpected package file: ${file}`);
   }
   const installation = path.join(temporary, "fresh installation");

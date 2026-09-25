@@ -1,10 +1,11 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, it } from "node:test";
+import type { JsonObject } from "../../ir/types.js";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
-import type { OpenCodeTransfer } from "../../target/opencode/mapping.js";
+import type { OpenCodeSession } from "../../target/opencode/mapping.js";
 import { readBundleFile } from "../bundle-file.js";
 import { migrate } from "../executor.js";
 import { readManifest, withManifestStore } from "../manifest.js";
@@ -14,7 +15,7 @@ import type { MigrationTarget } from "../target.js";
 
 async function setup(operation: (ctx: {
   root: string; plan: Awaited<ReturnType<typeof buildMigrationPlan>>; previous: string;
-  api: MigrationTarget; sessions: Map<string, OpenCodeTransfer>; deleted: string[];
+  api: MigrationTarget; sessions: Map<string, OpenCodeSession>; deleted: string[];
 }) => Promise<void>) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "t2o-replacement-"));
   try {
@@ -25,7 +26,7 @@ async function setup(operation: (ctx: {
     const plan = await buildMigrationPlan(bundle, { fallbackDirectory: root });
     assert.ok(plan.sessions.every((item) => item.status === "ready"));
     const hash = jsonHash("target");
-    const sessions = new Map<string, OpenCodeTransfer>();
+    const sessions = new Map<string, OpenCodeSession>();
     const deleted: string[] = [];
     const api: MigrationTarget = {
       async describe() {
@@ -33,13 +34,16 @@ async function setup(operation: (ctx: {
       },
       async readSession(id) { return structuredClone(sessions.get(id) ?? null); },
       async importSession(transfer) {
-        assert.ok(!sessions.has(transfer.info.id));
-        if (transfer.info.parentID) assert.ok(sessions.has(transfer.info.parentID as string));
-        sessions.set(transfer.info.id, structuredClone(transfer));
+        const id = String(transfer.info.id);
+        assert.ok(!sessions.has(id));
+        if (transfer.info.parentID) assert.ok(sessions.has(String(transfer.info.parentID)));
+        sessions.set(id, structuredClone(transfer));
         return structuredClone(transfer);
       },
       async listChildren(id) {
-        return [...sessions.values()].filter((item) => item.info.parentID === id).map((item) => item.info.id);
+        return [...sessions.values()]
+          .filter((item) => item.info.parentID === id)
+          .map((item) => String(item.info.id));
       },
       async deleteSession(id, expected, exclusive) {
         assert.equal(exclusive, true);
@@ -110,7 +114,8 @@ describe("explicit tool-owned replacement", () => {
 
   it("refuses target edits even in fields ignored by import reconciliation", () => setup(async ({ root, plan, api, sessions, previous, deleted }) => {
     const actual = sessions.get(plan.sessions[0].targetId)!;
-    actual.info.time.updated++;
+    const time = actual.info.time as JsonObject;
+    time.updated = Number(time.updated) + 1;
     await assert.rejects(migrate(plan, api, {
       outputDirectory: path.join(root, "second"), replaceManifest: previous, exclusiveTarget: true,
     }), { code: "T2O_MIGRATION_TARGET_CHANGED" });

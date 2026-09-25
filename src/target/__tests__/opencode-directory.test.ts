@@ -16,6 +16,21 @@ describe("OpenCode project directory policy", () => {
     });
   });
 
+  it("upper-cases a Windows drive letter so plans match the directory OpenCode stores", async () => {
+    const result = await resolveOpenCodeDirectory({
+      sourcePath: "e:\\Desktop\\desktop\\daily\\fun\\repo", sourcePlatform: "win32", targetPlatform: "win32",
+      directoryExists: async () => true,
+    });
+    assert.equal(result.strategy, "preserved");
+    assert.equal(result.sourcePath, "E:\\Desktop\\desktop\\daily\\fun\\repo");
+    assert.equal(result.targetDirectory, "E:\\Desktop\\desktop\\daily\\fun\\repo");
+    const unc = await resolveOpenCodeDirectory({
+      sourcePath: "\\\\Server\\Share\\folder", sourcePlatform: "win32", targetPlatform: "win32",
+      directoryExists: async () => true,
+    });
+    assert.equal(unc.targetDirectory, "\\\\Server\\Share\\folder");
+  });
+
   it("maps the longest component prefix and never matches a similarly named sibling", async () => {
     const options = {
       sourcePlatform: "darwin" as const, targetPlatform: "darwin" as const,

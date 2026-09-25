@@ -6,12 +6,16 @@ import {
   LARGE_TRANSFER_TIMEOUT_MS,
   MAX_OPENCODE_RESPONSE_BYTES,
 } from "../../shared/limits.js";
+import { resolveOpenCodeBinary } from "./binary.js";
 
 const exec = promisify(execFile);
 
 export interface OpenCodeTransport {
-  run(args: readonly string[]): Promise<string>;
-  request(route: string): Promise<{ status: number; body: unknown }>;
+  run(args: readonly string[], options?: { cwd?: string }): Promise<string>;
+  request(
+    route: string,
+    options?: { method?: "GET" | "DELETE" },
+  ): Promise<{ status: number; body: unknown }>;
 }
 
 /** Credentials stay in process memory; URLs and command failures are never logged. */
@@ -41,7 +45,7 @@ export function createOpenCodeTransport(options: {
     throw new Trae2OpenCodeError("T2O_OPENCODE_SERVER_INVALID");
   }
   // Copy caller options so later mutation cannot change the endpoint or credentials.
-  const binary = options.binary ?? "opencode";
+  const binary = resolveOpenCodeBinary(options.binary ?? "opencode");
   const cwd = options.cwd;
   const password = options.password;
   const username = options.username ?? "opencode";
@@ -52,11 +56,14 @@ export function createOpenCodeTransport(options: {
   const authorization = password === undefined
     ? undefined : `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
   return {
-    async run(args) {
+    async run(args, runOptions) {
       try {
         // execFile intentionally avoids shell interpolation on both supported platforms.
         const result = await exec(binary, [...args], {
-          cwd, env, timeout: timeoutMs, maxBuffer: MAX_OPENCODE_RESPONSE_BYTES,
+          cwd: runOptions?.cwd ?? cwd,
+          env,
+          timeout: timeoutMs,
+          maxBuffer: MAX_OPENCODE_RESPONSE_BYTES,
           killSignal: "SIGKILL", windowsHide: true,
         });
         return result.stdout;
@@ -65,12 +72,13 @@ export function createOpenCodeTransport(options: {
         throw new Trae2OpenCodeError("T2O_OPENCODE_COMMAND_FAILED");
       }
     },
-    async request(route) {
+    async request(route, requestOptions) {
       const isLocalRoute = route.startsWith("/") && !route.startsWith("//") &&
         !route.includes("\\") && !route.includes("#");
       if (!isLocalRoute) throw new Trae2OpenCodeError("T2O_OPENCODE_SERVER_INVALID");
       try {
         const response = await fetch(baseUrl + route, {
+          method: requestOptions?.method ?? "GET",
           headers: authorization ? { authorization } : {},
           signal: AbortSignal.timeout(timeoutMs),
           redirect: "error",

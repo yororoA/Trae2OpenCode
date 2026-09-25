@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 import { hashCanonicalJson } from "../../ir/canonical.js";
 import type { JsonObject } from "../../ir/types.js";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
-import type { OpenCodeTransfer } from "../../target/opencode/mapping.js";
+import type { OpenCodeSession } from "../../target/opencode/mapping.js";
 import { readBundleFile } from "../bundle-file.js";
 import { migrate, verifyMigration } from "../executor.js";
 import { readManifest, withManifestStore } from "../manifest.js";
@@ -18,15 +18,16 @@ const descriptor: MigrationTargetDescriptor = {
   endpointHash: hash, binaryVersion: "2.0.12", serverVersion: "2.0.12", schemaHash: hash, fingerprint: hash,
 };
 function target() {
-  const sessions = new Map<string, OpenCodeTransfer>();
+  const sessions = new Map<string, OpenCodeSession>();
   const imports: string[] = [];
   const api: MigrationTarget = {
     async describe() { return structuredClone(descriptor); },
     async readSession(id) { return structuredClone(sessions.get(id) ?? null); },
     async importSession(transfer) {
-      assert.ok(!sessions.has(transfer.info.id), "Import must never overwrite a session");
-      imports.push(transfer.info.id);
-      sessions.set(transfer.info.id, structuredClone(transfer));
+      const id = String(transfer.info.id);
+      assert.ok(!sessions.has(id), "Import must never overwrite a session");
+      imports.push(id);
+      sessions.set(id, structuredClone(transfer));
       return structuredClone(transfer);
     },
   };
@@ -142,7 +143,7 @@ describe("migration executor", () => {
     fake.api.importSession = async (transfer) => {
       const foreign = structuredClone(transfer);
       delete ((foreign.info.metadata as JsonObject).trae2opencode as JsonObject).migrationRunId;
-      fake.sessions.set(transfer.info.id, foreign);
+      fake.sessions.set(String(transfer.info.id), foreign);
       throw new Trae2OpenCodeError("T2O_OPENCODE_SESSION_CONFLICT");
     };
     const first = await migrate(plan, fake.api, { outputDirectory });

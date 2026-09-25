@@ -61,7 +61,8 @@ describe("probeOpenCodeCapabilities", () => {
     const { calls, transport } = connection();
     const report = await requireOpenCodeCapabilities(transport);
     assert.deepStrictEqual(report, {
-      binaryVersion: "2.0.12", serverVersion: "2.0.12", nativeImport: true, nativeExport: true,
+      dialect: "v2", binaryVersion: "2.0.12", serverVersion: "2.0.12",
+      nativeImport: true, nativeExport: true,
       schemaHash: TRANSFER_SCHEMA_HASH, writable: true, reasons: [],
     });
     assert.deepStrictEqual(calls, ["version", "/api/info", "/openapi.json"]);

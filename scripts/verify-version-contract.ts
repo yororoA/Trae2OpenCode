@@ -5,7 +5,7 @@ import * as path from "node:path";
 import type { AssistantEventIR, MigrationBundle } from "../src/ir/types.js";
 import { readBundleFile } from "../src/migration/bundle-file.js";
 import { requireOpenCodeCapabilities, probeOpenCodeCapabilities } from "../src/target/opencode/capability-probe.js";
-import { TRANSFER_SCHEMA_HASH } from "../src/target/opencode/contract.js";
+import { assertOpenCodeTransfer, TRANSFER_SCHEMA_HASH } from "../src/target/opencode/contract.js";
 import { withIsolatedOpenCodeServer } from "../src/target/opencode/isolated-server.js";
 import {
   mapOpenCodeSession,
@@ -15,7 +15,9 @@ import {
 import { createNativeOpenCodeAdapter } from "../src/target/opencode/native-adapter.js";
 import { createOpenCodeTransport, type OpenCodeTransport } from "../src/target/opencode/transport.js";
 
-function requireHiddenCompaction(transfer: OpenCodeTransfer): void {
+function requireHiddenCompaction(value: unknown): void {
+  assertOpenCodeTransfer(value);
+  const transfer = value as OpenCodeTransfer;
   const boundary = transfer.messages.find((message) => message.type === "compaction");
   assert.equal(boundary?.summary, "");
   assert.match(String(boundary?.recent), /\[Assistant\]:/);
