@@ -1,7 +1,14 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
+import type { JsonValue } from "../../ir/types.js";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
+import {
+  jsonByteLength,
+  JsonSizeLimitError,
+  writeJson,
+} from "../../shared/json-stream.js";
+import { MAX_OPENCODE_TRANSFER_BYTES } from "../../shared/limits.js";
 import { assertNoCredentials } from "../../shared/sensitive.js";
 import { requireOpenCodeCapabilities } from "./capability-probe.js";
 import { assertOpenCodeTransfer, EXPORT_ROUTE, isRecord } from "./contract.js";
@@ -77,8 +84,14 @@ export function createNativeOpenCodeAdapter(options: NativeOpenCodeAdapterOption
     const losesAssistant = transfer.messages.some((message) =>
       message.type === "assistant" && (!isRecord(message.time) || typeof message.time.completed !== "number"));
     if (losesAssistant) throw new Trae2OpenCodeError("T2O_OPENCODE_MAPPING_REJECTED");
-    const serialized = JSON.stringify(transfer);
-    if (Buffer.byteLength(serialized, "utf8") > 32 * 1024 * 1024) {
+    try {
+      jsonByteLength(
+        transfer as unknown as JsonValue,
+        {},
+        MAX_OPENCODE_TRANSFER_BYTES,
+      );
+    } catch (error) {
+      if (!(error instanceof JsonSizeLimitError)) throw error;
       throw new Trae2OpenCodeError("T2O_OPENCODE_TRANSFER_TOO_LARGE");
     }
     try {
@@ -91,8 +104,19 @@ export function createNativeOpenCodeAdapter(options: NativeOpenCodeAdapterOption
     if (typeof parentId === "string" && !await readV2(parentId)) {
       throw new Trae2OpenCodeError("T2O_OPENCODE_PARENT_MISSING");
     }
-    await withTemporaryInput(temporaryRoot, serialized, (filename) =>
-      transport.run(["session", "import", filename, "--server", serverUrl, "--directory", directory]));
+    await withTemporaryInput(
+      temporaryRoot,
+      async (file) => {
+        await writeJson(
+          file,
+          transfer as unknown as JsonValue,
+          {},
+          MAX_OPENCODE_TRANSFER_BYTES,
+        );
+      },
+      (filename) =>
+        transport.run(["session", "import", filename, "--server", serverUrl, "--directory", directory]),
+    );
     const actual = await readV2(id);
     if (!actual) throw new Trae2OpenCodeError("T2O_OPENCODE_READBACK_INVALID");
     requireOpenCodeReconciliation(transfer, actual);

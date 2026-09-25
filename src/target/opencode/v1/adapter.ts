@@ -3,6 +3,12 @@ import * as path from "node:path";
 import { hashCanonicalJson } from "../../../ir/canonical.js";
 import type { JsonValue } from "../../../ir/types.js";
 import { Trae2OpenCodeError } from "../../../shared/errors.js";
+import {
+  jsonByteLength,
+  JsonSizeLimitError,
+  writeJson,
+} from "../../../shared/json-stream.js";
+import { MAX_OPENCODE_TRANSFER_BYTES } from "../../../shared/limits.js";
 import { assertNoCredentials } from "../../../shared/sensitive.js";
 import { isRecord } from "../contract.js";
 import type { OpenCodeSession } from "../mapping.js";
@@ -12,7 +18,6 @@ import { assertOpenCodeV1Session, V1_SESSION_ROUTE, V1_SESSION_CHILDREN_ROUTE } 
 import type { OpenCodeV1Session } from "./mapping.js";
 import { requireOpenCodeV1Reconciliation } from "./reconciliation.js";
 
-const MAX_TRANSFER_BYTES = 32 * 1024 * 1024;
 const validId = (value: unknown): value is string =>
   typeof value === "string" && /^ses_[a-zA-Z0-9_-]+$/.test(value);
 
@@ -97,8 +102,14 @@ export function createOpenCodeV1Adapter(options: OpenCodeV1AdapterOptions) {
       } catch {
         throw new Trae2OpenCodeError("T2O_OPENCODE_DIRECTORY_INVALID");
       }
-      const serialized = JSON.stringify(session);
-      if (Buffer.byteLength(serialized, "utf8") > MAX_TRANSFER_BYTES) {
+      try {
+        jsonByteLength(
+          session as unknown as JsonValue,
+          {},
+          MAX_OPENCODE_TRANSFER_BYTES,
+        );
+      } catch (error) {
+        if (!(error instanceof JsonSizeLimitError)) throw error;
         throw new Trae2OpenCodeError("T2O_OPENCODE_TRANSFER_TOO_LARGE");
       }
       if (await exists(id)) throw new Trae2OpenCodeError("T2O_OPENCODE_SESSION_CONFLICT");
@@ -106,8 +117,18 @@ export function createOpenCodeV1Adapter(options: OpenCodeV1AdapterOptions) {
       if (typeof parentID === "string" && !await exists(parentID)) {
         throw new Trae2OpenCodeError("T2O_OPENCODE_PARENT_MISSING");
       }
-      await withTemporaryInput(temporaryRoot, serialized, (filename) =>
-        transport.run(["import", filename], { cwd: directory }));
+      await withTemporaryInput(
+        temporaryRoot,
+        async (file) => {
+          await writeJson(
+            file,
+            session as unknown as JsonValue,
+            {},
+            MAX_OPENCODE_TRANSFER_BYTES,
+          );
+        },
+        (filename) => transport.run(["import", filename], { cwd: directory }),
+      );
       const actual = await read(id);
       if (!actual) throw new Trae2OpenCodeError("T2O_OPENCODE_READBACK_INVALID");
       requireOpenCodeV1Reconciliation(session, actual);

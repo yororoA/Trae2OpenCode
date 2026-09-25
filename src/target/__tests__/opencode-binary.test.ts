@@ -9,11 +9,15 @@ const npmShim = path.win32.join(shimDirectory, "opencode.cmd");
 const nativeBinary = path.win32.join(shimDirectory, "node_modules", "opencode-ai", "bin", "opencode.exe");
 
 function windowsOptions(files: Record<string, string>, existing = Object.keys(files)) {
+  const normalizedFiles = new Map(
+    Object.entries(files).map(([filename, content]) => [path.win32.resolve(filename), content]),
+  );
+  const normalizedExisting = existing.map((filename) => path.win32.resolve(filename));
   return {
     platform: "win32" as NodeJS.Platform,
     env: { PATH: shimDirectory },
-    isFile: (candidate: string) => existing.includes(path.resolve(candidate)),
-    readText: (candidate: string) => files[path.resolve(candidate)],
+    isFile: (candidate: string) => normalizedExisting.includes(path.win32.resolve(candidate)),
+    readText: (candidate: string) => normalizedFiles.get(path.win32.resolve(candidate)),
   };
 }
 

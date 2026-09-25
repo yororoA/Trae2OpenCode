@@ -1,4 +1,5 @@
 import * as fs from "node:fs/promises";
+import type { FileHandle } from "node:fs/promises";
 import * as path from "node:path";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
 
@@ -8,7 +9,7 @@ import { Trae2OpenCodeError } from "../../shared/errors.js";
  */
 export async function withTemporaryInput<T>(
   root: string,
-  content: string,
+  content: string | ((file: FileHandle) => Promise<void>),
   operation: (filename: string) => Promise<T>,
 ): Promise<T> {
   let directory: string | undefined;
@@ -19,7 +20,13 @@ export async function withTemporaryInput<T>(
     directory = await fs.mkdtemp(path.join(root, "t2o-import-"));
     await fs.chmod(directory, 0o700);
     const filename = path.join(directory, "session.json");
-    await fs.writeFile(filename, content, { mode: 0o600, flag: "wx" });
+    const file = await fs.open(filename, "wx", 0o600);
+    try {
+      if (typeof content === "string") await file.writeFile(content);
+      else await content(file);
+    } finally {
+      await file.close();
+    }
     result = await operation(filename);
   } catch (error) {
     failure = error instanceof Trae2OpenCodeError

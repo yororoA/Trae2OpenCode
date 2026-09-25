@@ -1,10 +1,14 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
+import { createStreamingJsonParser } from "../../shared/json-stream.js";
+import {
+  LARGE_TRANSFER_TIMEOUT_MS,
+  MAX_OPENCODE_RESPONSE_BYTES,
+} from "../../shared/limits.js";
 import { resolveOpenCodeBinary } from "./binary.js";
 
 const exec = promisify(execFile);
-const MAX_RESPONSE_BYTES = 32 * 1024 * 1024;
 
 export interface OpenCodeTransport {
   run(args: readonly string[], options?: { cwd?: string }): Promise<string>;
@@ -36,7 +40,7 @@ export function createOpenCodeTransport(options: {
     throw new Trae2OpenCodeError("T2O_OPENCODE_SERVER_INVALID");
   }
   const baseUrl = url.origin;
-  const timeoutMs = options.timeoutMs ?? 30_000;
+  const timeoutMs = options.timeoutMs ?? LARGE_TRANSFER_TIMEOUT_MS;
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 300_000) {
     throw new Trae2OpenCodeError("T2O_OPENCODE_SERVER_INVALID");
   }
@@ -56,7 +60,10 @@ export function createOpenCodeTransport(options: {
       try {
         // execFile intentionally avoids shell interpolation on both supported platforms.
         const result = await exec(binary, [...args], {
-          cwd: runOptions?.cwd ?? cwd, env, timeout: timeoutMs, maxBuffer: MAX_RESPONSE_BYTES,
+          cwd: runOptions?.cwd ?? cwd,
+          env,
+          timeout: timeoutMs,
+          maxBuffer: MAX_OPENCODE_RESPONSE_BYTES,
           killSignal: "SIGKILL", windowsHide: true,
         });
         return result.stdout;
@@ -78,22 +85,22 @@ export function createOpenCodeTransport(options: {
         });
         const reader = response.body?.getReader();
         if (!reader) throw new Error("Missing response");
-        const chunks: Buffer[] = [];
+        const parser = response.ok ? createStreamingJsonParser() : undefined;
         let length = 0;
         try {
           while (true) {
             const chunk = await reader.read();
             if (chunk.done) break;
             length += chunk.value.byteLength;
-            if (length > MAX_RESPONSE_BYTES) throw new Error("Response limit");
-            chunks.push(Buffer.from(chunk.value));
+            if (length > MAX_OPENCODE_RESPONSE_BYTES) throw new Error("Response limit");
+            parser?.write(chunk.value);
           }
         } finally {
           await reader.cancel().catch(() => {});
           reader.releaseLock();
         }
         // Error payloads need not be JSON and must not escape the transport.
-        const body = response.ok ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : null;
+        const body = parser?.end() ?? null;
         return { status: response.status, body };
       } catch {
         throw new Trae2OpenCodeError("T2O_OPENCODE_REQUEST_FAILED");

@@ -57,6 +57,10 @@ describe("OpenCode IR mapping", () => {
     assert.equal(meta.replyToSourceId, "user-synthetic");
     assert.equal(meta.turnSourceId, "turn-synthetic");
     assert.equal(meta.status, "completed");
+    assert.equal(
+      ((transfer.info.metadata as JsonObject).trae2opencode as JsonObject).mappingVersion,
+      8,
+    );
     assert.deepEqual((meta.content as JsonObject[]).slice(0, 2),
       [{ completedAt: 1700000002000 }, { createdAt: 1700000001001 }]);
     assert.deepEqual(meta.unknownSourceFields, ["agent", "model"]);
@@ -93,9 +97,11 @@ describe("OpenCode IR mapping", () => {
 
   it("adds a native compaction checkpoint when imported context is too large", () => {
     const bundle = structuredClone(fixture);
-    const text = assistant(bundle).content.find((block) => block.type === "text");
+    const event = assistant(bundle);
+    const text = event.content.find((block) => block.type === "text");
     assert.ok(text?.type === "text");
     text.text = "x".repeat(MAX_CONTINUATION_CONTEXT_BYTES + 1);
+    event.content = [text];
 
     const { transfer, diagnostics } = map(bundle);
     assert.deepEqual(transfer.messages.map((message) => message.type),
@@ -104,7 +110,11 @@ describe("OpenCode IR mapping", () => {
     assert.equal(boundary.id, "msg_0002_assistant_compact");
     assert.equal(boundary.status, "completed");
     assert.equal(boundary.reason, "manual");
-    assert.equal(Buffer.byteLength(String(boundary.summary), "utf8") <= 17 * 1024, true);
+    assert.equal(boundary.summary, "");
+    assert.match(String(boundary.recent), /^\[Assistant\]: x+$/);
+    assert.equal(Buffer.byteLength(String(boundary.recent), "utf8") <= 16 * 1024, true);
+    assert.doesNotMatch(String(boundary.summary), /\[User\]|\[Assistant\]/);
+    assert.equal(((boundary.metadata as JsonObject).trae2opencode as JsonObject).mappingVersion, 8);
     assert.ok(diagnostics.some((item) =>
       item.code === "T2O_OPENCODE_CONTINUATION_BOUNDARY"));
   });

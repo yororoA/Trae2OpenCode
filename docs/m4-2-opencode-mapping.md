@@ -26,13 +26,14 @@
 - 资源保留于 IR，并输出 `T2O_OPENCODE_RESOURCES_DEFERRED`；不猜测消息附件归属。
 - target ID 由调用方传入，M4-3 负责稳定生成；目录落地策略由 M4-5 负责。
   本层最终校验完整的 `SessionTransfer.Data` schema。
-- 映射版本 7 对超过 `192 KiB` 活跃 provider 上下文估算的历史插入 OpenCode
+- 映射版本 8 对超过 `192 KiB` 活跃 provider 上下文估算的历史插入 OpenCode
   completed-compaction checkpoint。原 user/assistant/tool 消息仍完整保留；
-  checkpoint 只为后续对话提供最多 `16 KiB` 的近期可恢复文本摘要。
+  checkpoint 通过不直接展示的 `recent` 为后续对话提供最多 `16 KiB` 的角色化
+  近期上下文，可见 `summary` 留空，避免在时间线重复显示消息摘录。
 
 ## 验证
 
-映射版本 7 延续版本 6 的真实 M1 结构核验：任务进度正文按来源精确识别并进入
+映射版本 8 延续版本 7 的真实 M1 结构核验：任务进度正文按来源精确识别并进入
 assistant reasoning part；176 个 `exec_command` 全部映射为原生 `shell`，
 其中 127 个完成态从 `content` 展示输出，49 个运行态从 `metadata.output`
 展示已持久化输出。reasoning 与工具在 OpenCode 中折叠展示，最终 summary 保持

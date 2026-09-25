@@ -11,13 +11,15 @@
 2. 2.0.16 CLI/server 的 import/export 路由与完整 transfer schema hash 和 2.0.12
    一致，原生 import/export 往返通过。
 3. 2.0.12 CLI 连接 2.0.16 server 的混合版本 import/export 往返通过。
-4. 生产 adapter 配置为 2.0.11 后，只执行真实 `--version`；
+4. 2.0.12 与 2.0.16 均原生导入并通过 HTTP 回读 mapping v8 compaction：
+   可见 `summary` 为空，角色化 `recent` 按 `16 KiB` 上限保留。
+5. 生产 adapter 配置为 2.0.11 后，只执行真实 `--version`；
    probe 和 import 都拒绝写入，错误为 `T2O_OPENCODE_VERSION_UNSUPPORTED`。
    import 命令数和 server 请求数均为 0，2.0.12 隔离目标中该 ID 仍不存在。
-5. doctor 使用的隔离 server helper 对 2.0.11 同样拒绝启动，清理临时目录。
-6. 切回 2.0.12 后原生 import/export 完整往返成功。
+6. doctor 使用的隔离 server helper 对 2.0.11 同样拒绝启动，清理临时目录。
+7. 切回 2.0.12 后原生 import/export 完整往返成功。
 
-本机 macOS 检查已通过，完整质量门禁 339 项通过。CI 在三系统的 Node 22
+本机 macOS 检查已通过，完整质量门禁 398 项通过。CI 在三系统的 Node 22
 任务重复上述验收，报告为 `m7-2-version-report.json`。
 
 安装相邻二进制：

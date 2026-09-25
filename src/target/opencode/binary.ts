@@ -25,14 +25,14 @@ function nativeTargetInShim(
 ): string | undefined {
   const content = readText(shim);
   if (content === undefined) return undefined;
-  const directory = path.dirname(shim);
+  const directory = path.win32.dirname(shim);
   for (const match of content.matchAll(EXECUTABLE_PATTERN)) {
     const expanded = match[1]
       .replace(/%dp0%|%~dp0%/gi, directory)
       .replace(/\$basedir/g, directory);
-    const candidate = path.resolve(expanded);
+    const candidate = path.win32.resolve(expanded);
     // A Node-hosted shim resolves `node.exe`, which is not the OpenCode executable.
-    if (path.basename(candidate).toLowerCase() === "node.exe") continue;
+    if (path.win32.basename(candidate).toLowerCase() === "node.exe") continue;
     if (isFile(candidate)) return candidate;
   }
   return undefined;
@@ -51,7 +51,7 @@ export function resolveOpenCodeBinary(
   const isFile = options.isFile ?? defaultIsFile;
   if (isFile(binary)) return binary;
   // An explicit `.exe` path is reported exactly as configured when it does not exist.
-  if (path.extname(binary).toLowerCase() === ".exe") return binary;
+  if (path.win32.extname(binary).toLowerCase() === ".exe") return binary;
   const readText = options.readText ?? ((candidate: string) => {
     try {
       return readFileSync(candidate, "utf8");
@@ -61,12 +61,12 @@ export function resolveOpenCodeBinary(
   });
 
   const env = options.env ?? process.env;
-  const directories = (env.PATH ?? env.Path ?? "").split(path.delimiter).filter(Boolean);
+  const directories = (env.PATH ?? env.Path ?? "").split(path.win32.delimiter).filter(Boolean);
   const search = /[\\/]/.test(binary) ? [""] : directories;
-  const name = path.basename(binary);
+  const name = path.win32.basename(binary);
   for (const extension of SHIM_EXTENSIONS) {
     for (const directory of search) {
-      const shim = path.resolve(path.join(directory, name + extension));
+      const shim = path.win32.resolve(path.win32.join(directory, name + extension));
       if (!isFile(shim)) continue;
       const native = nativeTargetInShim(shim, isFile, readText);
       if (native !== undefined) return native;

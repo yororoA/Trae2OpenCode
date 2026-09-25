@@ -1,4 +1,4 @@
-﻿import assert from "node:assert/strict";
+import assert from "node:assert/strict";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -83,6 +83,21 @@ describe("native OpenCode v1 adapter", () => {
       assert.deepEqual(target.calls.filter((call) => call === "import" || call === "export"), ["import", "export"]);
       assert.deepEqual(target.cwds, [project]);
       // The private input file must not survive the import.
+      assert.deepEqual(await fs.readdir(path.join(root, "tmp")), []);
+    } finally { await fs.rm(root, { recursive: true, force: true }); }
+  });
+
+  it("streams an import above the former 32 MiB limit", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "t2o-v1-adapter-"));
+    const project = path.join(root, "project");
+    await fs.mkdir(project);
+    try {
+      const target = createV1Target(project);
+      const adapter = createOpenCodeV1Adapter({ transport: target.transport, temporaryRoot: path.join(root, "tmp") });
+      const transfer = target.plan();
+      const parts = transfer.messages[0].parts as JsonObject[];
+      parts[0].text = "x".repeat(32 * 1024 * 1024);
+      assert.deepEqual(await adapter.importSession(transfer), transfer);
       assert.deepEqual(await fs.readdir(path.join(root, "tmp")), []);
     } finally { await fs.rm(root, { recursive: true, force: true }); }
   });

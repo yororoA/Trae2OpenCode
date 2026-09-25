@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import * as path from "node:path";
 import { describe, it } from "node:test";
 import type { AssistantEventIR, MigrationBundle } from "../../ir/types.js";
+import { isRecord } from "../../target/opencode/contract.js";
 import { createOpenCodeIdentityMap } from "../../target/opencode/identity.js";
 import { mapOpenCodeSession } from "../../target/opencode/mapping.js";
+import type { OpenCodeV1Session } from "../../target/opencode/v1/mapping.js";
 import { readBundleFile } from "../bundle-file.js";
 import { buildMigrationPlan, parsePathMaps, parseRecovery, summarizeMigrationPlan } from "../plan.js";
 
@@ -86,6 +88,21 @@ describe("migration plan", () => {
     assert.equal(location?.directory, process.cwd());
     plan = await buildMigrationPlan(bundle, { fallbackDirectory: path.join(process.cwd(), "absent-t2o-directory") });
     assert.deepEqual(plan.sessions[0].reasons, ["T2O_OPENCODE_DIRECTORY_INVALID"]);
+  });
+
+  it("retargets every v1 directory field after resolving the project path", async () => {
+    const bundle = await fixture();
+    const plan = await buildMigrationPlan(bundle, {
+      dialect: "v1",
+      targetVersion: "1.18.32",
+      fallbackDirectory: process.cwd(),
+    });
+    const transfer = plan.sessions[0].transfer as OpenCodeV1Session;
+    assert.equal(transfer.info.directory, process.cwd());
+    const assistant = transfer.messages.find((message) =>
+      isRecord(message.info) && message.info.role === "assistant");
+    assert.ok(isRecord(assistant?.info));
+    assert.deepEqual(assistant.info.path, { cwd: process.cwd(), root: process.cwd() });
   });
 
   it("snapshots caller inputs before asynchronous directory checks", async () => {

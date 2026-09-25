@@ -12,6 +12,7 @@ import type { MigrationBundle } from "../ir/types.js";
 import { readBundleFile } from "../migration/bundle-file.js";
 import { readManifest, type MigrationManifest } from "../migration/manifest.js";
 import { createMigrationTarget } from "../migration/target.js";
+import { formatByteLimit, MAX_BUNDLE_BYTES } from "../shared/limits.js";
 import { connectTraeRuntime } from "../source/trae/runtime-cdp.js";
 import { createTraeRuntimeReader } from "../source/trae/runtime-reader.js";
 import {
@@ -27,8 +28,7 @@ import {
 } from "../target/opencode/contract.js";
 import { resolveOpenCodeBinary } from "../target/opencode/binary.js";
 
-const MAX_BUNDLE_BYTES = 128 * 1024 * 1024;
-const INTERACTIVE_EXPORT_REVISION = 10;
+const INTERACTIVE_EXPORT_REVISION = 11;
 const MANAGED_OPENCODE_PORT = 4097;
 const ARTIFACT_DIRECTORY = /^session-[a-f0-9]{16}$/;
 const WORKBENCH_URL =
@@ -244,10 +244,59 @@ export function confirmsOverwrite(answer: string): boolean {
   return answer.trim() === "OVERWRITE";
 }
 
+export type OverwritePolicy = "prompt" | "overwrite" | "skip";
+
+export function resolveOverwritePolicy(
+  args: readonly string[],
+  npmConfigYes?: string,
+  replaceExisting?: string,
+): OverwritePolicy | undefined {
+  if (args.some((arg) => arg !== "-y" && arg !== "-n")) return undefined;
+  const hasYes = args.includes("-y");
+  const hasNo = args.includes("-n");
+  if (hasYes && hasNo) return undefined;
+
+  const argumentPolicy = hasYes ? "overwrite" : hasNo ? "skip" : undefined;
+  const normalizedNpmConfig = npmConfigYes?.trim().toLowerCase();
+  const npmPolicy = npmConfigYes === undefined
+    ? undefined
+    : normalizedNpmConfig === "true" || normalizedNpmConfig === "1"
+      ? "overwrite"
+      : normalizedNpmConfig === "" || normalizedNpmConfig === "false" ||
+          normalizedNpmConfig === "0"
+        ? "skip"
+        : undefined;
+  if (argumentPolicy && npmPolicy && argumentPolicy !== npmPolicy) return undefined;
+  return argumentPolicy ?? npmPolicy ?? (replaceExisting === "1" ? "overwrite" : "prompt");
+}
+
 export type InteractiveMigrationMode = {
   name: "create" | "replace" | "resume";
   args: string[];
 };
+
+export function migrationProgressMessage(mode: InteractiveMigrationMode["name"]): string {
+  if (mode === "replace") {
+    return "迁移方式：OVERWRITE。正在校验旧目标；通过后将删除旧目标并导入当前版本...";
+  }
+  if (mode === "resume") {
+    return "迁移方式：使用当前 manifest 续跑。将按 checkpoint 恢复任务或仅回读校验...";
+  }
+  return "迁移方式：首次导入。正在写入 OpenCode 并回读校验...";
+}
+
+export function migrationCompletionMessage(
+  mode: InteractiveMigrationMode["name"],
+  runDirectory: string,
+): string {
+  if (mode === "replace") {
+    return "本次结果：已执行 OVERWRITE，旧目标已安全替换，当前版本通过回读校验。";
+  }
+  if (mode === "resume") {
+    return "本次结果：当前 manifest 已完成并通过回读校验；未启动新的 OVERWRITE。";
+  }
+  return `本次结果：已新建会话并通过回读校验。迁移记录：${runDirectory}`;
+}
 
 export function resolveInteractiveMigrationMode(options: {
   manifest: string;
@@ -818,6 +867,13 @@ type SessionMigrationJob = {
   resumeNeedsExclusiveAccess: boolean;
 };
 
+export function requiresOverwriteApproval(job: {
+  replacementManifest?: string;
+  resumeNeedsExclusiveAccess: boolean;
+}): boolean {
+  return job.replacementManifest !== undefined || job.resumeNeedsExclusiveAccess;
+}
+
 async function createSessionMigrationJob(
   rootDirectory: string,
   session: SessionChoice,
@@ -853,15 +909,23 @@ async function createSessionMigrationJob(
   };
 }
 
-async function confirmOverwrite(count: number): Promise<boolean> {
-  if (count === 0 || process.env.T2O_REPLACE_EXISTING === "1") return true;
+async function confirmOverwrite(
+  count: number,
+  policy: Exclude<OverwritePolicy, "skip">,
+): Promise<boolean> {
+  if (count === 0) return true;
   console.log(
-    `\n检测到 ${count} 个由本工具迁移的已有会话，将先校验内容未被修改，再覆盖为新版本。`,
+    `\n检测到 ${count} 个会话需要 OVERWRITE：当前导出与旧迁移记录不同。`,
   );
-  console.log("请先暂停其他 OpenCode 写入操作；校验失败时不会删除任何会话。");
+  console.log("OVERWRITE 会先验证旧目标的所有权、内容哈希和子会话；全部通过后才删除旧目标并导入当前版本。");
+  console.log("请先暂停其他 OpenCode 写入操作；任何安全检查失败都不会删除会话。");
+  if (policy === "overwrite") {
+    console.log("-y：已自动确认 OVERWRITE，开始执行安全检查。");
+    return true;
+  }
   const rl = createInterface({ input, output });
   try {
-    return confirmsOverwrite(await rl.question("输入 OVERWRITE 确认覆盖："));
+    return confirmsOverwrite(await rl.question("输入 OVERWRITE 确认删除旧目标并重新导入："));
   } finally {
     rl.close();
   }
@@ -922,7 +986,7 @@ async function migrateSelectedSession(options: {
 
   const stat = await fs.stat(inputFile).catch(() => undefined);
   if (!stat || stat.size > MAX_BUNDLE_BYTES) {
-    console.error("迁移 bundle 超过 128 MiB，已跳过该会话。");
+    console.error(`迁移 bundle 超过 ${formatByteLimit(MAX_BUNDLE_BYTES)}，已跳过该会话。`);
     return false;
   }
 
@@ -959,9 +1023,7 @@ async function migrateSelectedSession(options: {
     return false;
   }
 
-  console.log(mode.name === "replace"
-    ? "正在校验并覆盖已有会话，请稍候..."
-    : "正在迁移并校验，请稍候...");
+  console.log(migrationProgressMessage(mode.name));
   const migrated = await runCli([
     "migrate", "--input", inputFile, "--server", server,
     "--binary", binary, "--fallback-directory", rootDirectory, ...mode.args, "--json",
@@ -977,13 +1039,7 @@ async function migrateSelectedSession(options: {
     console.error("迁移结果未通过完整回读校验。");
     return false;
   }
-  if (migrationResult.replaced === 1) {
-    console.log("已有会话已安全覆盖并通过校验。");
-  } else if (mode.name === "resume") {
-    console.log("迁移续跑完成，已有会话已校验。");
-  } else {
-    console.log(`迁移完成，结果已写入：${runDirectory}`);
-  }
+  console.log(migrationCompletionMessage(mode.name, runDirectory));
 
   const canCleanDefaultArtifacts =
     process.env.T2O_MIGRATION_EXPORT === undefined &&
@@ -1005,6 +1061,15 @@ async function migrateSelectedSession(options: {
 }
 
 async function main(): Promise<number> {
+  const overwritePolicy = resolveOverwritePolicy(
+    process.argv.slice(2),
+    process.env.npm_config_yes,
+    process.env.T2O_REPLACE_EXISTING,
+  );
+  if (!overwritePolicy) {
+    console.error("参数无效：仅支持 -y（自动覆盖）或 -n（自动跳过需要覆盖的会话），且不能同时使用。");
+    return 4;
+  }
   const cdp = process.env.T2O_TRAE_CDP ?? "http://127.0.0.1:9222";
   let server = process.env.T2O_OPENCODE_SERVER ?? "http://127.0.0.1:4096";
   const rootDirectory = process.cwd();
@@ -1114,15 +1179,24 @@ async function main(): Promise<number> {
         return 4;
       }
     }
-    const overwriteCount = jobs.filter((job) =>
-      job.replacementManifest !== undefined || job.resumeNeedsExclusiveAccess).length;
-    if (!await confirmOverwrite(overwriteCount)) {
-      console.error("未确认覆盖，未写入 OpenCode。");
+    const overwriteCount = jobs.filter(requiresOverwriteApproval).length;
+    const skipped = overwritePolicy === "skip" ? overwriteCount : 0;
+    const migrationJobs = overwritePolicy === "skip"
+      ? jobs.filter((job) => !requiresOverwriteApproval(job))
+      : jobs;
+    if (overwritePolicy === "skip") {
+      console.log(skipped > 0
+        ? `-n：已跳过 ${skipped} 个需要删除旧目标并重新导入（OVERWRITE）的会话；其余会话继续处理。`
+        : "-n：没有会话需要 OVERWRITE；新会话正常迁移，已有当前 manifest 的会话执行续跑或回读校验。");
+    }
+    if (overwritePolicy !== "skip" &&
+      !await confirmOverwrite(overwriteCount, overwritePolicy)) {
+      console.error("未确认 OVERWRITE，本次未向 OpenCode 写入任何会话。");
       return 4;
     }
 
     let completed = 0;
-    for (const [index, job] of jobs.entries()) {
+    for (const [index, job] of migrationJobs.entries()) {
       const succeeded = await migrateSelectedSession({
         job,
         target,
@@ -1133,14 +1207,16 @@ async function main(): Promise<number> {
         cliPath,
         binary,
         position: index + 1,
-        total: jobs.length,
+        total: migrationJobs.length,
       });
       if (succeeded) completed++;
     }
-    if (jobs.length > 1) {
-      console.log(`\n批量迁移完成：成功 ${completed} 个，失败 ${jobs.length - completed} 个。`);
+    const failed = migrationJobs.length - completed;
+    if (jobs.length > 1 || skipped > 0) {
+      const skippedText = skipped > 0 ? `，按 -n 跳过 ${skipped} 个` : "";
+      console.log(`\n批量处理完成：执行成功 ${completed} 个，执行失败 ${failed} 个${skippedText}。`);
     }
-    return completed === jobs.length ? 0 : 4;
+    return completed === migrationJobs.length ? 0 : 4;
   } finally {
     await managedServer?.close();
   }

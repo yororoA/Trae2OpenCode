@@ -18,15 +18,19 @@ import {
   isReplacementManifestForSession,
   isTerminalManifestForSession,
   localServerUrl,
+  migrationCompletionMessage,
+  migrationProgressMessage,
   parseChoiceIndex,
   parseChoiceIndexes,
   parseOpenCodeServiceDescriptor,
   prepareExportDirectory,
   prepareRunDirectory,
+  requiresOverwriteApproval,
   replacementResumeNeedsExclusiveAccess,
   replacementTargetExists,
   resolveInteractiveMigrationMode,
   resolveMigrationDirectories,
+  resolveOverwritePolicy,
 } from "../interactive-migrate.js";
 
 function session(
@@ -114,6 +118,59 @@ describe("interactive migration helpers", () => {
     assert.equal(confirmsOverwrite(" OVERWRITE "), true);
     assert.equal(confirmsOverwrite("overwrite"), false);
     assert.equal(confirmsOverwrite("yes"), false);
+  });
+
+  it("resolves prompt, automatic overwrite and automatic skip policies", () => {
+    assert.equal(resolveOverwritePolicy([]), "prompt");
+    assert.equal(resolveOverwritePolicy(["-y"]), "overwrite");
+    assert.equal(resolveOverwritePolicy(["-n"]), "skip");
+    assert.equal(resolveOverwritePolicy([], "true"), "overwrite");
+    assert.equal(resolveOverwritePolicy([], ""), "skip");
+    assert.equal(resolveOverwritePolicy([], "false"), "skip");
+    assert.equal(resolveOverwritePolicy([], undefined, "1"), "overwrite");
+    assert.equal(resolveOverwritePolicy(["-y", "-n"]), undefined);
+    assert.equal(resolveOverwritePolicy(["--yes"]), undefined);
+    assert.equal(resolveOverwritePolicy(["-y"], ""), undefined);
+  });
+
+  it("requires overwrite approval for replacement and exclusive resume jobs", () => {
+    assert.equal(requiresOverwriteApproval({
+      resumeNeedsExclusiveAccess: false,
+    }), false);
+    assert.equal(requiresOverwriteApproval({
+      replacementManifest: "/private/previous/migration-manifest.json",
+      resumeNeedsExclusiveAccess: false,
+    }), true);
+    assert.equal(requiresOverwriteApproval({
+      resumeNeedsExclusiveAccess: true,
+    }), true);
+  });
+
+  it("reports the current migration action instead of cumulative replacement history", () => {
+    assert.equal(
+      migrationProgressMessage("create"),
+      "迁移方式：首次导入。正在写入 OpenCode 并回读校验...",
+    );
+    assert.equal(
+      migrationProgressMessage("replace"),
+      "迁移方式：OVERWRITE。正在校验旧目标；通过后将删除旧目标并导入当前版本...",
+    );
+    assert.equal(
+      migrationProgressMessage("resume"),
+      "迁移方式：使用当前 manifest 续跑。将按 checkpoint 恢复任务或仅回读校验...",
+    );
+    assert.equal(
+      migrationCompletionMessage("create", "/private/current"),
+      "本次结果：已新建会话并通过回读校验。迁移记录：/private/current",
+    );
+    assert.equal(
+      migrationCompletionMessage("replace", "/private/current"),
+      "本次结果：已执行 OVERWRITE，旧目标已安全替换，当前版本通过回读校验。",
+    );
+    assert.equal(
+      migrationCompletionMessage("resume", "/private/current"),
+      "本次结果：当前 manifest 已完成并通过回读校验；未启动新的 OVERWRITE。",
+    );
   });
 
   it("isolates the managed service descriptor while retaining the user's target database", () => {

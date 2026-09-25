@@ -5,7 +5,7 @@ import type { OpenCodeSession } from "../target/opencode/mapping.js";
 import type { ManifestSession, MigrationManifest } from "./manifest.js";
 
 export const jsonHash = (value: unknown) =>
-  hashCanonicalJson(JSON.parse(JSON.stringify(value)) as JsonValue);
+  hashCanonicalJson(value as JsonValue);
 
 export function isOwnedByRun(
   transfer: OpenCodeSession, manifest: Pick<MigrationManifest, "runId">,
@@ -13,7 +13,7 @@ export function isOwnedByRun(
 ): boolean {
   const metadata = transfer.info.metadata;
   const marker = isRecord(metadata) ? metadata.trae2opencode : undefined;
-  // 1-7 are v2 transfers; 8 marks the v1 dialect, which stores provenance on the session.
+  // v1 and the current v2 format both use v8; older verified v2 manifests remain replaceable.
   const supportedMappingVersion = isRecord(marker) &&
     typeof marker.mappingVersion === "number" &&
     marker.mappingVersion >= 1 && marker.mappingVersion <= 8 &&

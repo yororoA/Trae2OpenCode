@@ -10,6 +10,7 @@ import { migrate, verifyMigration } from "../src/migration/executor.js";
 import { readManifest, withManifestStore } from "../src/migration/manifest.js";
 import { buildMigrationPlan } from "../src/migration/plan.js";
 import { createMigrationTarget, type MigrationTarget } from "../src/migration/target.js";
+import { MAX_BUNDLE_BYTES } from "../src/shared/limits.js";
 import { withIsolatedOpenCodeServer } from "../src/target/opencode/isolated-server.js";
 
 type Mode = "large" | "before-import" | "after-import";
@@ -207,7 +208,7 @@ async function parent(): Promise<void> {
     // A sparse oversized file must fail its byte gate before allocation/JSON parsing.
     const oversized = path.join(server.directory, "oversized.json");
     const file = await fs.open(oversized, "wx");
-    try { await file.truncate(128 * 1024 * 1024 + 1); } finally { await file.close(); }
+    try { await file.truncate(MAX_BUNDLE_BYTES + 1); } finally { await file.close(); }
     await assert.rejects(readBundleFile(oversized), { code: "T2O_MIGRATION_BUNDLE_TOO_LARGE" });
     const report = {
       platform: process.platform, node: process.version, targetVersion: "2.0.12",
