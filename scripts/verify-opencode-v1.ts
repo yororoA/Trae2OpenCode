@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
+import * as path from "node:path";
 import type { MigrationBundle } from "../src/ir/types.js";
 import { buildMigrationPlan } from "../src/migration/plan.js";
 import { migrate, verifyMigration } from "../src/migration/executor.js";
@@ -14,9 +16,17 @@ import { withIsolatedOpenCodeServer } from "../src/target/opencode/isolated-serv
  * version, health, `/doc` routes, the reviewed schema hash, a real import/export round
  * trip with readback reconciliation, conflict detection and rollback.
  */
+// Convention mirrors verify-version-contract: current binary from PATH unless
+// T2O_TEST_OPENCODE_BINARY overrides it; adjacent allow-listed release from
+// tmp/opencode-v1-adjacent unless T2O_TEST_V1_ADJACENT_BINARY overrides it.
+const adjacentDefault = path.resolve("tmp/opencode-v1-adjacent/node_modules/opencode-ai/bin/opencode.exe");
 const configured = [
-  { label: "current", value: process.env.T2O_TEST_OPENCODE_BINARY },
-  { label: "adjacent", value: process.env.T2O_TEST_V1_ADJACENT_BINARY },
+  { label: "current", value: process.env.T2O_TEST_OPENCODE_BINARY ?? "opencode" },
+  {
+    label: "adjacent",
+    value: process.env.T2O_TEST_V1_ADJACENT_BINARY ??
+      (existsSync(adjacentDefault) ? adjacentDefault : undefined),
+  },
 ].filter((entry): entry is { label: string; value: string } => typeof entry.value === "string");
 
 assert.ok(configured.length > 0, "Set T2O_TEST_OPENCODE_BINARY and/or T2O_TEST_V1_ADJACENT_BINARY");
