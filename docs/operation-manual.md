@@ -7,6 +7,16 @@
 npm run migrate:local
 ```
 
+也可以预先指定已有会话的处理方式：
+
+```sh
+npm run migrate:local -y  # 自动确认 OVERWRITE
+npm run migrate:local -n  # 自动跳过需要 OVERWRITE 的会话
+```
+
+`-y` 和 `-n` 只控制覆盖策略，不影响后续的窗口与会话列表选择。不带参数时仍采用人工
+确认。
+
 不需要查找或输入 workbench ID、session ID，也不需要手动导出 bundle 或启动 OpenCode
 server。
 
@@ -234,6 +244,9 @@ manifest。找到可信记录后会显示：
 3. 检查是否存在未包含在迁移范围内的子会话。
 4. 持久化删除意图后删除旧会话。
 5. 导入新版本并完成回读核验。
+
+使用 `npm run migrate:local -y` 会自动确认上述提示；使用
+`npm run migrate:local -n` 会跳过需要上述确认的会话，并继续迁移无需覆盖的其他会话。
 
 任何检查失败都会在删除前停止。外来会话、已修改会话、缺少 deletion hash 或找不到可信
 manifest 的目标绝不会被自动覆盖。相同 bundle 和 manifest 的普通重试仍按断点续跑处理，

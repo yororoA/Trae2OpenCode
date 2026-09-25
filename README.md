@@ -82,6 +82,16 @@ descriptor 发现动态端口，并检查本机 `http://127.0.0.1:4096`。没有
 npm run migrate:local
 ```
 
+需要预先决定覆盖策略时，可以直接使用：
+
+```sh
+npm run migrate:local -y  # 自动确认 OVERWRITE
+npm run migrate:local -n  # 自动跳过需要 OVERWRITE 的会话
+```
+
+这两个参数只控制覆盖策略，workbench 和会话仍通过列表选择。不带参数时，程序继续要求
+手动输入 `OVERWRITE`。
+
 程序会显示可用的 TRAE 窗口和该窗口所属项目的会话。会话支持单选、逗号分隔、
 连续范围或全部选择：
 
@@ -108,7 +118,8 @@ npm run migrate:local
 
 如果目标中已存在同一来源会话，并且本地保留着本工具上次成功迁移的 manifest，程序会
 提示输入 `OVERWRITE`。确认后先校验旧会话未被修改，再安全覆盖；外来会话、已修改会话
-或缺少可信 manifest 的目标不会被删除。
+或缺少可信 manifest 的目标不会被删除。使用 `-y` 会自动完成该确认；使用 `-n` 会跳过
+需要覆盖的会话，并继续迁移本次选择中无需覆盖的其他会话。
 
 OpenCode 服务重启后动态端口可能改变。已有 manifest 至少包含一个成功会话时，工具会
 同时核验目标版本、schema、迁移所有权、完整性快照和整条内容 hash；全部证据匹配后才会

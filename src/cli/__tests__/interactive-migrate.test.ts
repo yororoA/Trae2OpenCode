@@ -23,10 +23,12 @@ import {
   parseOpenCodeServiceDescriptor,
   prepareExportDirectory,
   prepareRunDirectory,
+  requiresOverwriteApproval,
   replacementResumeNeedsExclusiveAccess,
   replacementTargetExists,
   resolveInteractiveMigrationMode,
   resolveMigrationDirectories,
+  resolveOverwritePolicy,
 } from "../interactive-migrate.js";
 
 function session(
@@ -114,6 +116,32 @@ describe("interactive migration helpers", () => {
     assert.equal(confirmsOverwrite(" OVERWRITE "), true);
     assert.equal(confirmsOverwrite("overwrite"), false);
     assert.equal(confirmsOverwrite("yes"), false);
+  });
+
+  it("resolves prompt, automatic overwrite and automatic skip policies", () => {
+    assert.equal(resolveOverwritePolicy([]), "prompt");
+    assert.equal(resolveOverwritePolicy(["-y"]), "overwrite");
+    assert.equal(resolveOverwritePolicy(["-n"]), "skip");
+    assert.equal(resolveOverwritePolicy([], "true"), "overwrite");
+    assert.equal(resolveOverwritePolicy([], ""), "skip");
+    assert.equal(resolveOverwritePolicy([], "false"), "skip");
+    assert.equal(resolveOverwritePolicy([], undefined, "1"), "overwrite");
+    assert.equal(resolveOverwritePolicy(["-y", "-n"]), undefined);
+    assert.equal(resolveOverwritePolicy(["--yes"]), undefined);
+    assert.equal(resolveOverwritePolicy(["-y"], ""), undefined);
+  });
+
+  it("requires overwrite approval for replacement and exclusive resume jobs", () => {
+    assert.equal(requiresOverwriteApproval({
+      resumeNeedsExclusiveAccess: false,
+    }), false);
+    assert.equal(requiresOverwriteApproval({
+      replacementManifest: "/private/previous/migration-manifest.json",
+      resumeNeedsExclusiveAccess: false,
+    }), true);
+    assert.equal(requiresOverwriteApproval({
+      resumeNeedsExclusiveAccess: true,
+    }), true);
   });
 
   it("isolates the managed service descriptor while retaining the user's target database", () => {

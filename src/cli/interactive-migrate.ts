@@ -240,6 +240,32 @@ export function confirmsOverwrite(answer: string): boolean {
   return answer.trim() === "OVERWRITE";
 }
 
+export type OverwritePolicy = "prompt" | "overwrite" | "skip";
+
+export function resolveOverwritePolicy(
+  args: readonly string[],
+  npmConfigYes?: string,
+  replaceExisting?: string,
+): OverwritePolicy | undefined {
+  if (args.some((arg) => arg !== "-y" && arg !== "-n")) return undefined;
+  const hasYes = args.includes("-y");
+  const hasNo = args.includes("-n");
+  if (hasYes && hasNo) return undefined;
+
+  const argumentPolicy = hasYes ? "overwrite" : hasNo ? "skip" : undefined;
+  const normalizedNpmConfig = npmConfigYes?.trim().toLowerCase();
+  const npmPolicy = npmConfigYes === undefined
+    ? undefined
+    : normalizedNpmConfig === "true" || normalizedNpmConfig === "1"
+      ? "overwrite"
+      : normalizedNpmConfig === "" || normalizedNpmConfig === "false" ||
+          normalizedNpmConfig === "0"
+        ? "skip"
+        : undefined;
+  if (argumentPolicy && npmPolicy && argumentPolicy !== npmPolicy) return undefined;
+  return argumentPolicy ?? npmPolicy ?? (replaceExisting === "1" ? "overwrite" : "prompt");
+}
+
 export type InteractiveMigrationMode = {
   name: "create" | "replace" | "resume";
   args: string[];
@@ -718,6 +744,13 @@ type SessionMigrationJob = {
   resumeNeedsExclusiveAccess: boolean;
 };
 
+export function requiresOverwriteApproval(job: {
+  replacementManifest?: string;
+  resumeNeedsExclusiveAccess: boolean;
+}): boolean {
+  return job.replacementManifest !== undefined || job.resumeNeedsExclusiveAccess;
+}
+
 async function createSessionMigrationJob(
   rootDirectory: string,
   session: SessionChoice,
@@ -753,12 +786,19 @@ async function createSessionMigrationJob(
   };
 }
 
-async function confirmOverwrite(count: number): Promise<boolean> {
-  if (count === 0 || process.env.T2O_REPLACE_EXISTING === "1") return true;
+async function confirmOverwrite(
+  count: number,
+  policy: Exclude<OverwritePolicy, "skip">,
+): Promise<boolean> {
+  if (count === 0) return true;
   console.log(
     `\n检测到 ${count} 个由本工具迁移的已有会话，将先校验内容未被修改，再覆盖为新版本。`,
   );
   console.log("请先暂停其他 OpenCode 写入操作；校验失败时不会删除任何会话。");
+  if (policy === "overwrite") {
+    console.log("已自动确认覆盖。");
+    return true;
+  }
   const rl = createInterface({ input, output });
   try {
     return confirmsOverwrite(await rl.question("输入 OVERWRITE 确认覆盖："));
@@ -904,6 +944,15 @@ async function migrateSelectedSession(options: {
 }
 
 async function main(): Promise<number> {
+  const overwritePolicy = resolveOverwritePolicy(
+    process.argv.slice(2),
+    process.env.npm_config_yes,
+    process.env.T2O_REPLACE_EXISTING,
+  );
+  if (!overwritePolicy) {
+    console.error("参数无效：仅支持 -y（自动覆盖）或 -n（自动跳过需要覆盖的会话），且不能同时使用。");
+    return 4;
+  }
   const cdp = process.env.T2O_TRAE_CDP ?? "http://127.0.0.1:9222";
   let server = process.env.T2O_OPENCODE_SERVER ?? "http://127.0.0.1:4096";
   const rootDirectory = process.cwd();
@@ -1001,15 +1050,22 @@ async function main(): Promise<number> {
         return 4;
       }
     }
-    const overwriteCount = jobs.filter((job) =>
-      job.replacementManifest !== undefined || job.resumeNeedsExclusiveAccess).length;
-    if (!await confirmOverwrite(overwriteCount)) {
+    const overwriteCount = jobs.filter(requiresOverwriteApproval).length;
+    const skipped = overwritePolicy === "skip" ? overwriteCount : 0;
+    const migrationJobs = overwritePolicy === "skip"
+      ? jobs.filter((job) => !requiresOverwriteApproval(job))
+      : jobs;
+    if (skipped > 0) {
+      console.log(`已通过 -n 跳过 ${skipped} 个需要覆盖的会话。`);
+    }
+    if (overwritePolicy !== "skip" &&
+      !await confirmOverwrite(overwriteCount, overwritePolicy)) {
       console.error("未确认覆盖，未写入 OpenCode。");
       return 4;
     }
 
     let completed = 0;
-    for (const [index, job] of jobs.entries()) {
+    for (const [index, job] of migrationJobs.entries()) {
       const succeeded = await migrateSelectedSession({
         job,
         target,
@@ -1019,14 +1075,16 @@ async function main(): Promise<number> {
         rootDirectory,
         cliPath,
         position: index + 1,
-        total: jobs.length,
+        total: migrationJobs.length,
       });
       if (succeeded) completed++;
     }
-    if (jobs.length > 1) {
-      console.log(`\n批量迁移完成：成功 ${completed} 个，失败 ${jobs.length - completed} 个。`);
+    const failed = migrationJobs.length - completed;
+    if (jobs.length > 1 || skipped > 0) {
+      const skippedText = skipped > 0 ? `，跳过 ${skipped} 个` : "";
+      console.log(`\n批量迁移完成：成功 ${completed} 个，失败 ${failed} 个${skippedText}。`);
     }
-    return completed === jobs.length ? 0 : 4;
+    return completed === migrationJobs.length ? 0 : 4;
   } finally {
     await managedServer?.close();
   }
