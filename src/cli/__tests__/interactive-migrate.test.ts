@@ -147,15 +147,30 @@ describe("interactive migration helpers", () => {
   });
 
   it("reports the current migration action instead of cumulative replacement history", () => {
-    assert.equal(migrationProgressMessage("create"), "正在迁移并校验，请稍候...");
-    assert.equal(migrationProgressMessage("replace"), "正在校验并覆盖已有会话，请稍候...");
-    assert.equal(migrationProgressMessage("resume"), "正在续跑并回读校验，请稍候...");
+    assert.equal(
+      migrationProgressMessage("create"),
+      "迁移方式：首次导入。正在写入 OpenCode 并回读校验...",
+    );
+    assert.equal(
+      migrationProgressMessage("replace"),
+      "迁移方式：OVERWRITE。正在校验旧目标；通过后将删除旧目标并导入当前版本...",
+    );
+    assert.equal(
+      migrationProgressMessage("resume"),
+      "迁移方式：使用当前 manifest 续跑。将按 checkpoint 恢复任务或仅回读校验...",
+    );
     assert.equal(
       migrationCompletionMessage("create", "/private/current"),
-      "迁移完成，结果已写入：/private/current",
+      "本次结果：已新建会话并通过回读校验。迁移记录：/private/current",
     );
-    assert.equal(migrationCompletionMessage("replace", "/private/current"), "已有会话已安全覆盖并通过校验。");
-    assert.equal(migrationCompletionMessage("resume", "/private/current"), "已有迁移记录，回读校验通过。");
+    assert.equal(
+      migrationCompletionMessage("replace", "/private/current"),
+      "本次结果：已执行 OVERWRITE，旧目标已安全替换，当前版本通过回读校验。",
+    );
+    assert.equal(
+      migrationCompletionMessage("resume", "/private/current"),
+      "本次结果：当前 manifest 已完成并通过回读校验；未启动新的 OVERWRITE。",
+    );
   });
 
   it("isolates the managed service descriptor while retaining the user's target database", () => {

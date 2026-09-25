@@ -272,18 +272,26 @@ export type InteractiveMigrationMode = {
 };
 
 export function migrationProgressMessage(mode: InteractiveMigrationMode["name"]): string {
-  if (mode === "replace") return "正在校验并覆盖已有会话，请稍候...";
-  if (mode === "resume") return "正在续跑并回读校验，请稍候...";
-  return "正在迁移并校验，请稍候...";
+  if (mode === "replace") {
+    return "迁移方式：OVERWRITE。正在校验旧目标；通过后将删除旧目标并导入当前版本...";
+  }
+  if (mode === "resume") {
+    return "迁移方式：使用当前 manifest 续跑。将按 checkpoint 恢复任务或仅回读校验...";
+  }
+  return "迁移方式：首次导入。正在写入 OpenCode 并回读校验...";
 }
 
 export function migrationCompletionMessage(
   mode: InteractiveMigrationMode["name"],
   runDirectory: string,
 ): string {
-  if (mode === "replace") return "已有会话已安全覆盖并通过校验。";
-  if (mode === "resume") return "已有迁移记录，回读校验通过。";
-  return `迁移完成，结果已写入：${runDirectory}`;
+  if (mode === "replace") {
+    return "本次结果：已执行 OVERWRITE，旧目标已安全替换，当前版本通过回读校验。";
+  }
+  if (mode === "resume") {
+    return "本次结果：当前 manifest 已完成并通过回读校验；未启动新的 OVERWRITE。";
+  }
+  return `本次结果：已新建会话并通过回读校验。迁移记录：${runDirectory}`;
 }
 
 export function resolveInteractiveMigrationMode(options: {
@@ -807,16 +815,17 @@ async function confirmOverwrite(
 ): Promise<boolean> {
   if (count === 0) return true;
   console.log(
-    `\n检测到 ${count} 个由本工具迁移的已有会话，将先校验内容未被修改，再覆盖为新版本。`,
+    `\n检测到 ${count} 个会话需要 OVERWRITE：当前导出与旧迁移记录不同。`,
   );
-  console.log("请先暂停其他 OpenCode 写入操作；校验失败时不会删除任何会话。");
+  console.log("OVERWRITE 会先验证旧目标的所有权、内容哈希和子会话；全部通过后才删除旧目标并导入当前版本。");
+  console.log("请先暂停其他 OpenCode 写入操作；任何安全检查失败都不会删除会话。");
   if (policy === "overwrite") {
-    console.log("已自动确认覆盖。");
+    console.log("-y：已自动确认 OVERWRITE，开始执行安全检查。");
     return true;
   }
   const rl = createInterface({ input, output });
   try {
-    return confirmsOverwrite(await rl.question("输入 OVERWRITE 确认覆盖："));
+    return confirmsOverwrite(await rl.question("输入 OVERWRITE 确认删除旧目标并重新导入："));
   } finally {
     rl.close();
   }
@@ -1064,12 +1073,12 @@ async function main(): Promise<number> {
       : jobs;
     if (overwritePolicy === "skip") {
       console.log(skipped > 0
-        ? `已通过 -n 跳过 ${skipped} 个需要 OVERWRITE 的会话。`
-        : "-n 未发现需要 OVERWRITE 的会话，将继续校验或迁移其他会话。");
+        ? `-n：已跳过 ${skipped} 个需要删除旧目标并重新导入（OVERWRITE）的会话；其余会话继续处理。`
+        : "-n：没有会话需要 OVERWRITE；新会话正常迁移，已有当前 manifest 的会话执行续跑或回读校验。");
     }
     if (overwritePolicy !== "skip" &&
       !await confirmOverwrite(overwriteCount, overwritePolicy)) {
-      console.error("未确认覆盖，未写入 OpenCode。");
+      console.error("未确认 OVERWRITE，本次未向 OpenCode 写入任何会话。");
       return 4;
     }
 
@@ -1090,8 +1099,8 @@ async function main(): Promise<number> {
     }
     const failed = migrationJobs.length - completed;
     if (jobs.length > 1 || skipped > 0) {
-      const skippedText = skipped > 0 ? `，跳过 ${skipped} 个` : "";
-      console.log(`\n批量迁移完成：成功 ${completed} 个，失败 ${failed} 个${skippedText}。`);
+      const skippedText = skipped > 0 ? `，按 -n 跳过 ${skipped} 个` : "";
+      console.log(`\n批量处理完成：执行成功 ${completed} 个，执行失败 ${failed} 个${skippedText}。`);
     }
     return completed === migrationJobs.length ? 0 : 4;
   } finally {
