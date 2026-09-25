@@ -3,8 +3,9 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, it } from "node:test";
+import type { JsonObject } from "../../ir/types.js";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
-import type { OpenCodeTransfer } from "../../target/opencode/mapping.js";
+import type { OpenCodeSession } from "../../target/opencode/mapping.js";
 import { readBundleFile } from "../bundle-file.js";
 import { migrate, verifyMigration } from "../executor.js";
 import { readManifest, withManifestStore, type MigrationManifest } from "../manifest.js";
@@ -15,7 +16,7 @@ import type { MigrationTarget } from "../target.js";
 
 async function setup(operation: (ctx: {
   root: string; filename: string; runId: string; plan: Awaited<ReturnType<typeof buildMigrationPlan>>;
-  api: MigrationTarget; sessions: Map<string, OpenCodeTransfer>; deleted: string[];
+  api: MigrationTarget; sessions: Map<string, OpenCodeSession>; deleted: string[];
 }) => Promise<void>) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "t2o-rollback-"));
   try {
@@ -24,7 +25,7 @@ async function setup(operation: (ctx: {
     child.parentSourceId = bundle.sessions[0].sourceId;
     bundle.sessions.push(child);
     const plan = await buildMigrationPlan(bundle, { fallbackDirectory: root });
-    const sessions = new Map<string, OpenCodeTransfer>();
+    const sessions = new Map<string, OpenCodeSession>();
     const deleted: string[] = [];
     const hash = jsonHash("target");
     const api: MigrationTarget = {
@@ -33,12 +34,15 @@ async function setup(operation: (ctx: {
       },
       async readSession(id) { return structuredClone(sessions.get(id) ?? null); },
       async importSession(transfer) {
-        assert.ok(!sessions.has(transfer.info.id));
-        sessions.set(transfer.info.id, structuredClone(transfer));
+        const id = String(transfer.info.id);
+        assert.ok(!sessions.has(id));
+        sessions.set(id, structuredClone(transfer));
         return structuredClone(transfer);
       },
       async listChildren(id) {
-        return [...sessions.values()].filter((item) => item.info.parentID === id).map((item) => item.info.id);
+        return [...sessions.values()]
+          .filter((item) => item.info.parentID === id)
+          .map((item) => String(item.info.id));
       },
       async deleteSession(id, expected, exclusive) {
         assert.equal(exclusive, true);
@@ -117,7 +121,7 @@ describe("rollback of sessions newly created by one run", () => {
     const original = structuredClone(current);
     for (const kind of ["text", "timestamp"]) {
       if (kind === "text") current.messages[0].text = "later user message";
-      else current.info.time.updated++;
+      else (current.info.time as JsonObject).updated = Number((current.info.time as JsonObject).updated) + 1;
       const report = await rollbackMigration(filename, api, confirm(runId));
       assert.equal(report.hasFailures, true);
       assert.deepEqual(report.sessions[0].codes, ["T2O_MIGRATION_TARGET_CHANGED"]);

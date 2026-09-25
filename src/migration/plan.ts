@@ -3,18 +3,23 @@ import type { JsonValue, MigrationBundle, RecoveryGrade } from "../ir/types.js";
 import { assertMigrationBundle } from "../ir/validation.js";
 import { normalizeError, Trae2OpenCodeError } from "../shared/errors.js";
 import { assertNoCredentials } from "../shared/sensitive.js";
+import { OPENCODE_VERSION, type OpenCodeDialect } from "../target/opencode/contract.js";
+import { mapTargetSession, targetReconciliation } from "../target/opencode/dialect.js";
 import { createOpenCodeIdentityMap } from "../target/opencode/identity.js";
-import { mapOpenCodeSession, type OpenCodeTransfer } from "../target/opencode/mapping.js";
+import type { OpenCodeSession } from "../target/opencode/mapping.js";
 import {
   resolveOpenCodeDirectory, type DirectoryResolution, type ProjectPathMap,
 } from "../target/opencode/project-directory.js";
-import { reconcileOpenCodeTransfer, type OpenCodeReconciliation } from "../target/opencode/reconciliation.js";
+import type { OpenCodeReconciliation } from "../target/opencode/reconciliation.js";
 
 export interface MigrationPlanOptions {
   namespace?: string;
   recovery?: readonly RecoveryGrade[];
   pathMaps?: readonly ProjectPathMap[];
   fallbackDirectory?: string;
+  /** Set from the verified target before planning; defaults to the v2 contract. */
+  dialect?: OpenCodeDialect;
+  targetVersion?: string;
 }
 
 export interface PlannedSession {
@@ -26,7 +31,7 @@ export interface PlannedSession {
   reasons: string[];
   diagnosticCodes: string[];
   directory?: DirectoryResolution;
-  transfer?: OpenCodeTransfer;
+  transfer?: OpenCodeSession;
   transferHash?: string;
   expected?: OpenCodeReconciliation["expected"];
 }
@@ -73,6 +78,9 @@ export async function buildMigrationPlan(
     throw new Trae2OpenCodeError("T2O_CLI_INVALID_ARGUMENTS");
   }
   const namespace = options.namespace ?? "trae-cn";
+  const dialect = options.dialect ?? "v2";
+  const targetVersion = options.targetVersion ?? OPENCODE_VERSION;
+  const reconciliation = targetReconciliation(dialect);
   const identities = createOpenCodeIdentityMap(bundle, namespace);
   const sessions = new Map(bundle.sessions.map((session) => [session.sourceId, session]));
   const plan: MigrationPlan = {
@@ -110,8 +118,8 @@ export async function buildMigrationPlan(
         item.reasons.push(...directory.reasons);
         continue;
       }
-      const mapping = mapOpenCodeSession(bundle, session.sourceId, {
-        ...identity, directory: directory.targetDirectory,
+      const mapping = mapTargetSession(bundle, session.sourceId, {
+        ...identity, directory: directory.targetDirectory, dialect, targetVersion,
       });
       const bytes = Buffer.byteLength(JSON.stringify(mapping.transfer), "utf8");
       if (bytes > 32 * 1024 * 1024 || totalBytes + bytes > 128 * 1024 * 1024) {
@@ -120,7 +128,7 @@ export async function buildMigrationPlan(
       totalBytes += bytes;
       item.transfer = mapping.transfer;
       item.transferHash = hashCanonicalJson(mapping.transfer as unknown as JsonValue);
-      item.expected = reconcileOpenCodeTransfer(mapping.transfer, mapping.transfer).expected;
+      item.expected = reconciliation.snapshot(mapping.transfer);
       item.diagnosticCodes = mapping.diagnostics.map((issue) => issue.code);
       item.status = "ready";
     } catch (error) {
@@ -132,8 +140,11 @@ export async function buildMigrationPlan(
 
 /** No transcript, title, directory, raw diagnostic context or target credentials. */
 export function summarizeMigrationPlan(plan: MigrationPlan) {
+  const dialect = plan.options.dialect ?? "v2";
   return {
     planVersion: plan.planVersion, irHash: plan.irHash, sourceFingerprint: plan.sourceFingerprint,
+    // v2 plans keep their published shape; only a v1 plan advertises an extra field.
+    ...(dialect === "v1" ? { dialect, targetVersion: plan.options.targetVersion } : {}),
     ready: plan.sessions.filter((item) => item.status === "ready").length,
     excluded: plan.sessions.filter((item) => item.status === "excluded").length,
     blocked: plan.sessions.filter((item) => item.status === "blocked").length,

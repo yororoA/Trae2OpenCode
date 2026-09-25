@@ -82,7 +82,8 @@ describe("migration plan", () => {
       pathMaps: [{ from: "C:\\source\\project", to: process.cwd() }],
     });
     assert.equal(plan.sessions[0].directory?.strategy, "mapped");
-    assert.equal(plan.sessions[0].transfer?.info.location.directory, process.cwd());
+    const location = plan.sessions[0].transfer?.info.location as { directory: string } | undefined;
+    assert.equal(location?.directory, process.cwd());
     plan = await buildMigrationPlan(bundle, { fallbackDirectory: path.join(process.cwd(), "absent-t2o-directory") });
     assert.deepEqual(plan.sessions[0].reasons, ["T2O_OPENCODE_DIRECTORY_INVALID"]);
   });
