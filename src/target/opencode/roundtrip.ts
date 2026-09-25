@@ -7,6 +7,7 @@ import * as path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 import Ajv2020 from "ajv/dist/2020.js";
+import { resolveOpenCodeBinary } from "./binary.js";
 
 const exec = promisify(execFile);
 const VERSION = "2.0.12";
@@ -106,7 +107,7 @@ export async function verifyOpenCodeRoundtrip(options: {
   output: string;
   binary?: string;
 }) {
-  const binary = options.binary ?? "opencode";
+  const binary = resolveOpenCodeBinary(options.binary ?? "opencode");
   const repository = path.resolve(options.repository);
   const output = path.resolve(options.output);
   const temporary = path.join(repository, "tmp");

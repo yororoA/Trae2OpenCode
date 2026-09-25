@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
@@ -21,8 +21,12 @@ import {
 } from "../source/trae/session-metadata.js";
 import {
   isSupportedOpenCodeVersion,
+  openCodeDialectForVersion,
+  parseOpenCodeVersion,
   SUPPORTED_OPENCODE_VERSIONS,
+  type OpenCodeDialect,
 } from "../target/opencode/contract.js";
+import { resolveOpenCodeBinary } from "../target/opencode/binary.js";
 
 const INTERACTIVE_EXPORT_REVISION = 11;
 const MANAGED_OPENCODE_PORT = 4097;
@@ -439,7 +443,14 @@ function printFailure(outputText: string, server: string): void {
       break;
     case "T2O_OPENCODE_VERSION_UNSUPPORTED":
     case "T2O_OPENCODE_SCHEMA_UNSUPPORTED":
-      console.error(`OpenCode 版本或协议不受支持，需要 ${SUPPORTED_OPENCODE_VERSIONS.join(" 或 ")}。`);
+      console.error(
+        `OpenCode 版本或协议不受支持，需要 ${SUPPORTED_OPENCODE_VERSIONS.join(" / ")}。`,
+      );
+      break;
+    case "T2O_OPENCODE_V1_UNSUPPORTED_STATE":
+      console.error(
+        "所选会话含有 OpenCode 1.x 无法在不编造数据的前提下保存的状态，已停止迁移。",
+      );
       break;
     case "T2O_MIGRATION_PLAN_CHANGED":
       console.error("迁移内容与已有续跑记录不一致，请恢复原会话或使用新的迁移目录。");
@@ -527,6 +538,44 @@ async function canAccessOpenCodeServer(
   }
 }
 
+async function canAccessOpenCodeServerV1(server: string, password?: string): Promise<boolean> {
+  try {
+    const username = process.env.OPENCODE_SERVER_USERNAME ?? "opencode";
+    const authorization = password === undefined
+      ? undefined
+      : `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
+    const response = await fetch(new URL("/global/health", server), {
+      headers: authorization ? { authorization } : {},
+      redirect: "error",
+      signal: AbortSignal.timeout(3_000),
+    });
+    if (response.status !== 200) return false;
+    const body: unknown = await response.json();
+    return body !== null && typeof body === "object" &&
+      (body as { healthy?: unknown }).healthy === true;
+  } catch {
+    return false;
+  }
+}
+
+/** The executable decides the target dialect; a `serve --service` flag cannot be guessed. */
+async function detectOpenCodeBinaryDialect(binary: string): Promise<OpenCodeDialect> {
+  const output = await new Promise<string>((resolve) => {
+    let collected = "";
+    const child = spawn(binary, ["--version"], {
+      stdio: ["ignore", "pipe", "pipe"], windowsHide: true,
+    });
+    child.stdout?.on("data", (chunk: Buffer) => { collected += chunk.toString(); });
+    child.stderr?.on("data", (chunk: Buffer) => { collected += chunk.toString(); });
+    child.once("error", () => resolve(""));
+    child.once("exit", (code) => resolve(code === 0 ? collected : ""));
+  });
+  const version = parseOpenCodeVersion(output);
+  const dialect = openCodeDialectForVersion(version);
+  if (dialect === undefined) throw new Error("OPENCODE_BINARY_UNSUPPORTED");
+  return dialect;
+}
+
 async function discoverOpenCodeService(): Promise<OpenCodeServiceDescriptor | undefined> {
   const roots = [
     process.env.XDG_STATE_HOME,
@@ -577,16 +626,67 @@ export function createManagedOpenCodeEnvironment(
   return env;
 }
 
-async function startManagedOpenCodeServer(): Promise<{
+export type ManagedOpenCodeServer = {
   url: string;
   password: string;
   close(): Promise<void>;
-}> {
+};
+
+/** v1 reports its version only over `/global/health`, and prints its URL on stdout. */
+async function startManagedV1Server(binary: string): Promise<ManagedOpenCodeServer> {
+  const temporaryParent = path.join(process.cwd(), "tmp");
+  await fs.mkdir(temporaryParent, { recursive: true, mode: 0o700 });
+  const stateDirectory = await fs.mkdtemp(path.join(temporaryParent, "opencode-state-"));
+  const password = randomBytes(32).toString("hex");
+  const env: NodeJS.ProcessEnv = {
+    ...createManagedOpenCodeEnvironment(stateDirectory),
+    OPENCODE_SERVER_PASSWORD: password,
+    NO_COLOR: "1",
+  };
+  const child = spawn(binary, [
+    "serve", "--hostname", "127.0.0.1", "--port", String(MANAGED_OPENCODE_PORT),
+  ], {
+    cwd: process.cwd(), env, stdio: ["ignore", "pipe", "pipe"], windowsHide: true,
+  });
+  let printed = "";
+  let failed = false;
+  child.once("error", () => { failed = true; });
+  child.stdout?.on("data", (chunk: Buffer) => { printed += chunk.toString(); });
+  child.stderr?.on("data", (chunk: Buffer) => { printed += chunk.toString(); });
+  try {
+    for (let attempt = 0; attempt < 100; attempt++) {
+      if (failed || child.exitCode !== null || child.signalCode !== null) break;
+      const url = localServerUrl(printed);
+      if (url && await canAccessOpenCodeServerV1(url, password)) {
+        return {
+          url,
+          password,
+          async close() {
+            await stopManagedServer(child);
+            await fs.rm(stateDirectory, { recursive: true, force: true });
+          },
+        };
+      }
+      await delay(100);
+    }
+  } catch {
+    // Fall through to the contained startup error.
+  }
+  await stopManagedServer(child);
+  await fs.rm(stateDirectory, { recursive: true, force: true });
+  throw new Error("OPENCODE_SERVER_START_FAILED");
+}
+
+async function startManagedOpenCodeServer(
+  binary: string,
+  dialect: OpenCodeDialect,
+): Promise<ManagedOpenCodeServer> {
+  if (dialect === "v1") return startManagedV1Server(binary);
   const temporaryParent = path.join(process.cwd(), "tmp");
   await fs.mkdir(temporaryParent, { recursive: true, mode: 0o700 });
   const stateDirectory = await fs.mkdtemp(path.join(temporaryParent, "opencode-state-"));
   const env = createManagedOpenCodeEnvironment(stateDirectory);
-  const child = spawn("opencode", [
+  const child = spawn(binary, [
     "serve", "--hostname", "127.0.0.1",
     "--port", String(MANAGED_OPENCODE_PORT), "--service",
   ], {
@@ -839,10 +939,11 @@ async function migrateSelectedSession(options: {
   password?: string;
   rootDirectory: string;
   cliPath: string;
+  binary: string;
   position: number;
   total: number;
 }): Promise<boolean> {
-  const { job, target, cdp, server, password, rootDirectory, cliPath, position, total } = options;
+  const { job, target, cdp, server, password, rootDirectory, cliPath, binary, position, total } = options;
   const { session, directories } = job;
   const { exportDirectory, runDirectory } = directories;
   const inputFile = path.join(exportDirectory, "migration-bundle.json");
@@ -892,7 +993,7 @@ async function migrateSelectedSession(options: {
   console.log("正在检查迁移完整性和 OpenCode 兼容性...");
   const preview = await runCli([
     "migrate", "--input", inputFile, "--dry-run", "--server", server,
-    "--fallback-directory", rootDirectory, "--json",
+    "--binary", binary, "--fallback-directory", rootDirectory, "--json",
   ], cliPath, server, password);
   if (!preview.ok) return false;
   const previewResult = cliJsonResult(preview.outputText);
@@ -925,7 +1026,7 @@ async function migrateSelectedSession(options: {
   console.log(migrationProgressMessage(mode.name));
   const migrated = await runCli([
     "migrate", "--input", inputFile, "--server", server,
-    "--fallback-directory", rootDirectory, ...mode.args, "--json",
+    "--binary", binary, "--fallback-directory", rootDirectory, ...mode.args, "--json",
   ], cliPath, server, password);
   if (!migrated.ok) return false;
   const migrationResult = cliJsonResult(migrated.outputText);
@@ -1019,7 +1120,8 @@ async function main(): Promise<number> {
     sessions.map((session) => createSessionMigrationJob(rootDirectory, session)),
   );
 
-  let managedServer: Awaited<ReturnType<typeof startManagedOpenCodeServer>> | undefined;
+  const binary = resolveOpenCodeBinary(process.env.T2O_OPENCODE_BINARY ?? "opencode");
+  let managedServer: ManagedOpenCodeServer | undefined;
   let serverPassword = process.env.OPENCODE_SERVER_PASSWORD;
   try {
     if (!process.env.T2O_OPENCODE_SERVER) {
@@ -1028,7 +1130,7 @@ async function main(): Promise<number> {
         if (!isSupportedOpenCodeVersion(discovered.version)) {
           console.error(
             `检测到正在运行的 OpenCode ${discovered.version}，当前仅支持 ` +
-            `${SUPPORTED_OPENCODE_VERSIONS.join(" 或 ")}。` +
+            `${SUPPORTED_OPENCODE_VERSIONS.join(" / ")}。` +
             "请完全退出 OpenCode 桌面端或停止该服务后重试。",
           );
           return 4;
@@ -1038,12 +1140,22 @@ async function main(): Promise<number> {
         console.log(`已连接当前 OpenCode ${discovered.version} 本机服务。`);
       } else if (!await canAccessOpenCodeServer(server, serverPassword)) {
         console.log("默认 OpenCode 服务不可访问，正在临时启动本机服务...");
+        let dialect: OpenCodeDialect;
         try {
-          managedServer = await startManagedOpenCodeServer();
+          dialect = await detectOpenCodeBinaryDialect(binary);
+        } catch {
+          console.error(
+            `无法识别 OpenCode 可执行文件：${binary}。请安装 ${SUPPORTED_OPENCODE_VERSIONS.join(" / ")}，` +
+            "或用 T2O_OPENCODE_BINARY 指定可执行文件路径。",
+          );
+          return 4;
+        }
+        try {
+          managedServer = await startManagedOpenCodeServer(binary, dialect);
           server = managedServer.url;
           serverPassword = managedServer.password;
         } catch {
-          console.error(`无法自动启动 OpenCode，请确认已安装 ${SUPPORTED_OPENCODE_VERSIONS.join(" 或 ")}。`);
+          console.error(`无法自动启动 OpenCode，请确认已安装 ${SUPPORTED_OPENCODE_VERSIONS.join(" / ")}。`);
           return 4;
         }
       }
@@ -1052,6 +1164,7 @@ async function main(): Promise<number> {
     const migrationTarget = createMigrationTarget({
       serverUrl: server,
       password: serverPassword,
+      binary,
     });
     for (const job of jobs) {
       if (!job.replacementManifest) continue;
@@ -1092,6 +1205,7 @@ async function main(): Promise<number> {
         password: serverPassword,
         rootDirectory,
         cliPath,
+        binary,
         position: index + 1,
         total: migrationJobs.length,
       });

@@ -10,6 +10,7 @@ import { requireTraeRoot } from "../source/trae/path-discovery.js";
 import { connectTraeRuntime } from "../source/trae/runtime-cdp.js";
 import { normalizeError, Trae2OpenCodeError } from "../shared/errors.js";
 import { probeOpenCodeCapabilities } from "../target/opencode/capability-probe.js";
+import { OPENCODE_VERSION } from "../target/opencode/contract.js";
 import { createOpenCodeTransport } from "../target/opencode/transport.js";
 
 export interface CommandOptions {
@@ -97,8 +98,17 @@ export async function executeReadCommand(command: string, options: CommandOption
     const recovery = parseRecovery(options.recovery);
     const pathMaps = parsePathMaps(options.pathMaps);
     const bundle = await loadCommandBundle(options);
+    // The verified target decides the payload dialect before anything is planned.
+    const capabilities = options.server ? await probeOpenCodeCapabilities(createOpenCodeTransport({
+      serverUrl: options.server, binary: options.binary,
+      password: process.env.OPENCODE_SERVER_PASSWORD, username: process.env.OPENCODE_SERVER_USERNAME,
+    })) : undefined;
     const plan = await buildMigrationPlan(bundle, {
       recovery, pathMaps, namespace: options.namespace, fallbackDirectory: options.fallbackDirectory,
+      ...(capabilities === undefined ? {} : {
+        dialect: capabilities.dialect,
+        targetVersion: capabilities.binaryVersion ?? OPENCODE_VERSION,
+      }),
     });
     if (!options.dryRun) {
       return migrate(plan, createMigrationTarget(targetOptions), {
@@ -106,11 +116,11 @@ export async function executeReadCommand(command: string, options: CommandOption
         replaceManifest: options.replace, exclusiveTarget: options.exclusiveTarget,
       });
     }
-    const target = options.server ? await probeOpenCodeCapabilities(createOpenCodeTransport({
-      serverUrl: options.server, binary: options.binary,
-      password: process.env.OPENCODE_SERVER_PASSWORD, username: process.env.OPENCODE_SERVER_USERNAME,
-    })) : { probed: false };
-    return { command, dryRun: true, target, ...summarizeMigrationPlan(plan) };
+    return {
+      command, dryRun: true,
+      target: capabilities ?? { probed: false },
+      ...summarizeMigrationPlan(plan),
+    };
   }
   if (command === "doctor") {
     const report: Record<string, unknown> = { command, reportVersion: 1 };

@@ -14,7 +14,7 @@ PATH 时使用 `npm exec --offline -- trae2opencode`。错误输出为固定 `T2
 | `better-sqlite3` / `NODE_MODULE_VERSION` 不匹配 | 确认 node/npm 使用同一版本；切换 Node 后在安装目录 `npm rebuild better-sqlite3` |
 | native addon 无预编译包 | 使用已验证的 Node 22 / 18.20.8；若仍需源码构建，安装系统 C++ 构建工具和 Python，再重装依赖 |
 | 打包后缺少 transfer schema | 重新在源码执行 `npm ci`、`npm run check`、`npm pack`；不要只复制 dist |
-| `opencode` 找不到或 Windows `.cmd` 无法启动 | 用 `--binary` 指向 `@opencode/cli/bin/opencode.exe` 原生文件；三平台包均使用此文件名 |
+| `opencode` 找不到或 Windows `.cmd` 无法启动 | 工具会自动解析 npm 垫片里的原生 `opencode.exe`；仍失败时用 `--binary` 或在 `migrate:local` 前设置 `T2O_OPENCODE_BINARY` 指向原生文件 |
 
 `npm run verify:package` 从 tarball 在独立临时目录安装生产依赖，验证实际 bin、
 SQLite native addon、schema、preview、dry-run 和 IR 导出再读。运行需要网络
@@ -56,10 +56,11 @@ macOS 的 `open -a "Trae CN" --args ...` 经 3.3.104 实机确认可能丢弃调
 | --- | --- |
 | `T2O_OPENCODE_DIRECTORY_INVALID` | 指定已存在的绝对项目目录；工具不会 mkdir |
 | `T2O_OPENCODE_PATH_MAP_INVALID` | `--path-map` 两侧及 `--fallback-directory` 均需绝对路径；含空格整体加引号 |
-| `T2O_OPENCODE_VERSION_UNSUPPORTED` | CLI 和 server 必须分别为 2.0.12 或 2.0.16；其他版本不会仅凭“较新”自动放行 |
+| `T2O_OPENCODE_VERSION_UNSUPPORTED` | v2 需 CLI 与 server 同为 2.0.12 / 2.0.16，v1 需同为 1.18.32 / 1.17.9；其他版本不会仅凭“较新”自动放行 |
 | `T2O_OPENCODE_SCHEMA_UNSUPPORTED` | 实际 schema 与固定契约不同；保留 IR，等待经验证的 adapter |
 | `T2O_OPENCODE_REQUEST_FAILED` | 检查 server 进程、端口和认证环境变量；server URL 不含凭据 |
 | `T2O_OPENCODE_MAPPING_REJECTED` | 源会话缺少完成时间/映射证据或包含不支持内容；不会补造字段 |
+| `T2O_OPENCODE_V1_UNSUPPORTED_STATE` | 源会话含 v1 无法在不编造数据的前提下保存的状态（如无法解析的回复对象）；改用 v2 目标或放弃该会话 |
 | `T2O_OPENCODE_PARENT_MISSING` | 先包括可导入的父会话，不能只选依赖它的子会话 |
 | `T2O_SENSITIVE_CONTENT_REQUIRES_REBINDING` | 当前选中数据含已识别凭据；从独立输入副本移除凭据值并重新验证，凭据另行绑定 |
 | `target.probed=false` | dry-run 尚未探测目标；提供 `--server` 后才验证目标契约 |
@@ -77,6 +78,27 @@ mapping v6 的哈希消息 ID 不满足 OpenCode Desktop 2.0.16 对时间顺序�
 
 更新代码后重新执行 `npm run migrate:local` 并按提示安全覆盖。目标会话若已在 OpenCode
 中新增内容，覆盖保护会停止；先保留新增内容，再人工删除旧目标会话并重新迁移。
+
+### 迁移到 OpenCode 1.x（mapping v8）
+
+v1 没有 `SessionTransfer` 路由，也没有 carry-summary 的 compaction 消息，因此：
+
+- `T2O_OPENCODE_V1_PART_START_PROJECTED` / `T2O_OPENCODE_V1_PART_END_PROJECTED`：
+  TRAE 只为工具记录时间，reasoning 与进度文本没有逐块时间；v1 的 `reasoning` 部件却
+  要求 `time.start`。此处使用所属 assistant 轮次已持久化的创建/完成时间，并在诊断中
+  明确标注，不编造新时间。
+- `T2O_OPENCODE_V1_CONTINUATION_BOUNDARY_OMITTED`：超大历史不会插入 v2 的原生
+  compaction checkpoint；导入后如需继续长对话，请在 OpenCode 1.x 内使用它自己的
+  summarize，而不是期待迁移产物自带边界。
+- `T2O_OPENCODE_V1_PROVENANCE_AT_SESSION`：v1 消息没有 metadata 字段，逐事件来源
+  （sourceId、order、replyToSourceId）改存于会话级 `metadata.trae2opencode.events`。
+- `T2O_OPENCODE_V1_TOOL_STATUS_PROJECTED`：被中断的流式工具在 v1 中只能表示为
+  `pending` + 原始片段，不臆造结果。
+- 源会话若缺少 assistant 完成时间或可解析的回复对象，v1 无法无损表示；这些会话会被
+  `T2O_OPENCODE_V1_UNSUPPORTED_STATE` 阻止，而不是写入不完整数据。
+
+v1 会按导入进程的工作目录改写 `info.directory` 并派生 `projectID`，工具因此以目标
+目录作为导入 cwd，并在对账中只豁免 `projectID` 与 `path` 两项。
 
 ## 续跑与删除保护
 

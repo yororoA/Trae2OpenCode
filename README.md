@@ -28,8 +28,8 @@ OpenCode **v1 或 v2 协议**。
 | Node.js | `>=18.18`，推荐 Node.js 22 |
 
 附件、Skill 与 MCP 资源不在当前迁移范围内。未知的 TRAE 或 OpenCode 版本会被拒绝，
-而不是按未经验证的规则写入数据。目标协议由 OpenCode 可执行文件版本决定：v2 使用
-HTTP `SessionTransfer`，v1 使用 `opencode import` / `opencode export`。
+而不是按未经验证的规则写入数据。目标方言由可执行文件版本决定：v2 走 HTTP
+`SessionTransfer`，v1 走 `opencode import` / `opencode export` 子命令。
 
 > **OpenCode v1 当前仅验证了 `1.17.9` 与 `1.18.32` 两个版本。**
 > 这两个版本是离散白名单，不表示二者之间的所有 1.x 版本均受支持。
@@ -62,7 +62,7 @@ npm install -g @opencode/cli@2.0.16
 opencode --version
 ```
 
-v1：
+v1（若本机本来就在用 OpenCode 1.x，通常已随它安装）：
 
 ```sh
 npm install -g opencode-ai@1.18.32
@@ -70,11 +70,13 @@ opencode --version
 ```
 
 看到版本为 v2 的 `2.0.12` / `2.0.16`，或 v1 的 `1.17.9` / `1.18.32` 后即可继续。
-`migrate:local` 会先识别目标版本与协议，再发现或启动对应的本地服务，并沿用当前
-OpenCode 会话库。迁移结束后只关闭由本工具启动的临时进程。
+`migrate:local` 会读取
+OpenCode 当前 service descriptor 发现动态端口，并检查本机 `http://127.0.0.1:4096`。没有可用
+服务时会临时启动仅监听本机的 `4097` 进程，沿用当前本地 OpenCode 会话库，迁移结束后只关闭
+该临时进程。因此通常不需要手动启动 OpenCode server。
 
-Windows 上 npm 通常生成 `.cmd` / `.ps1` 垫片。工具会自动解析其中指向的原生
-`opencode.exe`；解析失败时可用 `T2O_OPENCODE_BINARY` 或 `--binary` 明确指定。
+Windows 上 npm 只会生成 `.cmd` / `.ps1` 垫片，Node 无法直接执行它们，因此工具会自动解析
+垫片里指向的原生 `opencode.exe`；解析失败时可用 `T2O_OPENCODE_BINARY` 或 `--binary` 指定。
 
 如果发现正在运行的 OpenCode 桌面端或服务不在已验证版本范围内，程序会要求先停止
 该服务，不会再启动另一个进程并发访问同一数据库。`2.0.16` 桌面端可直接作为迁移目标。
@@ -191,11 +193,14 @@ TRAE 本身的历史被删除，源数据始终保持只读。
   已持久化的终端输出；原始工具字段仍保存在 metadata 中。
 - 迁移消息使用与 OpenCode 时间线兼容的稳定递增 ID，因此迁移后继续对话、撤销和
   重做不会让当前窗口丢失历史。超大历史会自动加入少量原生 compaction checkpoint；
-  完整旧消息仍可查看；v2 checkpoint 的角色化摘录只进入模型上下文，不会重复显示为正文。
-- OpenCode v1 没有 carry-summary compaction 消息。超大历史会按原样导入，长对话请在
-  v1 内使用其原生 summarize；逐事件来源保存在会话级 `metadata.trae2opencode.events`。
-- v1 要求逐块 reasoning 时间，但 TRAE 只持久化轮次和工具时间。工具会保守投影可证明的
-  时间；缺少 assistant 完成时间或回复关系时会停止，不会写入不完整数据。
+  完整旧消息仍可查看；v2 checkpoint 的角色化摘录只写入隐藏上下文，不会重复显示为正文。
+- 目标是 OpenCode 1.x 时没有 carry-summary 的 compaction 消息：超大历史按原样导入，
+  需要长对话时请在 1.x 内使用它自己的 summarize。v1 也不保存消息级 metadata，
+  逐事件来源改存于会话级 `metadata.trae2opencode.events`。
+- v1 要求逐块的 reasoning 时间，而 TRAE 只持久化工具时间；此时使用所属 assistant 轮次
+  已记录的时间并输出 `T2O_OPENCODE_V1_PART_START_PROJECTED` / `_PART_END_PROJECTED`。
+  源会话若缺少 assistant 完成时间或可解析的回复对象，v1 无法无损表示，会以
+  `T2O_OPENCODE_V1_UNSUPPORTED_STATE` 阻止，而不是写入不完整数据。
 - TRAE 未持久化的工具输出或最终 assistant 正文不会被编造。工具记录会保留缺失标识；
   缺失的最终正文会显示明确提示，内部工具 JSON 不会作为聊天正文显示。
 
@@ -218,7 +223,7 @@ TRAE 本身的历史被删除，源数据始终保持只读。
 | --- | --- |
 | `无法发现 TRAE workbench` | 完全退出后，用上面的终端命令重新启动 TRAE；确认目标项目窗口已打开。 |
 | `所选 workbench 没有可迁移的本地会话` | 选择正确的项目窗口，并在 TRAE 中打开该项目后再运行。 |
-| `无法自动启动 OpenCode` | 安装并确认 v2 `2.0.12` / `2.0.16` 或 v1 `1.17.9` / `1.18.32`，再运行命令。 |
+| `无法自动启动 OpenCode` | 安装并确认 `@opencode/cli@2.0.12` / `2.0.16` 或 `opencode-ai@1.17.9` / `1.18.32`，再运行命令。 |
 | `OpenCode 版本或协议不受支持` | 使用上述四个精确版本；其他版本即使能打开数据库也不会自动放行。 |
 | `所选会话包含当前无法无损映射的内容` | 工具尚未写入 OpenCode。保留产物并查看[故障排查](docs/troubleshooting.md)。 |
 | `目标会话已存在，但缺少可验证的旧 manifest` | 目标归属无法证明，因此不会覆盖；恢复对应 manifest 或在 OpenCode 中人工确认处理。 |

@@ -17,9 +17,21 @@ export interface DirectoryResolution {
 
 const apiFor = (platform: Platform) => platform === "win32" ? path.win32 : path.posix;
 
+/**
+ * Windows reports a drive letter in upper case, and OpenCode persists the session
+ * directory exactly as the importing process' cwd reports it. TRAE records the same
+ * path with a lower-case drive, so canonicalize it here or the readback byte-compare
+ * fails on an otherwise identical directory.
+ */
+function canonicalizeDriveLetter(value: string): string {
+  return value.replace(/^[a-z]:/, (drive) => drive.toUpperCase());
+}
+
 function normalize(value: string, platform: Platform): string {
   const api = apiFor(platform);
-  const normalized = api.normalize(value);
+  const normalized = platform === "win32"
+    ? canonicalizeDriveLetter(api.normalize(value))
+    : api.normalize(value);
   const validWindowsRoot = /^[a-z]:\\/i.test(normalized) || /^\\\\(?![?.]\\)[^\\]+\\[^\\]+/.test(normalized);
   const validRoot = platform === "win32" ? validWindowsRoot : api.isAbsolute(value);
   if (!value || value.includes("\0") || !validRoot) {

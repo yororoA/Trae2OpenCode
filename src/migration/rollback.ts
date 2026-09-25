@@ -1,8 +1,8 @@
 import { normalizeError, Trae2OpenCodeError } from "../shared/errors.js";
-import { reconcileOpenCodeTransfer } from "../target/opencode/reconciliation.js";
+import { targetReconciliation } from "../target/opencode/dialect.js";
 import { withManifestStore, type ManifestSession, type MigrationManifest } from "./manifest.js";
 import { isOwnedByRun, jsonHash } from "./ownership.js";
-import type { MigrationTarget } from "./target.js";
+import { descriptorDialect, type MigrationTarget } from "./target.js";
 
 type RollbackAction = "delete" | "absent" | "already-rolled-back" | "skip" | "protected";
 interface RollbackEntry {
@@ -32,7 +32,7 @@ async function inspectSession(
     if (item.deletionHash) {
       if (item.deletionHash !== actualHash) throw new Trae2OpenCodeError("T2O_MIGRATION_TARGET_CHANGED");
     } else {
-      const observed = reconcileOpenCodeTransfer(actual, actual).actual;
+      const observed = targetReconciliation(descriptorDialect(manifest.target)).snapshot(actual);
       const recoverableImport = !item.created && jsonHash(observed) === jsonHash(item.expected);
       if (!recoverableImport) throw new Trae2OpenCodeError("T2O_MIGRATION_ROLLBACK_EVIDENCE_MISSING");
     }

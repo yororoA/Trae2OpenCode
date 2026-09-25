@@ -1,8 +1,8 @@
 import { hashCanonicalJson } from "../ir/canonical.js";
 import type { JsonValue } from "../ir/types.js";
 import { requireOpenCodeCapabilities } from "../target/opencode/capability-probe.js";
-import { createOpenCodeDeletionAdapter } from "../target/opencode/deletion.js";
-import type { OpenCodeTransfer } from "../target/opencode/mapping.js";
+import { openCodeDialectForVersion, type OpenCodeDialect } from "../target/opencode/contract.js";
+import type { OpenCodeSession } from "../target/opencode/mapping.js";
 import {
   createNativeOpenCodeAdapter, type NativeOpenCodeAdapterOptions,
 } from "../target/opencode/native-adapter.js";
@@ -18,10 +18,15 @@ export interface MigrationTargetDescriptor {
 
 export interface MigrationTarget {
   describe(): Promise<MigrationTargetDescriptor>;
-  readSession(id: string): Promise<OpenCodeTransfer | null>;
-  importSession(transfer: OpenCodeTransfer): Promise<OpenCodeTransfer>;
+  readSession(id: string): Promise<OpenCodeSession | null>;
+  importSession(transfer: OpenCodeSession): Promise<OpenCodeSession>;
   listChildren?(id: string): Promise<string[]>;
   deleteSession?(id: string, expectedHash: string, exclusiveTarget: boolean): Promise<void>;
+}
+
+/** The dialect is a property of the verified binary, never of a caller option. */
+export function descriptorDialect(descriptor: MigrationTargetDescriptor): OpenCodeDialect {
+  return openCodeDialectForVersion(descriptor.binaryVersion) ?? "v2";
 }
 
 /** Endpoint + verified contract, not a claim of database identity or authentication. */
@@ -32,7 +37,6 @@ export function createMigrationTarget(options: NativeOpenCodeAdapterOptions): Mi
   const adapter = createNativeOpenCodeAdapter({ ...options, transport });
   return {
     ...adapter,
-    ...createOpenCodeDeletionAdapter(transport, options.serverUrl, adapter.readSession),
     async describe() {
       const capabilities = await requireOpenCodeCapabilities(transport);
       const descriptor = {

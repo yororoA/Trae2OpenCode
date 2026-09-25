@@ -5,6 +5,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
+import { resolveOpenCodeBinary } from "./binary.js";
 import { isSupportedOpenCodeVersion } from "./contract.js";
 import { createOpenCodeTransport, type OpenCodeTransport } from "./transport.js";
 
@@ -34,7 +35,7 @@ export async function withIsolatedOpenCodeServer<T>(
   const root = await fs.mkdtemp(path.join(temporaryRoot, "t2o-opencode-"));
   await fs.chmod(root, 0o700);
   const password = randomBytes(32).toString("hex");
-  const binary = options.binary ?? "opencode";
+  const binary = resolveOpenCodeBinary(options.binary ?? "opencode");
   const env: NodeJS.ProcessEnv = {
     PATH: process.env.PATH,
     SystemRoot: process.env.SystemRoot,
