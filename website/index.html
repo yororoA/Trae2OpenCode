@@ -28,7 +28,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/apple-touch-icon.png?v=3">
     <link rel="manifest" href="./site.webmanifest?v=2">
     <link rel="preconnect" href="https://unpkg.com">
-    <link rel="stylesheet" href="./styles.css?v=5">
+    <link rel="stylesheet" href="./styles.css?v=10">
     <title>Trae2OpenCode | 可验证的会话迁移</title>
     <script type="application/ld+json">
       {
@@ -86,6 +86,24 @@
     <main id="main-content">
       <section class="hero" id="top">
         <div class="hero-media" aria-hidden="true">
+          <div class="hero-wordmark">
+            <span class="wordmark-glyph wordmark-t">T</span>
+            <span class="wordmark-glyph wordmark-two">
+              <span class="wordmark-two-trae">2</span>
+              <span class="wordmark-two-opencode">2</span>
+              <i class="wordmark-fault"></i>
+            </span>
+            <span class="wordmark-glyph wordmark-o">O</span>
+          </div>
+          <div class="rebuild-trace">
+            <span class="trace-fragment trace-fragment-one"></span>
+            <span class="trace-fragment trace-fragment-two"></span>
+            <span class="trace-fragment trace-fragment-three"></span>
+            <span class="trace-line"></span>
+            <span class="trace-node trace-node-one"></span>
+            <span class="trace-node trace-node-two"></span>
+            <span class="trace-node trace-node-three"></span>
+          </div>
           <div class="fault-field">
             <span class="fault-shard fault-shard-one"></span>
             <span class="fault-shard fault-shard-two"></span>
@@ -93,35 +111,10 @@
             <span class="fault-shard fault-shard-four"></span>
             <span class="fault-shard fault-shard-five"></span>
           </div>
-          <div class="hero-scene">
-            <div class="scene-column scene-source">
-              <span class="scene-caption">TRAE / runtime</span>
-              <div class="scene-message scene-message-user"></div>
-              <div class="scene-message scene-message-reasoning"></div>
-              <div class="scene-tool">
-                <span></span><span></span><span></span>
-              </div>
-              <div class="scene-message scene-message-short"></div>
-            </div>
-            <div class="scene-transfer">
-              <span class="scene-transfer-line scene-transfer-line-top"></span>
-              <span class="scene-transfer-line scene-transfer-line-bottom"></span>
-              <strong>IR</strong>
-              <small>map v8</small>
-            </div>
-            <div class="scene-column scene-target">
-              <span class="scene-caption">OpenCode / timeline</span>
-              <div class="scene-message scene-message-user"></div>
-              <div class="scene-message scene-message-reasoning"></div>
-              <div class="scene-tool scene-tool-verified">
-                <span></span><span></span><i data-lucide="check"></i>
-              </div>
-              <div class="scene-message scene-message-short"></div>
-              <div class="scene-verified">
-                <i data-lucide="shield-check"></i>
-                <span>readback verified</span>
-              </div>
-            </div>
+          <div class="hero-status">
+            <span>TRAE / fragmented</span>
+            <strong>IR · MAP V8</strong>
+            <span>OpenCode / verified</span>
           </div>
         </div>
         <div class="hero-overlay" aria-hidden="true"></div>
@@ -140,18 +133,18 @@
             一条命令迁移消息、推理与工具调用。自动脱敏，支持中断续跑，并在写入后逐项回读核验。
           </p>
           <div class="hero-actions">
-            <a class="button button-primary" href="#quickstart">
-              <i data-lucide="terminal" aria-hidden="true"></i>
-              <span data-i18n="hero.start">开始迁移</span>
-            </a>
             <a
-              class="button button-secondary"
+              class="button button-primary"
               href="https://github.com/yororoA/Trae2OpenCode"
               target="_blank"
               rel="noreferrer"
             >
               <i data-lucide="github" aria-hidden="true"></i>
-              <span data-i18n="hero.source">查看源码</span>
+              <span data-i18n="hero.start">在 GitHub 获取</span>
+            </a>
+            <a class="button button-secondary" href="#quickstart">
+              <i data-lucide="book-open" aria-hidden="true"></i>
+              <span data-i18n="hero.source">查看使用方式</span>
             </a>
           </div>
           <div class="hero-command" aria-label="迁移命令">
