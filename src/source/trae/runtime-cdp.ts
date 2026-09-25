@@ -1,5 +1,9 @@
 import WebSocket from "ws";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
+import {
+  LARGE_TRANSFER_TIMEOUT_MS,
+  MAX_TRAE_CDP_MESSAGE_BYTES,
+} from "../../shared/limits.js";
 import { isRuntimeObject } from "./reasoning-plan.js";
 import type { TraeRuntimeTransport } from "./runtime-reader.js";
 
@@ -54,7 +58,10 @@ const rendererApi = `
 `;
 
 async function connectSocket(url: URL) {
-  const socket = new WebSocket(url, { handshakeTimeout: 5_000, maxPayload: 34 * 1024 * 1024 });
+  const socket = new WebSocket(url, {
+    handshakeTimeout: 5_000,
+    maxPayload: MAX_TRAE_CDP_MESSAGE_BYTES,
+  });
   socket.on("error", () => undefined);
   await new Promise<void>((resolve, reject) => {
     socket.once("open", resolve);
@@ -70,7 +77,10 @@ async function connectSocket(url: URL) {
       if (error) reject(error); else resolve(result);
     };
     const onClose = () => finish(unavailable());
-    const timer = setTimeout(() => { finish(unavailable()); socket.terminate(); }, 30_000);
+    const timer = setTimeout(() => {
+      finish(unavailable());
+      socket.terminate();
+    }, LARGE_TRANSFER_TIMEOUT_MS);
     const onMessage = (raw: WebSocket.RawData) => {
       try {
         const message = JSON.parse(raw.toString());
@@ -85,7 +95,12 @@ async function connectSocket(url: URL) {
     socket.once("close", onClose);
     socket.send(JSON.stringify({
       id, method: "Runtime.evaluate",
-      params: { expression, awaitPromise: true, returnByValue: true, timeout: 29_000 },
+      params: {
+        expression,
+        awaitPromise: true,
+        returnByValue: true,
+        timeout: LARGE_TRANSFER_TIMEOUT_MS - 1_000,
+      },
     }), (error) => { if (error) finish(unavailable()); });
   });
   return { evaluate, close: () => socket.terminate() };

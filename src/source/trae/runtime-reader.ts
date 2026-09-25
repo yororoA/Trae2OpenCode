@@ -1,4 +1,5 @@
 import { Trae2OpenCodeError } from "../../shared/errors.js";
+import { MAX_RUNTIME_SESSION_BYTES } from "../../shared/limits.js";
 import { VERIFIED_TRAE_PRODUCT_VERSION } from "./profile-definitions.js";
 import { isRuntimeObject, runtimeHash } from "./reasoning-plan.js";
 
@@ -29,7 +30,7 @@ export function createTraeRuntimeReader(transport: TraeRuntimeTransport, limits:
     throw new Trae2OpenCodeError("T2O_TRAE_PROFILE_VERSION_UNSUPPORTED");
   }
   const maxPages = limits.maxPages ?? 10_000;
-  const maxBytes = limits.maxBytes ?? 32 * 1024 * 1024;
+  const maxBytes = limits.maxBytes ?? MAX_RUNTIME_SESSION_BYTES;
   if (![maxPages, maxBytes].every((value) => Number.isSafeInteger(value) && value > 0)) invalid();
   const assertId = (id: string) => {
     if (!/^[A-Za-z0-9._:-]{8,128}$/.test(id)) invalid();
@@ -135,7 +136,7 @@ export function createTraeRuntimeReader(transport: TraeRuntimeTransport, limits:
         const next = data.next_page_token;
         if (next === undefined || next === null || next === "") {
           if (data.has_more === true) invalid();
-          return { value: items, expectedMessageCount: items.length };
+          return { value: items, expectedMessageCount: items.length, responseBytes: bytes };
         }
         const validNext = typeof next === "string" && next.length <= 4096 &&
           !tokens.has(next) && data.items.length > 0 && data.has_more !== false;

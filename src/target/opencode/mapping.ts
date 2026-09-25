@@ -6,6 +6,7 @@ import type {
 } from "../../ir/types.js";
 import { assertMigrationBundle } from "../../ir/validation.js";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
+import { jsonByteLength, jsonChunks } from "../../shared/json-stream.js";
 import {
   assertTraeParserCapability, RUNTIME_PROFILE,
 } from "../../source/trae/profile-definitions.js";
@@ -39,7 +40,7 @@ export const MISSING_TOOL_ERROR_TEXT =
 export const MISSING_ASSISTANT_TEXT =
   "[TRAE assistant response ended before final text was persisted]";
 export const MAX_CONTINUATION_CONTEXT_BYTES = 192 * 1024;
-export const MAX_CONTINUATION_SUMMARY_BYTES = 16 * 1024;
+export const MAX_CONTINUATION_RECENT_BYTES = 16 * 1024;
 
 const PARTIAL_PROJECTION_CODES = new Set([
   "T2O_IR_REPLY_REFERENCE_INVALID",
@@ -357,6 +358,21 @@ function eventMetadata(event: EventIR, validReply: boolean): JsonObject {
   };
 }
 
+const CONTEXT_CANONICAL_OPTIONS = {
+  pretty: true,
+  sortKeys: true,
+  trailingNewline: true,
+} as const;
+
+function jsonPrefix(value: JsonValue, limit: number): string {
+  let result = "";
+  for (const chunk of jsonChunks(value, CONTEXT_CANONICAL_OPTIONS)) {
+    result += chunk.slice(0, limit - result.length);
+    if (result.length === limit) break;
+  }
+  return result;
+}
+
 function contextBytes(message: JsonObject): number {
   if (message.type === "user") {
     return Buffer.byteLength(typeof message.text === "string" ? message.text : "", "utf8") + 32;
@@ -369,40 +385,63 @@ function contextBytes(message: JsonObject): number {
     }
     if (block.type !== "tool") return total;
     const state = isRecord(block.state) ? block.state : {};
-    const input = canonicalizeJson((state.input ?? null) as JsonValue);
     const content = Array.isArray(state.content)
-      ? state.content.flatMap((item) =>
-        isRecord(item) && typeof item.text === "string" ? [item.text] : []).join("\n")
+      ? state.content.reduce<string>((text, item) => {
+        if (text.length >= 2_000 || !isRecord(item) || typeof item.text !== "string") return text;
+        const separator = text ? "\n" : "";
+        return `${text}${separator}${item.text.slice(0, 2_000 - text.length - separator.length)}`;
+      }, "")
       : "";
-    const error = state.error === undefined
-      ? "" : canonicalizeJson(state.error as JsonValue);
-    return total + Buffer.byteLength(input, "utf8") +
-      Buffer.byteLength(content.slice(0, 2_000), "utf8") +
-      Buffer.byteLength(error.slice(0, 2_000), "utf8") + 64;
+    const inputBytes = jsonByteLength((state.input ?? null) as JsonValue, CONTEXT_CANONICAL_OPTIONS);
+    const error = state.error === undefined ? "" : jsonPrefix(state.error as JsonValue, 2_000);
+    return total + inputBytes +
+      Buffer.byteLength(content, "utf8") +
+      Buffer.byteLength(error, "utf8") + 64;
   }, 0);
 }
 
 function tailUtf8(value: string, limit: number): string {
-  const reversed: string[] = [];
+  let start = value.length;
   let bytes = 0;
-  for (const character of Array.from(value).reverse()) {
+  while (start > 0) {
+    let characterStart = start - 1;
+    const last = value.charCodeAt(characterStart);
+    if (last >= 0xdc00 && last <= 0xdfff && characterStart > 0) {
+      const previous = value.charCodeAt(characterStart - 1);
+      if (previous >= 0xd800 && previous <= 0xdbff) characterStart--;
+    }
+    const character = value.slice(characterStart, start);
     const size = Buffer.byteLength(character, "utf8");
     if (bytes + size > limit) break;
-    reversed.push(character);
     bytes += size;
+    start = characterStart;
   }
-  return reversed.reverse().join("");
+  return value.slice(start);
 }
 
-function updateSummaryExcerpt(previous: string, message: JsonObject): string {
+function recentEntry(role: "User" | "Assistant", text: string): string {
+  const prefix = `[${role}]: `;
+  return `${prefix}${tailUtf8(
+    text,
+    MAX_CONTINUATION_RECENT_BYTES - Buffer.byteLength(prefix, "utf8"),
+  )}`;
+}
+
+function updateRecentContext(previous: string, message: JsonObject): string {
   const text = message.type === "user" && typeof message.text === "string"
-    ? `[User]\n${message.text}`
+    ? recentEntry("User", message.text)
     : message.type === "assistant" && Array.isArray(message.content)
       ? message.content.flatMap((block) =>
         isRecord(block) && block.type === "text" && typeof block.text === "string"
-          ? [`[Assistant]\n${block.text}`] : []).join("\n\n")
+          ? [recentEntry("Assistant", block.text)] : []).join("\n\n")
       : "";
-  return tailUtf8([previous, text].filter(Boolean).join("\n\n"), MAX_CONTINUATION_SUMMARY_BYTES);
+  if (!text) return tailUtf8(previous, MAX_CONTINUATION_RECENT_BYTES);
+  const textTail = tailUtf8(text, MAX_CONTINUATION_RECENT_BYTES);
+  if (Buffer.byteLength(textTail, "utf8") >= MAX_CONTINUATION_RECENT_BYTES) return textTail;
+  return tailUtf8(
+    previous ? `${previous}\n\n${textTail}` : textTail,
+    MAX_CONTINUATION_RECENT_BYTES,
+  );
 }
 
 function addContinuationBoundaries(
@@ -412,37 +451,35 @@ function addContinuationBoundaries(
 ): JsonObject[] {
   const messages: JsonObject[] = [];
   let activeBytes = 0;
-  let excerpt = "";
+  let recent = "";
   let boundaries = 0;
   for (const message of source) {
     messages.push(message);
     activeBytes += contextBytes(message);
-    excerpt = updateSummaryExcerpt(excerpt, message);
+    recent = updateRecentContext(recent, message);
     if (message.type !== "assistant" || activeBytes <= MAX_CONTINUATION_CONTEXT_BYTES) continue;
     const time = isRecord(message.time) ? message.time : {};
     const created = typeof time.completed === "number"
       ? time.completed : typeof time.created === "number" ? time.created : session.updatedAt!;
-    const summary = [
-      "Imported TRAE transcript checkpoint. Earlier messages remain visible in this session.",
-      excerpt ? `Recent recoverable user and assistant text:\n${excerpt}` :
-        "No recoverable user or assistant text was available for this checkpoint.",
-    ].join("\n\n");
+    const retainedContext = recent ||
+      "[Assistant]: Earlier imported TRAE messages remain stored in this session.";
     messages.push({
       id: `${String(message.id)}_compact`,
       type: "compaction",
       time: { created },
       status: "completed",
       reason: "manual",
-      summary,
-      recent: "",
+      // OpenCode renders summary in the timeline; recent is model context only.
+      summary: "",
+      recent: retainedContext,
       metadata: { trae2opencode: {
-        mappingVersion: 7,
+        mappingVersion: 8,
         kind: "continuation-boundary",
         activeContextBytes: activeBytes,
       } },
     });
     boundaries++;
-    activeBytes = Buffer.byteLength(summary, "utf8");
+    activeBytes = Buffer.byteLength(retainedContext, "utf8");
   }
   if (boundaries > 0) {
     diagnostics.push(diagnostic(
@@ -578,7 +615,7 @@ export function mapOpenCodeSession(
       time: { created: session.createdAt, updated: session.updatedAt },
       location: { directory: options.directory },
       metadata: { trae2opencode: {
-        mappingVersion: 7, sourceSessionId: session.sourceId,
+        mappingVersion: 8, sourceSessionId: session.sourceId,
         sourceSessionSha256: hashCanonicalJson(session as unknown as JsonValue),
         unknownSourceFields: ["cost", "tokens", "agent", "model"],
         resourceCount: session.resources.length,

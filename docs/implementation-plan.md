@@ -696,7 +696,7 @@ P0 最后一项来源验收已使用已登录的 TRAE CN 3.3.104 workbench 完�
 | 运行中的 SQLite/WAL 不一致 | 扫描结果损坏 | 一致性快照，只读解析 |
 | 附件路径失效 | 会话内容不完整 | hash、缺失告警、可选复制 |
 | MCP 配置包含 secret | 凭据泄露 | 永不写入报告或 IR，要求重新绑定 |
-| 大型 tool result 导致内存峰值 | OOM | 当前采用大小上限及固定压力验收；流式大 bundle/sidecar 尚未实现 |
+| 大型 tool result 导致内存峰值 | OOM | Bundle/HTTP I/O 与哈希流式化，限制为单会话 384 MiB、总量 1 GiB；映射对象 sidecar 尚未实现 |
 
 ## 10. 推荐执行顺序
 

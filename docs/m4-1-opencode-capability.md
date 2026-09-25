@@ -29,9 +29,9 @@ schema 对象 key 顺序不影响比较，不相关 API/schema 变化不阻断�
 
 `createOpenCodeTransport` 只连接显式本地 HTTP origin，禁止 URL 内凭据、
 路径、query、fragment 和重定向。认证只保留在内存/子进程环境；命令使用
-`execFile` 参数数组，不经过 shell。请求和子进程均有超时及 32 MiB 响应上限。
-超限会明确失败，不静默截断。原始 stdout/stderr、服务端错误正文和认证值不会
-进入错误报告。
+`execFile` 参数数组，不经过 shell。请求和子进程均有超时及 385 MiB 响应上限，
+HTTP JSON 回读采用流式解析。超限会明确失败，不静默截断。原始 stdout/stderr、
+服务端错误正文和认证值不会进入错误报告。
 
 `withIsolatedOpenCodeServer` 在私有临时目录启动独立配置、数据、缓存、状态
 和数据库的 OpenCode 服务，禁用项目配置、模型获取与自动更新。成功或异常退出

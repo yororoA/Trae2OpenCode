@@ -7,6 +7,16 @@
 npm run migrate:local
 ```
 
+也可以预先指定已有会话的处理方式：
+
+```sh
+npm run migrate:local -y  # 自动确认 OVERWRITE
+npm run migrate:local -n  # 自动跳过需要 OVERWRITE 的会话
+```
+
+`-y` 和 `-n` 只控制覆盖策略，不影响后续的窗口与会话列表选择。不带参数时仍采用人工
+确认。
+
 不需要查找或输入 workbench ID、session ID，也不需要手动导出 bundle 或启动 OpenCode
 server。
 
@@ -144,7 +154,7 @@ manifest；某个会话失败后，程序会继续处理其余选项并在最后
 选择完成后无需继续输入内容。程序会依次执行以下操作：
 
 1. 从所选 workbench 的 renderer 逐个导出会话。
-2. 分别检查每个 bundle 是否超过 `128 MiB`。
+2. 分别检查每个 bundle 是否超过 `1 GiB`，并检查单会话是否超过 `384 MiB`。
 3. 自动替换标题、消息正文和工具 payload 中已识别的凭据。
 4. 进行 dry-run，确认 OpenCode 版本和数据映射。
 5. 导入到 OpenCode。
@@ -159,11 +169,15 @@ manifest；某个会话失败后，程序会继续处理其余选项并在最后
 终端显示以下任一消息，即表示已经完成导入并通过回读核验：
 
 ```text
-迁移完成，结果已写入：.../migration-run/session-.../
+本次结果：已新建会话并通过回读校验。迁移记录：.../migration-run/session-.../
 ```
 
 ```text
-迁移续跑完成，已有会话已校验。
+本次结果：当前 manifest 已完成并通过回读校验；未启动新的 OVERWRITE。
+```
+
+```text
+本次结果：已执行 OVERWRITE，旧目标已安全替换，当前版本通过回读校验。
 ```
 
 然后在 OpenCode 中打开对应项目，确认：
@@ -223,8 +237,9 @@ verified 会话后来被删除时也会按原 manifest 重建。只要任一目�
 manifest。找到可信记录后会显示：
 
 ```text
-检测到 1 个由本工具迁移的已有会话，将先校验内容未被修改，再覆盖为新版本。
-输入 OVERWRITE 确认覆盖：
+检测到 1 个会话需要 OVERWRITE：当前导出与旧迁移记录不同。
+OVERWRITE 会先验证旧目标的所有权、内容哈希和子会话；全部通过后才删除旧目标并导入当前版本。
+输入 OVERWRITE 确认删除旧目标并重新导入：
 ```
 
 先暂停其他 OpenCode 写入操作，再准确输入 `OVERWRITE`。覆盖流程会：
@@ -234,6 +249,9 @@ manifest。找到可信记录后会显示：
 3. 检查是否存在未包含在迁移范围内的子会话。
 4. 持久化删除意图后删除旧会话。
 5. 导入新版本并完成回读核验。
+
+使用 `npm run migrate:local -y` 会自动确认上述提示；使用
+`npm run migrate:local -n` 会跳过需要上述确认的会话，并继续迁移无需覆盖的其他会话。
 
 任何检查失败都会在删除前停止。外来会话、已修改会话、缺少 deletion hash 或找不到可信
 manifest 的目标绝不会被自动覆盖。相同 bundle 和 manifest 的普通重试仍按断点续跑处理，
@@ -295,16 +313,18 @@ import/export 路由和 schema；即使版本号在白名单内，协议漂移�
 标记为 `partial`。如果凭据在 ID、项目路径或来源定位中，工具会停止，因为这些字段不能
 安全地猜测或重写。
 
-### bundle 超过 128 MiB
+### bundle 或单会话超过容量限制
 
-单个读取 bundle 的上限为 `128 MiB`。请选择较小的会话，或将工作拆分为多个会话后分别
-迁移。不要直接删减 bundle 内容来缩小文件。
+单个读取 bundle 的上限为 `1 GiB`，单会话 runtime 和 OpenCode transfer 的上限为
+`384 MiB`。请选择较小的会话，或将工作拆分为多个会话后分别迁移。不要直接删减
+bundle 内容来缩小文件。
 
 ### Revert 后窗口空白，或继续对话出现 invalid request
 
 这是旧 mapping v6 生成的无序消息 ID 或无界历史上下文造成的兼容问题。更新本仓库后
 重新运行 `npm run migrate:local`，选择同一会话并按提示输入 `OVERWRITE`，让工具以
-mapping v7 重新导入。
+mapping v8 重新导入。v8 还会将 checkpoint 的角色化上下文放入不直接展示的 `recent`
+字段，避免 `[User]`、`[Assistant]` 摘录在时间线中重复显示。
 
 如果该目标会话已在 OpenCode 中继续过对话，受保护覆盖会拒绝删除它。先保留或导出新增
 内容，再在 OpenCode 中人工删除旧目标会话并重新迁移；不要删除 manifest 后强行覆盖。

@@ -2,13 +2,33 @@
 import assert from "node:assert/strict";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import type { AssistantEventIR, MigrationBundle } from "../src/ir/types.js";
 import { readBundleFile } from "../src/migration/bundle-file.js";
 import { requireOpenCodeCapabilities, probeOpenCodeCapabilities } from "../src/target/opencode/capability-probe.js";
 import { TRANSFER_SCHEMA_HASH } from "../src/target/opencode/contract.js";
 import { withIsolatedOpenCodeServer } from "../src/target/opencode/isolated-server.js";
-import { mapOpenCodeSession } from "../src/target/opencode/mapping.js";
+import {
+  mapOpenCodeSession,
+  MAX_CONTINUATION_CONTEXT_BYTES,
+  type OpenCodeTransfer,
+} from "../src/target/opencode/mapping.js";
 import { createNativeOpenCodeAdapter } from "../src/target/opencode/native-adapter.js";
 import { createOpenCodeTransport, type OpenCodeTransport } from "../src/target/opencode/transport.js";
+
+function requireHiddenCompaction(transfer: OpenCodeTransfer): void {
+  const boundary = transfer.messages.find((message) => message.type === "compaction");
+  assert.equal(boundary?.summary, "");
+  assert.match(String(boundary?.recent), /\[Assistant\]:/);
+}
+
+function forceCompaction(bundle: MigrationBundle): void {
+  const assistant = bundle.sessions[0].events.find(
+    (event): event is AssistantEventIR => event.type === "assistant",
+  );
+  const text = assistant?.content.find((item) => item.type === "text");
+  assert.ok(text?.type === "text");
+  text.text = "x".repeat(MAX_CONTINUATION_CONTEXT_BYTES + 1);
+}
 
 const adjacent = path.resolve(process.env.T2O_TEST_ADJACENT_BINARY ??
   "tmp/opencode-adjacent/node_modules/@opencode/cli/bin/opencode.exe");
@@ -72,10 +92,24 @@ await withIsolatedOpenCodeServer({
   assert.equal((await fs.readdir(server.directory)).some((name) => name.startsWith("t2o-opencode-")), false);
   const actual = await native.importSession(transfer);
   assert.deepEqual(await native.exportSession(transfer.info.id), actual);
+  const compactionBundle = structuredClone(bundle);
+  forceCompaction(compactionBundle);
+  const compacted = mapOpenCodeSession(compactionBundle, "session-synthetic", {
+    sessionId: "ses_version_contract_compacted",
+    directory: server.directory,
+    messageIds: new Map([
+      ["user-synthetic", "msg_version_compacted_0001"],
+      ["assistant-synthetic", "msg_version_compacted_0002"],
+    ]),
+  }).transfer;
+  requireHiddenCompaction(compacted);
+  requireHiddenCompaction(await native.importSession(compacted));
+  requireHiddenCompaction((await native.readSession(compacted.info.id))!);
   baselineReport = {
     platform: process.platform, current: capabilities, adjacent: rejected,
     adjacentImportCalls: 0, adjacentServerRequests: requests,
-    adjacentTargetAbsent: true, currentRoundTrip: true, status: "verified",
+    adjacentTargetAbsent: true, currentRoundTrip: true,
+    hiddenCompactionRoundTrip: true, status: "verified",
   };
 });
 
@@ -115,10 +149,24 @@ if (compatible) {
     });
     const actual = await mixed.importSession(transfer);
     assert.deepEqual(await mixed.exportSession(transfer.info.id), actual);
+    const compactionBundle = structuredClone(bundle);
+    forceCompaction(compactionBundle);
+    const compacted = mapOpenCodeSession(compactionBundle, "session-synthetic", {
+      sessionId: "ses_version_contract_2016_compacted",
+      directory: server.directory,
+      messageIds: new Map([
+        ["user-synthetic", "msg_version_2016_compacted_0001"],
+        ["assistant-synthetic", "msg_version_2016_compacted_0002"],
+      ]),
+    }).transfer;
+    requireHiddenCompaction(compacted);
+    requireHiddenCompaction(await mixed.importSession(compacted));
+    requireHiddenCompaction((await mixed.readSession(compacted.info.id))!);
     compatibleReport = {
       server: nativeCapabilities,
       mixedClient: mixedCapabilities,
       mixedRoundTrip: true,
+      hiddenCompactionRoundTrip: true,
     };
   });
 }

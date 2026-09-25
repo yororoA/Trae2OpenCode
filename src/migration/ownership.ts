@@ -5,7 +5,7 @@ import type { OpenCodeTransfer } from "../target/opencode/mapping.js";
 import type { ManifestSession, MigrationManifest } from "./manifest.js";
 
 export const jsonHash = (value: unknown) =>
-  hashCanonicalJson(JSON.parse(JSON.stringify(value)) as JsonValue);
+  hashCanonicalJson(value as JsonValue);
 
 export function isOwnedByRun(
   transfer: OpenCodeTransfer, manifest: Pick<MigrationManifest, "runId">,
@@ -17,7 +17,7 @@ export function isOwnedByRun(
     (marker.mappingVersion === 1 || marker.mappingVersion === 2 ||
       marker.mappingVersion === 3 || marker.mappingVersion === 4 ||
       marker.mappingVersion === 5 || marker.mappingVersion === 6 ||
-      marker.mappingVersion === 7);
+      marker.mappingVersion === 7 || marker.mappingVersion === 8);
   return transfer.info.id === item.targetId && isRecord(marker) &&
     marker.migrationRunId === manifest.runId && marker.sourceSessionId === item.sourceId &&
     supportedMappingVersion && item.attempts > 0;

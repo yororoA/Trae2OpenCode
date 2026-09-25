@@ -121,7 +121,7 @@ describe("native OpenCode CLI adapter", () => {
     });
   });
 
-  it("does not write when version, directory, completion or size gates fail", async () => {
+  it("does not write when version, directory or completion gates fail and accepts the former size limit", async () => {
     await setup(async ({ transfer, adapter, state, calls, root }) => {
       state.version = "2.0.13";
       await assert.rejects(adapter.importSession(transfer), { code: "T2O_OPENCODE_VERSION_UNSUPPORTED" });
@@ -133,8 +133,8 @@ describe("native OpenCode CLI adapter", () => {
       await assert.rejects(adapter.importSession(transfer), { code: "T2O_OPENCODE_MAPPING_REJECTED" });
       (transfer.messages[1].time as JsonObject).completed = 1700000004000;
       transfer.messages[0].text = "x".repeat(32 * 1024 * 1024);
-      await assert.rejects(adapter.importSession(transfer), { code: "T2O_OPENCODE_TRANSFER_TOO_LARGE" });
-      assert.equal(calls.length, 0);
+      await adapter.importSession(transfer);
+      assert.equal(calls.length, 1);
     });
   });
 
