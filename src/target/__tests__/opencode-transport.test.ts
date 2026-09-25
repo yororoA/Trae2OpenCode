@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { describe, it } from "node:test";
+import { MAX_OPENCODE_RESPONSE_BYTES } from "../../shared/limits.js";
 import { createOpenCodeTransport } from "../opencode/transport.js";
 
 async function withServer(
@@ -88,11 +89,13 @@ describe("createOpenCodeTransport", () => {
     });
   });
 
-  it("rejects oversized streamed responses", async () => {
-    await withServer((_request, response) => response.end(Buffer.alloc(32 * 1024 * 1024 + 1, " ")), async (serverUrl) => {
-      await assert.rejects(createOpenCodeTransport({ serverUrl }).request("/large"),
-        { code: "T2O_OPENCODE_REQUEST_FAILED" });
+  it("stream-parses responses above the former 32 MiB limit", async () => {
+    const text = "x".repeat(32 * 1024 * 1024 + 1);
+    await withServer((_request, response) => response.end(JSON.stringify({ text })), async (serverUrl) => {
+      const result = await createOpenCodeTransport({ serverUrl }).request("/large");
+      assert.equal((result.body as { text: string }).text.length, text.length);
     });
+    assert.ok(MAX_OPENCODE_RESPONSE_BYTES > Buffer.byteLength(text));
   });
 
   it("passes arguments literally and contains subprocess stderr", async () => {

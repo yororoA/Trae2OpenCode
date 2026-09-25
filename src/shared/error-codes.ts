@@ -45,7 +45,7 @@ export const ERROR_DEFINITIONS = {
   },
   T2O_TRAE_RUNTIME_LIMIT: {
     exitCode: 4,
-    message: "TRAE data exceeds the supported read limit; select fewer sessions.",
+    message: "TRAE data exceeds the supported 384 MiB per-session or 1 GiB total read limit; select fewer sessions.",
   },
   T2O_MIGRATION_SELECTION_EMPTY: {
     exitCode: 4,
@@ -61,7 +61,7 @@ export const ERROR_DEFINITIONS = {
   },
   T2O_MIGRATION_BUNDLE_TOO_LARGE: {
     exitCode: 4,
-    message: "The migration bundle exceeds the supported 128 MiB size limit; export fewer sessions.",
+    message: "The migration bundle exceeds the supported 1 GiB size limit; export fewer sessions.",
   },
   T2O_MIGRATION_BUNDLE_INVALID_JSON: {
     exitCode: 3,
@@ -293,7 +293,7 @@ export const ERROR_DEFINITIONS = {
   },
   T2O_OPENCODE_TRANSFER_TOO_LARGE: {
     exitCode: 5,
-    message: "The OpenCode transfer exceeds the supported size limit.",
+    message: "The OpenCode transfer exceeds the supported 384 MiB per-session or 1 GiB plan limit.",
   },
   T2O_OPENCODE_SESSION_CONFLICT: {
     exitCode: 5,

@@ -25,7 +25,7 @@ SQLite native addon、schema、preview、dry-run 和 IR 导出再读。运行需
 | 代码/状态 | 含义与下一步 |
 | --- | --- |
 | `T2O_MIGRATION_BUNDLE_NOT_FOUND` | `--input` 指向的文件不存在；先执行 `pwd`、`ls -lh <input>`，确认相对路径是相对于当前终端目录 |
-| `T2O_MIGRATION_BUNDLE_TOO_LARGE` | bundle 超过 128 MiB；重新导出时使用 `--session` 缩小范围，或拆成多个 bundle 分别迁移 |
+| `T2O_MIGRATION_BUNDLE_TOO_LARGE` | bundle 超过 1 GiB；重新导出时使用 `--session` 缩小范围，或拆成多个 bundle 分别迁移 |
 | `T2O_MIGRATION_BUNDLE_INVALID_JSON` | bundle 不是完整 JSON；检查导出是否中断，使用原始导出副本重新生成 |
 | `T2O_MIGRATION_BUNDLE_READ_FAILED` | 其他文件读取失败；检查文件权限、文件是否在迁移过程中被替换，以及父目录是否可读 |
 | `T2O_TRAE_ROOT_NOT_FOUND` | 用 `--trae-root` 指定产品数据目录或 User；检查目录可读 |
@@ -46,8 +46,9 @@ macOS 的 `open -a "Trae CN" --args ...` 经 3.3.104 实机确认可能丢弃调
 
 `--input` 不能与 `--cdp/--cdp-target/--trae-root/--product-file` 混用。
 `--session` 能限制消息正文读取；`--project` 为结果筛选，不保证减少 runtime
-总读取量。超限时优先选择单个较小会话。单会话 runtime 32 MiB，批次/IR 文件
-128 MiB；完整大 bundle 当前仍在内存处理，大小上限不是 OOM 保证。
+总读取量。超限时优先选择单个较小会话。单会话 runtime/transfer 为 384 MiB，
+批次/IR 文件为 1 GiB。文件读写、HTTP 回读和哈希采用流式处理，但映射、schema
+校验和逐字段对账仍保留结构化对象；大小上限不是任意内存配置下的 OOM 保证。
 
 ## 计划与目标
 

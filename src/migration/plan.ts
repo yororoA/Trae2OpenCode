@@ -2,9 +2,18 @@ import { hashCanonicalJson, hashMigrationBundle } from "../ir/canonical.js";
 import type { JsonValue, MigrationBundle, RecoveryGrade } from "../ir/types.js";
 import { assertMigrationBundle } from "../ir/validation.js";
 import { normalizeError, Trae2OpenCodeError } from "../shared/errors.js";
+import { jsonByteLength, JsonSizeLimitError } from "../shared/json-stream.js";
+import {
+  MAX_MIGRATION_PLAN_BYTES,
+  MAX_OPENCODE_TRANSFER_BYTES,
+} from "../shared/limits.js";
 import { assertNoCredentials } from "../shared/sensitive.js";
 import { createOpenCodeIdentityMap } from "../target/opencode/identity.js";
-import { mapOpenCodeSession, type OpenCodeTransfer } from "../target/opencode/mapping.js";
+import {
+  mapOpenCodeSession,
+  type OpenCodeMapping,
+  type OpenCodeTransfer,
+} from "../target/opencode/mapping.js";
 import {
   resolveOpenCodeDirectory, type DirectoryResolution, type ProjectPathMap,
 } from "../target/opencode/project-directory.js";
@@ -66,31 +75,48 @@ export async function buildMigrationPlan(
 ): Promise<MigrationPlan> {
   assertNoCredentials(value);
   assertNoCredentials(inputOptions);
-  const bundle = structuredClone(assertMigrationBundle(value));
+  const bundle = assertMigrationBundle(value);
   const options = structuredClone(inputOptions);
   const recovery = options.recovery ?? parseRecovery();
   if (recovery.length === 0 || recovery.some((grade) => !GRADES.includes(grade))) {
     throw new Trae2OpenCodeError("T2O_CLI_INVALID_ARGUMENTS");
   }
   const namespace = options.namespace ?? "trae-cn";
+  const sourcePlatform = bundle.source.platform;
   const identities = createOpenCodeIdentityMap(bundle, namespace);
   const sessions = new Map(bundle.sessions.map((session) => [session.sourceId, session]));
-  const plan: MigrationPlan = {
-    planVersion: 1, sourceFingerprint: bundle.source.sourceFingerprint,
-    irHash: hashMigrationBundle(bundle), namespace, options, sessions: [],
-  };
-  const planned = new Map<string, PlannedSession>();
-  let totalBytes = 0;
-  for (const identity of identities) {
+  const prepared = identities.map((identity) => {
     const session = sessions.get(identity.sourceSessionId)!;
     const item: PlannedSession = {
       sourceId: session.sourceId, targetId: identity.sessionId,
       ...(identity.parentId ? { parentId: identity.parentId } : {}),
       recovery: session.recovery, status: "excluded", reasons: [], diagnosticCodes: [],
     };
-    plan.sessions.push(item);
-    planned.set(item.targetId, item);
-    if (!recovery.includes(session.recovery)) {
+    let mapping: OpenCodeMapping | undefined;
+    let mappingError: string | undefined;
+    if (recovery.includes(session.recovery)) {
+      try {
+        // Mapping snapshots the caller-owned transcript before the first async directory check.
+        mapping = mapOpenCodeSession(bundle, session.sourceId, {
+          ...identity,
+          directory: process.cwd(),
+        });
+      } catch (error) {
+        mappingError = normalizeError(error).code;
+      }
+    }
+    return { item, sourcePath: session.projectPath, mapping, mappingError };
+  });
+  const plan: MigrationPlan = {
+    planVersion: 1, sourceFingerprint: bundle.source.sourceFingerprint,
+    irHash: hashMigrationBundle(bundle), namespace, options,
+    sessions: prepared.map(({ item }) => item),
+  };
+  const planned = new Map(plan.sessions.map((item) => [item.targetId, item]));
+  let totalBytes = 0;
+  for (const entry of prepared) {
+    const { item } = entry;
+    if (!recovery.includes(item.recovery)) {
       item.reasons.push("T2O_MIGRATION_RECOVERY_EXCLUDED");
       continue;
     }
@@ -102,7 +128,7 @@ export async function buildMigrationPlan(
     }
     try {
       const directory = await resolveOpenCodeDirectory({
-        sourcePath: session.projectPath, sourcePlatform: bundle.source.platform,
+        sourcePath: entry.sourcePath, sourcePlatform,
         pathMaps: options.pathMaps, fallbackDirectory: options.fallbackDirectory,
       });
       item.directory = directory;
@@ -110,11 +136,26 @@ export async function buildMigrationPlan(
         item.reasons.push(...directory.reasons);
         continue;
       }
-      const mapping = mapOpenCodeSession(bundle, session.sourceId, {
-        ...identity, directory: directory.targetDirectory,
-      });
-      const bytes = Buffer.byteLength(JSON.stringify(mapping.transfer), "utf8");
-      if (bytes > 32 * 1024 * 1024 || totalBytes + bytes > 128 * 1024 * 1024) {
+      if (entry.mappingError) {
+        item.reasons.push(entry.mappingError);
+        continue;
+      }
+      const mapping = entry.mapping!;
+      mapping.transfer.info.location.directory = directory.targetDirectory;
+      let bytes: number;
+      try {
+        bytes = jsonByteLength(
+          mapping.transfer as unknown as JsonValue,
+          {},
+          MAX_OPENCODE_TRANSFER_BYTES,
+        );
+      } catch (error) {
+        if (error instanceof JsonSizeLimitError) {
+          throw new Trae2OpenCodeError("T2O_OPENCODE_TRANSFER_TOO_LARGE");
+        }
+        throw error;
+      }
+      if (totalBytes > MAX_MIGRATION_PLAN_BYTES - bytes) {
         throw new Trae2OpenCodeError("T2O_OPENCODE_TRANSFER_TOO_LARGE");
       }
       totalBytes += bytes;

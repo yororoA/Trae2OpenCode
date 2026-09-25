@@ -144,7 +144,7 @@ manifest；某个会话失败后，程序会继续处理其余选项并在最后
 选择完成后无需继续输入内容。程序会依次执行以下操作：
 
 1. 从所选 workbench 的 renderer 逐个导出会话。
-2. 分别检查每个 bundle 是否超过 `128 MiB`。
+2. 分别检查每个 bundle 是否超过 `1 GiB`，并检查单会话是否超过 `384 MiB`。
 3. 自动替换标题、消息正文和工具 payload 中已识别的凭据。
 4. 进行 dry-run，确认 OpenCode 版本和数据映射。
 5. 导入到 OpenCode。
@@ -295,10 +295,11 @@ import/export 路由和 schema；即使版本号在白名单内，协议漂移�
 标记为 `partial`。如果凭据在 ID、项目路径或来源定位中，工具会停止，因为这些字段不能
 安全地猜测或重写。
 
-### bundle 超过 128 MiB
+### bundle 或单会话超过容量限制
 
-单个读取 bundle 的上限为 `128 MiB`。请选择较小的会话，或将工作拆分为多个会话后分别
-迁移。不要直接删减 bundle 内容来缩小文件。
+单个读取 bundle 的上限为 `1 GiB`，单会话 runtime 和 OpenCode transfer 的上限为
+`384 MiB`。请选择较小的会话，或将工作拆分为多个会话后分别迁移。不要直接删减
+bundle 内容来缩小文件。
 
 ### Revert 后窗口空白，或继续对话出现 invalid request
 

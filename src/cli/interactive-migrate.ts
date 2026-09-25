@@ -12,6 +12,7 @@ import type { MigrationBundle } from "../ir/types.js";
 import { readBundleFile } from "../migration/bundle-file.js";
 import { readManifest, type MigrationManifest } from "../migration/manifest.js";
 import { createMigrationTarget } from "../migration/target.js";
+import { formatByteLimit, MAX_BUNDLE_BYTES } from "../shared/limits.js";
 import { connectTraeRuntime } from "../source/trae/runtime-cdp.js";
 import { createTraeRuntimeReader } from "../source/trae/runtime-reader.js";
 import {
@@ -23,7 +24,6 @@ import {
   SUPPORTED_OPENCODE_VERSIONS,
 } from "../target/opencode/contract.js";
 
-const MAX_BUNDLE_BYTES = 128 * 1024 * 1024;
 const INTERACTIVE_EXPORT_REVISION = 10;
 const MANAGED_OPENCODE_PORT = 4097;
 const ARTIFACT_DIRECTORY = /^session-[a-f0-9]{16}$/;
@@ -821,7 +821,7 @@ async function migrateSelectedSession(options: {
 
   const stat = await fs.stat(inputFile).catch(() => undefined);
   if (!stat || stat.size > MAX_BUNDLE_BYTES) {
-    console.error("迁移 bundle 超过 128 MiB，已跳过该会话。");
+    console.error(`迁移 bundle 超过 ${formatByteLimit(MAX_BUNDLE_BYTES)}，已跳过该会话。`);
     return false;
   }
 
