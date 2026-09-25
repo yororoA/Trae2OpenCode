@@ -9,6 +9,9 @@
 工具会自动导出、脱敏、检查兼容性、导入、回读核验，并在中断后安全续跑。不会要求输入
 workbench ID 或 session ID。
 
+支持在 **macOS 与 Windows** 上直接读取本机 TRAE 会话，并按目标版本自动选择
+OpenCode **v1 或 v2 协议**。
+
 项目网站：[Trae2OpenCode](https://trae2opencode.yororoice.top/)
 
 > **首次使用请按 [操作手册](docs/operation-manual.md) 完成准备。**
@@ -19,13 +22,17 @@ workbench ID 或 session ID。
 | 组件 | 要求 |
 | --- | --- |
 | TRAE 来源 | TRAE CN **3.3.104**，已登录，并以本机 CDP 端口 `9222` 启动 |
-| OpenCode 目标 | v2（`@opencode/cli`）**2.0.12** 或 **2.0.16**；v1（`opencode-ai`）**1.18.32** 或 **1.17.9** |
+| OpenCode v2 目标 | `@opencode/cli` **2.0.12** 或 **2.0.16** |
+| OpenCode v1 目标 | `opencode-ai` **1.17.9** 或 **1.18.32** |
 | 系统 | macOS、Windows 可直接读取本机 TRAE；Linux 只支持导入已导出的 bundle |
 | Node.js | `>=18.18`，推荐 Node.js 22 |
 
 附件、Skill 与 MCP 资源不在当前迁移范围内。未知的 TRAE 或 OpenCode 版本会被拒绝，
 而不是按未经验证的规则写入数据。目标方言由可执行文件版本决定：v2 走 HTTP
 `SessionTransfer`，v1 走 `opencode import` / `opencode export` 子命令。
+
+> **OpenCode v1 当前仅验证了 `1.17.9` 与 `1.18.32` 两个版本。**
+> 这两个版本是离散白名单，不表示二者之间的所有 1.x 版本均受支持。
 
 ## 快速开始
 
@@ -62,7 +69,8 @@ npm install -g opencode-ai@1.18.32
 opencode --version
 ```
 
-看到版本为 `2.0.12` / `2.0.16` 或 `1.18.32` / `1.17.9` 后即可继续。`migrate:local` 会读取
+看到版本为 v2 的 `2.0.12` / `2.0.16`，或 v1 的 `1.17.9` / `1.18.32` 后即可继续。
+`migrate:local` 会读取
 OpenCode 当前 service descriptor 发现动态端口，并检查本机 `http://127.0.0.1:4096`。没有可用
 服务时会临时启动仅监听本机的 `4097` 进程，沿用当前本地 OpenCode 会话库，迁移结束后只关闭
 该临时进程。因此通常不需要手动启动 OpenCode server。
@@ -85,6 +93,16 @@ Windows 上 npm 只会生成 `.cmd` / `.ps1` 垫片，Node 无法直接执行它
 
 不要使用 `open -a ... --args`：当前 TRAE 版本可能忽略其中的调试参数。
 启动后登录 TRAE，打开包含目标会话的项目窗口，并确认能在历史面板看到这些会话。
+
+Windows PowerShell 示例：
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\Trae CN\Trae CN.exe" `
+  --remote-debugging-address=127.0.0.1 `
+  --remote-debugging-port=9222
+```
+
+如果 TRAE 安装在其他目录，请替换上面的可执行文件路径。
 
 ### 4. 运行一键迁移
 
@@ -205,8 +223,8 @@ TRAE 本身的历史被删除，源数据始终保持只读。
 | --- | --- |
 | `无法发现 TRAE workbench` | 完全退出后，用上面的终端命令重新启动 TRAE；确认目标项目窗口已打开。 |
 | `所选 workbench 没有可迁移的本地会话` | 选择正确的项目窗口，并在 TRAE 中打开该项目后再运行。 |
-| `无法自动启动 OpenCode` | 安装并确认 `@opencode/cli@2.0.12` / `2.0.16` 或 `opencode-ai@1.18.32` / `1.17.9`，再运行命令 |
-| `OpenCode 版本或协议不受支持` | 使用 v2 的 `2.0.12` / `2.0.16` 或 v1 的 `1.18.32` / `1.17.9`；其他版本即使能打开数据库也不会自动放行 |
+| `无法自动启动 OpenCode` | 安装并确认 `@opencode/cli@2.0.12` / `2.0.16` 或 `opencode-ai@1.17.9` / `1.18.32`，再运行命令。 |
+| `OpenCode 版本或协议不受支持` | 使用上述四个精确版本；其他版本即使能打开数据库也不会自动放行。 |
 | `所选会话包含当前无法无损映射的内容` | 工具尚未写入 OpenCode。保留产物并查看[故障排查](docs/troubleshooting.md)。 |
 | `目标会话已存在，但缺少可验证的旧 manifest` | 目标归属无法证明，因此不会覆盖；恢复对应 manifest 或在 OpenCode 中人工确认处理。 |
 | `迁移 bundle 超过 1 GiB` | 选择更小的会话；不要修改 bundle 来绕过限制。 |

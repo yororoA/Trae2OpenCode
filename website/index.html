@@ -5,18 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta
       name="description"
-      content="Trae2OpenCode 将可恢复的 TRAE 会话迁移到 OpenCode，保留消息、推理与工具调用，并完成逐项回读核验。"
+      content="Trae2OpenCode 在 macOS 与 Windows 上迁移 TRAE 会话，支持 OpenCode v1/v2 协议，并完成逐项回读核验。"
     >
     <meta name="author" content="yororoA">
     <meta name="copyright" content="Copyright © 2026 yororoA">
-    <meta name="theme-color" content="#08763d">
+    <meta name="theme-color" content="#00843d">
     <meta property="og:type" content="website">
     <meta property="og:title" content="Trae2OpenCode">
     <meta property="og:site_name" content="Trae2OpenCode">
     <meta property="og:url" content="https://trae2opencode.yororoice.top/">
     <meta
       property="og:description"
-      content="把 TRAE 会话完整带到 OpenCode。自动脱敏、断点续跑、回读核验。"
+      content="支持 macOS、Windows 与 OpenCode v1/v2，把 TRAE 会话完整带到 OpenCode。"
     >
     <meta property="og:image" content="https://trae2opencode.yororoice.top/assets/trae2opencode-social.png">
     <meta property="og:image:alt" content="Trae2OpenCode 项目图标">
@@ -26,9 +26,9 @@
     <link rel="icon" type="image/png" sizes="32x32" href="./assets/favicon-32.png?v=4">
     <link rel="icon" type="image/png" sizes="48x48" href="./assets/favicon-48.png?v=4">
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/apple-touch-icon.png?v=3">
-    <link rel="manifest" href="./site.webmanifest">
+    <link rel="manifest" href="./site.webmanifest?v=3">
     <link rel="preconnect" href="https://unpkg.com">
-    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./styles.css?v=14">
     <title>Trae2OpenCode | 可验证的会话迁移</title>
     <script type="application/ld+json">
       {
@@ -38,7 +38,7 @@
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "macOS, Windows, Linux",
         "softwareVersion": "1.0.0",
-        "description": "Migrate recoverable TRAE sessions to OpenCode with redaction, resume and readback verification.",
+        "description": "Migrate recoverable TRAE sessions on macOS and Windows to verified OpenCode v1 and v2 targets.",
         "url": "https://trae2opencode.yororoice.top/",
         "codeRepository": "https://github.com/yororoA/Trae2OpenCode",
         "license": "https://opensource.org/licenses/ISC"
@@ -86,35 +86,70 @@
     <main id="main-content">
       <section class="hero" id="top">
         <div class="hero-media" aria-hidden="true">
+          <!-- The former oversized T2O wordmark is preserved for reference.
+          <div class="hero-wordmark">
+            <span class="wordmark-glyph wordmark-t">T</span>
+            <span class="wordmark-glyph wordmark-two">
+              <span class="wordmark-two-trae">2</span>
+              <span class="wordmark-two-opencode">2</span>
+              <i class="wordmark-fault"></i>
+            </span>
+            <span class="wordmark-glyph wordmark-o">O</span>
+          </div>
+          -->
           <div class="hero-scene">
             <div class="scene-column scene-source">
-              <span class="scene-caption">TRAE / runtime</span>
-              <div class="scene-message scene-message-user"></div>
-              <div class="scene-message scene-message-reasoning"></div>
+              <span class="scene-caption">TRAE / RAW SESSION</span>
+              <span class="scene-message scene-message-user"></span>
+              <span class="scene-message scene-message-short"></span>
               <div class="scene-tool">
                 <span></span><span></span><span></span>
               </div>
-              <div class="scene-message scene-message-short"></div>
+              <span class="scene-message scene-message-reasoning"></span>
+              <span class="scene-message scene-message-user"></span>
             </div>
             <div class="scene-transfer">
               <span class="scene-transfer-line scene-transfer-line-top"></span>
-              <span class="scene-transfer-line scene-transfer-line-bottom"></span>
               <strong>IR</strong>
-              <small>map v7</small>
+              <small>MAP V8</small>
+              <span class="scene-transfer-line scene-transfer-line-bottom"></span>
             </div>
             <div class="scene-column scene-target">
-              <span class="scene-caption">OpenCode / timeline</span>
-              <div class="scene-message scene-message-user"></div>
-              <div class="scene-message scene-message-reasoning"></div>
+              <span class="scene-caption">OPENCODE / NATIVE TIMELINE</span>
+              <span class="scene-message scene-message-user"></span>
+              <span class="scene-message scene-message-reasoning"></span>
               <div class="scene-tool scene-tool-verified">
-                <span></span><span></span><i data-lucide="check"></i>
+                <span></span><span></span><span></span>
+                <i data-lucide="check" aria-hidden="true"></i>
               </div>
-              <div class="scene-message scene-message-short"></div>
+              <span class="scene-message scene-message-short"></span>
               <div class="scene-verified">
-                <i data-lucide="shield-check"></i>
-                <span>readback verified</span>
+                <i data-lucide="shield-check" aria-hidden="true"></i>
+                <span>READBACK / MATCH</span>
               </div>
             </div>
+          </div>
+          <!-- The former diamond trace is preserved for reference; hero status now carries the flow.
+          <div class="rebuild-trace">
+            <span class="trace-line"></span>
+            <span class="trace-node trace-node-one"></span>
+            <span class="trace-node trace-node-two"></span>
+            <span class="trace-node trace-node-three"></span>
+          </div>
+          -->
+          <!-- Solid fault shards obscured copy and competed with the T/2/O wordmark.
+          <div class="fault-field" aria-hidden="true">
+            <span class="fault-shard fault-shard-one"></span>
+            <span class="fault-shard fault-shard-two"></span>
+            <span class="fault-shard fault-shard-three"></span>
+            <span class="fault-shard fault-shard-four"></span>
+            <span class="fault-shard fault-shard-five"></span>
+          </div>
+          -->
+          <div class="hero-status">
+            <span>TRAE / fragmented</span>
+            <strong>IR · MAP V8</strong>
+            <span>OpenCode / verified</span>
           </div>
         </div>
         <div class="hero-overlay" aria-hidden="true"></div>
@@ -126,25 +161,25 @@
             width="64"
             height="64"
           >
-          <p class="eyebrow" data-i18n="hero.eyebrow">开源 · 本地优先 · 可验证</p>
-          <h1>Trae2OpenCode</h1>
+          <p class="eyebrow" data-i18n="hero.eyebrow">macOS / Windows · OpenCode v1 / v2</p>
+          <h1 data-text="Trae2OpenCode">Trae2OpenCode</h1>
           <p class="hero-statement" data-i18n="hero.statement">把 TRAE 会话，完整带到 OpenCode。</p>
           <p class="hero-description" data-i18n="hero.description">
-            一条命令迁移消息、推理与工具调用。自动脱敏，支持中断续跑，并在写入后逐项回读核验。
+            一条命令迁移消息、推理与工具调用。自动识别 OpenCode v1/v2 协议，支持中断续跑，并在写入后逐项回读核验。
           </p>
           <div class="hero-actions">
-            <a class="button button-primary" href="#quickstart">
-              <i data-lucide="terminal" aria-hidden="true"></i>
-              <span data-i18n="hero.start">开始迁移</span>
-            </a>
             <a
-              class="button button-secondary"
+              class="button button-primary"
               href="https://github.com/yororoA/Trae2OpenCode"
               target="_blank"
               rel="noreferrer"
             >
               <i data-lucide="github" aria-hidden="true"></i>
-              <span data-i18n="hero.source">查看源码</span>
+              <span data-i18n="hero.start">在 GitHub 获取</span>
+            </a>
+            <a class="button button-secondary" href="#quickstart">
+              <i data-lucide="book-open" aria-hidden="true"></i>
+              <span data-i18n="hero.source">查看使用方式</span>
             </a>
           </div>
           <div class="hero-command" aria-label="迁移命令">
@@ -166,12 +201,12 @@
           <span data-i18n="proof.command">条命令完成迁移</span>
         </div>
         <div class="proof-item">
-          <strong>398</strong>
-          <span data-i18n="proof.tests">项自动化测试</span>
+          <strong>macOS + Windows</strong>
+          <span data-i18n="proof.platforms">本机 TRAE 来源读取</span>
         </div>
         <div class="proof-item">
-          <strong>2.0.12 / 2.0.16</strong>
-          <span data-i18n="proof.versions">已验证 OpenCode 版本</span>
+          <strong>v1 + v2</strong>
+          <span data-i18n="proof.protocols">双协议目标适配</span>
         </div>
         <div class="proof-item">
           <strong>Readback</strong>
@@ -388,7 +423,7 @@
                 <span>2</span>
                 <div>
                   <h3 data-i18n="quickstart.stepTwoTitle">启动 TRAE 调试端口</h3>
-                  <p data-i18n="quickstart.stepTwoText">打开包含目标会话的项目窗口。</p>
+                  <p data-i18n="quickstart.stepTwoText">在 macOS 或 Windows 上用调试参数启动 TRAE，并打开目标项目窗口。</p>
                 </div>
               </li>
               <li>
@@ -433,7 +468,7 @@ npm run migrate:local</code></pre>
         </div>
       </section>
 
-      <section class="compatibility-band">
+      <section class="compatibility-band" id="compatibility">
         <div class="section-inner reveal">
           <div class="compatibility-heading">
             <p class="eyebrow" data-i18n="compatibility.eyebrow">明确的兼容边界</p>
@@ -451,9 +486,19 @@ npm run migrate:local</code></pre>
               <span role="cell" data-i18n="compatibility.reject">拒绝写入</span>
             </div>
             <div class="compatibility-row" role="row">
-              <strong role="cell">OpenCode</strong>
+              <strong role="cell">OpenCode v2</strong>
               <span role="cell">2.0.12 / 2.0.16</span>
               <span role="cell" data-i18n="compatibility.reject">拒绝写入</span>
+            </div>
+            <div class="compatibility-row" role="row">
+              <strong role="cell">OpenCode v1</strong>
+              <span role="cell">1.17.9 / 1.18.32</span>
+              <span role="cell" data-i18n="compatibility.reject">拒绝写入</span>
+            </div>
+            <div class="compatibility-row" role="row">
+              <strong role="cell" data-i18n="compatibility.platform">本机来源读取</strong>
+              <span role="cell">macOS / Windows</span>
+              <span role="cell" data-i18n="compatibility.offline">Linux 仅导入 bundle</span>
             </div>
             <div class="compatibility-row" role="row">
               <strong role="cell">Node.js</strong>
@@ -461,10 +506,16 @@ npm run migrate:local</code></pre>
               <span role="cell" data-i18n="compatibility.upgrade">提示升级</span>
             </div>
           </div>
+          <p class="compatibility-note" id="v1-support">
+            <i data-lucide="shield-check" aria-hidden="true"></i>
+            <span data-i18n="compatibility.note">
+              OpenCode v1 当前仅验证 1.17.9 与 1.18.32 两个版本，不表示两者之间的所有版本均受支持。
+            </span>
+          </p>
         </div>
       </section>
 
-      <section class="final-cta">
+      <section class="final-cta" id="get-project">
         <div class="section-inner reveal">
           <p class="eyebrow" data-i18n="cta.eyebrow">上下文不该被困在一个工具里</p>
           <h2>Trae2OpenCode</h2>
@@ -512,6 +563,6 @@ npm run migrate:local</code></pre>
     </footer>
 
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
-    <script src="./app.js"></script>
+    <script src="./app.js?v=3"></script>
   </body>
 </html>
