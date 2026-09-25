@@ -18,6 +18,8 @@ import {
   isReplacementManifestForSession,
   isTerminalManifestForSession,
   localServerUrl,
+  migrationCompletionMessage,
+  migrationProgressMessage,
   parseChoiceIndex,
   parseChoiceIndexes,
   parseOpenCodeServiceDescriptor,
@@ -142,6 +144,18 @@ describe("interactive migration helpers", () => {
     assert.equal(requiresOverwriteApproval({
       resumeNeedsExclusiveAccess: true,
     }), true);
+  });
+
+  it("reports the current migration action instead of cumulative replacement history", () => {
+    assert.equal(migrationProgressMessage("create"), "正在迁移并校验，请稍候...");
+    assert.equal(migrationProgressMessage("replace"), "正在校验并覆盖已有会话，请稍候...");
+    assert.equal(migrationProgressMessage("resume"), "正在续跑并回读校验，请稍候...");
+    assert.equal(
+      migrationCompletionMessage("create", "/private/current"),
+      "迁移完成，结果已写入：/private/current",
+    );
+    assert.equal(migrationCompletionMessage("replace", "/private/current"), "已有会话已安全覆盖并通过校验。");
+    assert.equal(migrationCompletionMessage("resume", "/private/current"), "已有迁移记录，回读校验通过。");
   });
 
   it("isolates the managed service descriptor while retaining the user's target database", () => {

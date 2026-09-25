@@ -271,6 +271,21 @@ export type InteractiveMigrationMode = {
   args: string[];
 };
 
+export function migrationProgressMessage(mode: InteractiveMigrationMode["name"]): string {
+  if (mode === "replace") return "正在校验并覆盖已有会话，请稍候...";
+  if (mode === "resume") return "正在续跑并回读校验，请稍候...";
+  return "正在迁移并校验，请稍候...";
+}
+
+export function migrationCompletionMessage(
+  mode: InteractiveMigrationMode["name"],
+  runDirectory: string,
+): string {
+  if (mode === "replace") return "已有会话已安全覆盖并通过校验。";
+  if (mode === "resume") return "已有迁移记录，回读校验通过。";
+  return `迁移完成，结果已写入：${runDirectory}`;
+}
+
 export function resolveInteractiveMigrationMode(options: {
   manifest: string;
   runDirectory: string;
@@ -898,9 +913,7 @@ async function migrateSelectedSession(options: {
     return false;
   }
 
-  console.log(mode.name === "replace"
-    ? "正在校验并覆盖已有会话，请稍候..."
-    : "正在迁移并校验，请稍候...");
+  console.log(migrationProgressMessage(mode.name));
   const migrated = await runCli([
     "migrate", "--input", inputFile, "--server", server,
     "--fallback-directory", rootDirectory, ...mode.args, "--json",
@@ -916,13 +929,7 @@ async function migrateSelectedSession(options: {
     console.error("迁移结果未通过完整回读校验。");
     return false;
   }
-  if (migrationResult.replaced === 1) {
-    console.log("已有会话已安全覆盖并通过校验。");
-  } else if (mode.name === "resume") {
-    console.log("迁移续跑完成，已有会话已校验。");
-  } else {
-    console.log(`迁移完成，结果已写入：${runDirectory}`);
-  }
+  console.log(migrationCompletionMessage(mode.name, runDirectory));
 
   const canCleanDefaultArtifacts =
     process.env.T2O_MIGRATION_EXPORT === undefined &&
@@ -1055,8 +1062,10 @@ async function main(): Promise<number> {
     const migrationJobs = overwritePolicy === "skip"
       ? jobs.filter((job) => !requiresOverwriteApproval(job))
       : jobs;
-    if (skipped > 0) {
-      console.log(`已通过 -n 跳过 ${skipped} 个需要覆盖的会话。`);
+    if (overwritePolicy === "skip") {
+      console.log(skipped > 0
+        ? `已通过 -n 跳过 ${skipped} 个需要 OVERWRITE 的会话。`
+        : "-n 未发现需要 OVERWRITE 的会话，将继续校验或迁移其他会话。");
     }
     if (overwritePolicy !== "skip" &&
       !await confirmOverwrite(overwriteCount, overwritePolicy)) {
