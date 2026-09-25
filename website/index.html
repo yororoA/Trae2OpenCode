@@ -28,7 +28,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/apple-touch-icon.png?v=3">
     <link rel="manifest" href="./site.webmanifest?v=3">
     <link rel="preconnect" href="https://unpkg.com">
-    <link rel="stylesheet" href="./styles.css?v=13">
+    <link rel="stylesheet" href="./styles.css?v=14">
     <title>Trae2OpenCode | 可验证的会话迁移</title>
     <script type="application/ld+json">
       {
@@ -86,16 +86,48 @@
     <main id="main-content">
       <section class="hero" id="top">
         <div class="hero-media" aria-hidden="true">
+          <!-- The former oversized T2O wordmark is preserved for reference.
           <div class="hero-wordmark">
             <span class="wordmark-glyph wordmark-t">T</span>
             <span class="wordmark-glyph wordmark-two">
               <span class="wordmark-two-trae">2</span>
               <span class="wordmark-two-opencode">2</span>
-              <!-- The former lightning-shaped center fault is preserved for reference.
               <i class="wordmark-fault"></i>
-              -->
             </span>
             <span class="wordmark-glyph wordmark-o">O</span>
+          </div>
+          -->
+          <div class="hero-scene">
+            <div class="scene-column scene-source">
+              <span class="scene-caption">TRAE / RAW SESSION</span>
+              <span class="scene-message scene-message-user"></span>
+              <span class="scene-message scene-message-short"></span>
+              <div class="scene-tool">
+                <span></span><span></span><span></span>
+              </div>
+              <span class="scene-message scene-message-reasoning"></span>
+              <span class="scene-message scene-message-user"></span>
+            </div>
+            <div class="scene-transfer">
+              <span class="scene-transfer-line scene-transfer-line-top"></span>
+              <strong>IR</strong>
+              <small>MAP V8</small>
+              <span class="scene-transfer-line scene-transfer-line-bottom"></span>
+            </div>
+            <div class="scene-column scene-target">
+              <span class="scene-caption">OPENCODE / NATIVE TIMELINE</span>
+              <span class="scene-message scene-message-user"></span>
+              <span class="scene-message scene-message-reasoning"></span>
+              <div class="scene-tool scene-tool-verified">
+                <span></span><span></span><span></span>
+                <i data-lucide="check" aria-hidden="true"></i>
+              </div>
+              <span class="scene-message scene-message-short"></span>
+              <div class="scene-verified">
+                <i data-lucide="shield-check" aria-hidden="true"></i>
+                <span>READBACK / MATCH</span>
+              </div>
+            </div>
           </div>
           <!-- The former diamond trace is preserved for reference; hero status now carries the flow.
           <div class="rebuild-trace">
