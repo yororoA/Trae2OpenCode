@@ -13,11 +13,11 @@ describe("migration target", () => {
     }
   });
 
-  it("refuses to describe or write an unverified target version", async () => {
+  it("refuses to describe or read a target outside the implemented protocol families", async () => {
     const target = createMigrationTarget({
       serverUrl: "http://127.0.0.1:1234",
       transport: {
-        async run(args) { assert.deepEqual(args, ["--version"]); return "2.0.13"; },
+        async run(args) { assert.deepEqual(args, ["--version"]); return "3.0.0"; },
         async request() { assert.fail("No requests for unsupported binary"); },
       },
     });

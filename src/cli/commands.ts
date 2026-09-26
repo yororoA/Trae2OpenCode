@@ -99,10 +99,11 @@ export async function executeReadCommand(command: string, options: CommandOption
     const pathMaps = parsePathMaps(options.pathMaps);
     const bundle = await loadCommandBundle(options);
     // The verified target decides the payload dialect before anything is planned.
-    const capabilities = options.server ? await probeOpenCodeCapabilities(createOpenCodeTransport({
-      serverUrl: options.server, binary: options.binary,
-      password: process.env.OPENCODE_SERVER_PASSWORD, username: process.env.OPENCODE_SERVER_USERNAME,
-    })) : undefined;
+    const transport = options.server ? createOpenCodeTransport(targetOptions) : undefined;
+    const capabilities = transport ? await probeOpenCodeCapabilities(transport) : undefined;
+    if (!options.dryRun && capabilities && !capabilities.writable) {
+      throw new Trae2OpenCodeError(capabilities.reasons[0] ?? "T2O_OPENCODE_CAPABILITY_UNAVAILABLE");
+    }
     const plan = await buildMigrationPlan(bundle, {
       recovery, pathMaps, namespace: options.namespace, fallbackDirectory: options.fallbackDirectory,
       ...(capabilities === undefined ? {} : {
@@ -111,7 +112,7 @@ export async function executeReadCommand(command: string, options: CommandOption
       }),
     });
     if (!options.dryRun) {
-      return migrate(plan, createMigrationTarget(targetOptions), {
+      return migrate(plan, createMigrationTarget({ ...targetOptions, transport }), {
         outputDirectory: options.output, resumeManifest: options.resume,
         replaceManifest: options.replace, exclusiveTarget: options.exclusiveTarget,
       });

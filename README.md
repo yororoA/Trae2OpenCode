@@ -22,17 +22,19 @@ OpenCode **v1 或 v2 协议**。
 | 组件 | 要求 |
 | --- | --- |
 | TRAE 来源 | TRAE CN **3.3.104**，已登录，并以本机 CDP 端口 `9222` 启动 |
-| OpenCode v2 目标 | `@opencode/cli` **2.0.12** 或 **2.0.16** |
-| OpenCode v1 目标 | `opencode-ai` **1.17.9** 或 **1.18.32** |
+| OpenCode v2 目标 | 已验证基线：`@opencode/cli` **2.0.12**、**2.0.16**；其他稳定 2.x 自动检测兼容性 |
+| OpenCode v1 目标 | 已验证基线：`opencode-ai` **1.17.9**、**1.18.32**；其他稳定 1.x 自动检测兼容性 |
 | 系统 | macOS、Windows 可直接读取本机 TRAE；Linux 只支持导入已导出的 bundle |
 | Node.js | `>=18.18`，推荐 Node.js 22 |
 
-附件、Skill 与 MCP 资源不在当前迁移范围内。未知的 TRAE 或 OpenCode 版本会被拒绝，
-而不是按未经验证的规则写入数据。目标方言由可执行文件版本决定：v2 走 HTTP
+附件、Skill 与 MCP 资源不在当前迁移范围内。未知的 TRAE 来源版本仍会被拒绝。
+OpenCode 根据实际协议和隔离往返结果决定能否迁移。目标方言由可执行文件版本决定：v2 走 HTTP
 `SessionTransfer`，v1 走 `opencode import` / `opencode export` 子命令。
 
-> **OpenCode v1 当前仅验证了 `1.17.9` 与 `1.18.32` 两个版本。**
-> 这两个版本是离散白名单，不表示二者之间的所有 1.x 版本均受支持。
+> **未收录的 OpenCode 稳定版本不再仅因版本号被拒绝。**
+> CLI 与目标服务必须为同一版本，必要路由和完整 schema 必须匹配，然后在独立临时库中
+> 验证导入、导出、回读、冲突与删除保护。通过后才允许迁移；预发布版本、未知主版本、
+> schema 变化或行为验证失败仍会停止。无需增加跳过校验参数。
 
 ## 快速开始
 
@@ -69,7 +71,9 @@ npm install -g opencode-ai@1.18.32
 opencode --version
 ```
 
-看到版本为 v2 的 `2.0.12` / `2.0.16`，或 v1 的 `1.17.9` / `1.18.32` 后即可继续。
+建议使用上述基线版本；其他稳定 1.x/2.x 会在迁移前自动检测兼容性。
+也可运行 `npm run verify:opencode` 单独检查本机 OpenCode，命令复用相同协议规则和
+隔离往返验证，支持 `--binary`、`--output` 与 `--json`；详见[独立验证说明](docs/opencode-compatibility.md#独立验证本机-opencode)。
 `migrate:local` 会读取
 OpenCode 当前 service descriptor 发现动态端口，并检查本机 `http://127.0.0.1:4096`。没有可用
 服务时会临时启动仅监听本机的 `4097` 进程，沿用当前本地 OpenCode 会话库，迁移结束后只关闭
@@ -78,8 +82,9 @@ OpenCode 当前 service descriptor 发现动态端口，并检查本机 `http://
 Windows 上 npm 只会生成 `.cmd` / `.ps1` 垫片，Node 无法直接执行它们，因此工具会自动解析
 垫片里指向的原生 `opencode.exe`；解析失败时可用 `T2O_OPENCODE_BINARY` 或 `--binary` 指定。
 
-如果发现正在运行的 OpenCode 桌面端或服务不在已验证版本范围内，程序会要求先停止
-该服务，不会再启动另一个进程并发访问同一数据库。`2.0.16` 桌面端可直接作为迁移目标。
+正在运行的未收录版本会先接受协议检测。若本机 CLI 版本与它不同，请安装同版本 CLI，
+或用 `T2O_OPENCODE_BINARY` 指定同版本可执行文件。隔离验证使用独立临时数据库，
+不会另启进程并发访问用户会话库。`2.0.16` 桌面端可直接作为迁移目标。
 
 ### 3. 以调试模式启动 TRAE
 
@@ -223,8 +228,10 @@ TRAE 本身的历史被删除，源数据始终保持只读。
 | --- | --- |
 | `无法发现 TRAE workbench` | 完全退出后，用上面的终端命令重新启动 TRAE；确认目标项目窗口已打开。 |
 | `所选 workbench 没有可迁移的本地会话` | 选择正确的项目窗口，并在 TRAE 中打开该项目后再运行。 |
-| `无法自动启动 OpenCode` | 安装并确认 `@opencode/cli@2.0.12` / `2.0.16` 或 `opencode-ai@1.17.9` / `1.18.32`，再运行命令。 |
-| `OpenCode 版本或协议不受支持` | 使用上述四个精确版本；其他版本即使能打开数据库也不会自动放行。 |
+| `无法自动启动 OpenCode` | 确认 `opencode --version` 可运行，再用 `npm run verify:opencode` 检查兼容性；需要重装时可选择上述已验证基线。 |
+| `OpenCode 版本或协议不受支持` | 确认是稳定 1.x/2.x；实际路由和 schema 必须与基线一致。 |
+| `未收录的 OpenCode 版本需要同版本 CLI` | 安装与目标服务相同版本的 CLI，或用 `T2O_OPENCODE_BINARY` 指定。 |
+| `隔离导入、回读或删除验证失败` | 尚未向目标写入会话；使用已验证基线版本，保留错误码用于排查。 |
 | `所选会话包含当前无法无损映射的内容` | 工具尚未写入 OpenCode。保留产物并查看[故障排查](docs/troubleshooting.md)。 |
 | `目标会话已存在，但缺少可验证的旧 manifest` | 目标归属无法证明，因此不会覆盖；恢复对应 manifest 或在 OpenCode 中人工确认处理。 |
 | `迁移 bundle 超过 1 GiB` | 选择更小的会话；不要修改 bundle 来绕过限制。 |
@@ -232,6 +239,8 @@ TRAE 本身的历史被删除，源数据始终保持只读。
 ## 高级操作与文档
 
 - [操作手册：从准备到验证、续跑与回滚](docs/operation-manual.md)
+- [OpenCode 协议兼容性检测](docs/opencode-compatibility.md)
+- [产品与数据格式版本管理](docs/versioning.md)、[变更记录](CHANGELOG.md)
 - [故障排查与错误码](docs/troubleshooting.md)
 - [离线 CLI、dry-run、导入与回读](docs/m5-1-readonly-cli.md)、[迁移记录与续跑](docs/m5-3-manifest-resume.md)
 - [凭据处理边界](docs/m5-6-sensitive-content.md)、[回滚与恢复](docs/m5-5-rollback.md)

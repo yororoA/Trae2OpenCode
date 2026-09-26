@@ -22,7 +22,7 @@ server。
 
 ## 迁移前先了解三件事
 
-1. 当前支持 TRAE CN `3.3.104`，以及 OpenCode `2.0.12` 和 `2.0.16`。
+1. 来源支持 TRAE CN `3.3.104`；OpenCode 支持已验证的 v1/v2 基线及通过兼容性检测的稳定版本。
 2. TRAE 必须以本机调试端口 `9222` 启动，工具才能读取完整会话正文。
 3. 目标会话所在的项目窗口必须保持打开。窗口可以在后台或最小化，不需要一直显示在前台。
 
@@ -55,9 +55,10 @@ npm run check
 
 该检查会执行 lint、单元测试、类型检查、构建和 CLI smoke；它不会迁移任何真实会话。
 
-### 第 2 步：安装受支持版本的 OpenCode
+### 第 2 步：准备 OpenCode 并检查兼容性
 
-安装并确认 OpenCode v2 `2.0.12` / `2.0.16`，或 v1 `1.18.32` / `1.17.9`：
+已有稳定 1.x/2.x 可直接运行 `npm run verify:opencode` 检查兼容性。
+需要安装时，可按所用方言选择以下已验证基线之一：
 
 ```sh
 npm install -g @opencode/cli@2.0.16   # v2
@@ -65,8 +66,10 @@ npm install -g opencode-ai@1.18.32    # v1
 opencode --version
 ```
 
-版本不在上述范围内时不要继续迁移。工具会拒绝写入未验证的版本。目标方言由可执行文件
-版本决定，不接受手动指定：v2 使用 HTTP `SessionTransfer`，v1 使用 `opencode import` /
+上述清单是已验证基线。其他稳定 1.x/2.x 会自动校验必要接口和完整 schema，再使用
+同版本 CLI 在独立临时库完成导入、导出、回读及删除保护验证。通过后允许迁移；
+清单外版本的 CLI 与服务版本不同、预发布版本、未知主版本或验证失败仍拒绝。
+目标方言由可执行文件版本决定，不接受手动指定：v2 使用 HTTP `SessionTransfer`，v1 使用 `opencode import` /
 `opencode export` 子命令。
 
 不必先启动 OpenCode server。迁移程序会读取当前 OpenCode service descriptor
@@ -78,9 +81,9 @@ v1 没有 service descriptor，工具会自行以同一会话库启动 `opencode
 Windows 上 npm 只生成 `.cmd` / `.ps1` 垫片，Node 无法直接执行它们，因此工具会自动解析
 垫片指向的原生 `opencode.exe`。解析失败时用 `T2O_OPENCODE_BINARY` 指向该文件。
 
-如果 service descriptor 指向正在运行的未验证版本，程序会立即停止，不会并发启动
-另一个服务访问同一数据库。OpenCode `2.0.16` 桌面端已经过 schema 和真实往返验证，
-可以保持运行并直接作为迁移目标。
+如果 service descriptor 指向正在运行的未收录版本，程序会检查其协议，要求本地 CLI
+与它同版本以执行隔离验证。可用 `T2O_OPENCODE_BINARY` 指向同版本可执行文件。
+不会另启服务并发访问同一用户数据库。详见[协议兼容性检测](opencode-compatibility.md)。
 
 ### 第 3 步：完全退出并以调试模式启动 TRAE
 
@@ -295,7 +298,7 @@ manifest 的目标绝不会被自动覆盖。相同 bundle 和 manifest 的普�
 opencode --version
 ```
 
-确认输出为 `2.0.12` 或 `2.0.16`。若命令不存在，重新执行：
+确认能输出稳定的 1.x/2.x 版本。若命令不存在，可安装已验证基线：
 
 ```sh
 npm install -g @opencode/cli@2.0.16
@@ -305,9 +308,13 @@ npm install -g @opencode/cli@2.0.16
 
 ### 工具提示 OpenCode 版本或协议不受支持
 
-当前迁移契约只验证了 OpenCode `2.0.12` 和 `2.0.16`。完全退出其他版本的 OpenCode
-桌面端，确认其后台服务也已结束，再安装受支持版本并重新运行。工具还会核验实际
-import/export 路由和 schema；即使版本号在白名单内，协议漂移时也会拒绝写入。
+先根据错误码区分原因：版本格式、预发布和未知主版本会被拒绝；稳定版本仍需
+实际 import/export 路由和完整 schema 匹配。未收录版本还需同版本 CLI 完成隔离验证。
+即使基线版本也不会绕过 schema 检查。
+
+`T2O_OPENCODE_COMPATIBILITY_BINARY_REQUIRED` 表示需要指定同版本 CLI；
+`T2O_OPENCODE_COMPATIBILITY_UNVERIFIED` 表示隔离行为验证未通过，尚未向用户目标写入。
+不要通过修改版本号绕过检查，可改用已验证基线。
 
 ### 工具提示会话无法无损映射
 
@@ -382,6 +389,7 @@ node dist/cli/index.js rollback \
 | --- | --- |
 | `T2O_TRAE_CDP` | TRAE 调试端口不是 `http://127.0.0.1:9222`。 |
 | `T2O_OPENCODE_SERVER` | 需要迁移到自行维护的 OpenCode server。设置后工具不会启动临时服务。 |
+| `T2O_OPENCODE_BINARY` | 指定原生 CLI；未收录版本需与目标服务版本完全一致。 |
 | `T2O_MIGRATION_EXPORT` | 将 bundle 保存到受控的自定义私有目录。 |
 | `T2O_MIGRATION_RUN` | 将 manifest 保存到受控的自定义私有目录。 |
 | `T2O_REPLACE_EXISTING=1` | 无交互确认覆盖；仅用于已确保没有其他 OpenCode 写入者的自动化环境。 |

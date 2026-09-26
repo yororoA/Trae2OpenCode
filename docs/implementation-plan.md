@@ -4,6 +4,9 @@
 > 核验日期：2026-09-24
 > 基线：TRAE CN 3.3.104、OpenCode 2.0.12
 
+上述日期与版本记录 P0 初次验收。当前 OpenCode 支持按协议及隔离往返结果检测稳定
+1.x/2.x，列出的版本为已验证基线；最新准入规则见[兼容性说明](opencode-compatibility.md)。
+
 ## 1. 结论
 
 项目按“源数据审计 -> 中间格式 -> OpenCode 原生导入 -> 对账验证”推进。
@@ -611,7 +614,7 @@ OpenCode 2.0.12，expected/actual 计数和 hash 一致。resume 与重复跳过
 | ID | 任务 | 依赖 | 验收 |
 | --- | --- | --- | --- |
 | M7-1 | macOS/Windows 集成矩阵 | M5 | 已通过三系统 Node 18.20.8/22；macOS/Windows 默认源目录与三端目标链路通过 |
-| M7-2 | OpenCode 版本契约测试 | M4 | 已通过：2.0.12 原生写入/回读，真实 2.0.11 准确拒写 |
+| M7-2 | OpenCode 版本契约测试 | M4 | 已通过：基线原生写入/回读；2.0.11 与 2.0.12 混用拒写，同版本 2.0.11 通过隔离检测后准入 |
 | M7-3 | 大会话与异常中断测试 | M5 | 已通过三端：512 MiB 堆固定负载、两组真实 kill/resume，无重复 import |
 | M7-4 | 安装包、README、故障排查 | M7-1..3 | 已通过：白名单 tarball、隔离安装/SQLite/bin/dry-run；三端六任务安装 CI 成功 |
 | M7-5 | 可选 SQLite fallback 评估 | M7-2 | 当前原生 import 满足 P0，不立项 |

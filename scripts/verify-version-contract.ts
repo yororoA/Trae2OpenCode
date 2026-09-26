@@ -1,9 +1,13 @@
-/** Current real server/CLI round-trip and real adjacent binary fail-closed checks. */
+/** Reviewed releases and an unreviewed native binary must satisfy the actual protocol. */
 import assert from "node:assert/strict";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { AssistantEventIR, MigrationBundle } from "../src/ir/types.js";
 import { readBundleFile } from "../src/migration/bundle-file.js";
+import { buildMigrationPlan } from "../src/migration/plan.js";
+import { migrate, verifyMigration } from "../src/migration/executor.js";
+import { rollbackMigration } from "../src/migration/rollback.js";
+import { createMigrationTarget } from "../src/migration/target.js";
 import { requireOpenCodeCapabilities, probeOpenCodeCapabilities } from "../src/target/opencode/capability-probe.js";
 import { assertOpenCodeTransfer, TRANSFER_SCHEMA_HASH } from "../src/target/opencode/contract.js";
 import { withIsolatedOpenCodeServer } from "../src/target/opencode/isolated-server.js";
@@ -13,7 +17,6 @@ import {
   type OpenCodeTransfer,
 } from "../src/target/opencode/mapping.js";
 import { createNativeOpenCodeAdapter } from "../src/target/opencode/native-adapter.js";
-import { createOpenCodeTransport, type OpenCodeTransport } from "../src/target/opencode/transport.js";
 
 function requireHiddenCompaction(value: unknown): void {
   assertOpenCodeTransfer(value);
@@ -51,47 +54,16 @@ await withIsolatedOpenCodeServer({
     ]),
   });
   const native = createNativeOpenCodeAdapter({ ...server, temporaryRoot: server.directory });
-  const adjacentNative = createOpenCodeTransport({
-    binary: adjacent, serverUrl: server.serverUrl, cwd: server.directory,
-    env: {
-      PATH: process.env.PATH, SystemRoot: process.env.SystemRoot,
-      TEMP: server.directory, TMP: server.directory,
-      XDG_CONFIG_HOME: server.directory, XDG_DATA_HOME: server.directory,
-      XDG_CACHE_HOME: server.directory, XDG_STATE_HOME: server.directory,
-      OPENCODE_DISABLE_PROJECT_CONFIG: "1", OPENCODE_DISABLE_AUTOUPDATE: "1",
-      OPENCODE_DISABLE_MODELS_FETCH: "1",
-    },
-  });
-  const calls: string[][] = [];
-  let requests = 0;
-  const adjacentTransport: OpenCodeTransport = {
-    async run(args) {
-      calls.push([...args]);
-      // All observations come from the real 2.0.11 executable.
-      return adjacentNative.run(args);
-    },
-    async request(route) {
-      requests++;
-      return server.transport.request(route);
-    },
-  };
+  const adjacentTransport = server.createTransport(adjacent);
   const rejected = await probeOpenCodeCapabilities(adjacentTransport);
   assert.equal(rejected.binaryVersion, "2.0.11");
   assert.equal(rejected.writable, false);
-  assert.deepEqual(rejected.reasons, ["T2O_OPENCODE_VERSION_UNSUPPORTED"]);
+  assert.deepEqual(rejected.reasons, ["T2O_OPENCODE_COMPATIBILITY_BINARY_REQUIRED"]);
   const incompatible = createNativeOpenCodeAdapter({
     serverUrl: server.serverUrl, transport: adjacentTransport, temporaryRoot: server.directory,
   });
-  await assert.rejects(incompatible.importSession(transfer), { code: "T2O_OPENCODE_VERSION_UNSUPPORTED" });
-  assert.equal(requests, 0);
-  assert.deepEqual(calls, [["--version"], ["--version"]]);
+  await assert.rejects(incompatible.importSession(transfer), { code: "T2O_OPENCODE_COMPATIBILITY_BINARY_REQUIRED" });
   assert.equal(await native.readSession(transfer.info.id), null);
-  let doctorCallback = false;
-  await assert.rejects(withIsolatedOpenCodeServer({
-    binary: adjacent, temporaryRoot: server.directory,
-  }, async () => { doctorCallback = true; }), { code: "T2O_OPENCODE_VERSION_UNSUPPORTED" });
-  assert.equal(doctorCallback, false);
-  assert.equal((await fs.readdir(server.directory)).some((name) => name.startsWith("t2o-opencode-")), false);
   const actual = await native.importSession(transfer);
   assert.deepEqual(await native.exportSession(transfer.info.id), actual);
   const compactionBundle = structuredClone(bundle);
@@ -109,9 +81,42 @@ await withIsolatedOpenCodeServer({
   requireHiddenCompaction((await native.readSession(compacted.info.id))!);
   baselineReport = {
     platform: process.platform, current: capabilities, adjacent: rejected,
-    adjacentImportCalls: 0, adjacentServerRequests: requests,
     adjacentTargetAbsent: true, currentRoundTrip: true,
     hiddenCompactionRoundTrip: true, status: "verified",
+  };
+});
+
+let unreviewedReport: Record<string, unknown> | undefined;
+await withIsolatedOpenCodeServer({ binary: adjacent, temporaryRoot: "tmp" }, async (server) => {
+  const capabilities = await requireOpenCodeCapabilities(server.transport);
+  assert.equal(capabilities.binaryVersion, "2.0.11");
+  assert.equal(capabilities.serverVersion, "2.0.11");
+  assert.equal(capabilities.compatibility, "isolated-roundtrip");
+  const plan = await buildMigrationPlan(await readBundleFile("fixtures/ir/v1/valid-trae-assembled.json"), {
+    dialect: capabilities.dialect, targetVersion: capabilities.binaryVersion!,
+    fallbackDirectory: server.directory,
+  });
+  const target = createMigrationTarget({
+    serverUrl: server.serverUrl, transport: server.transport, temporaryRoot: server.directory,
+  });
+  // The canary must not have imported its synthetic sessions into this target.
+  const existing = await server.transport.request("/api/session?limit=100");
+  assert.equal(existing.status, 200);
+  assert.deepEqual((existing.body as { data: unknown[] }).data, []);
+  const outputDirectory = path.join(server.directory, "migration");
+  const first = await migrate(plan, target, { outputDirectory });
+  assert.equal(first.verified, 1);
+  assert.equal(first.hasFailures, false);
+  const manifest = path.join(outputDirectory, first.manifest);
+  assert.equal((await verifyMigration(manifest, target)).hasFailures, false);
+  assert.equal((await migrate(plan, target, { resumeManifest: manifest })).hasFailures, false);
+  assert.equal((await rollbackMigration(manifest, target, {
+    confirm: first.runId, exclusiveTarget: true,
+  })).hasFailures, false);
+  assert.equal(await target.readSession(plan.sessions[0].targetId), null);
+  unreviewedReport = {
+    version: capabilities.binaryVersion, compatibility: capabilities.compatibility,
+    targetEmptyAfterCanary: true, migration: true, verify: true, resume: true, rollback: true,
   };
 });
 
@@ -175,6 +180,7 @@ if (compatible) {
 
 const report = {
   ...baselineReport,
+  unreviewed: unreviewedReport,
   ...(compatibleReport ? { compatible: compatibleReport } : {}),
 };
 await fs.writeFile("tmp/m7-2-version-report.json", JSON.stringify(report, null, 2) + "\n");

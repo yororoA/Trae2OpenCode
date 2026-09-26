@@ -101,7 +101,7 @@ describe("OpenCode guarded native deletion", () => {
       if (kind === "version") state.version = "2.0.13";
       const code = {
         exclusive: "T2O_MIGRATION_EXCLUSIVE_REQUIRED", content: "T2O_MIGRATION_TARGET_CHANGED",
-        child: "T2O_MIGRATION_CHILDREN_PROTECTED", version: "T2O_OPENCODE_VERSION_UNSUPPORTED",
+        child: "T2O_MIGRATION_CHILDREN_PROTECTED", version: "T2O_OPENCODE_COMPATIBILITY_UNVERIFIED",
       }[kind];
       await assert.rejects(adapter.deleteSession("ses_target", jsonHash(transfer), kind !== "exclusive"), { code });
       assert.equal(deletes.length, 0);

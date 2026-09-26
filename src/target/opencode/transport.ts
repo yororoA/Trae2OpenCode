@@ -7,10 +7,13 @@ import {
   MAX_OPENCODE_RESPONSE_BYTES,
 } from "../../shared/limits.js";
 import { resolveOpenCodeBinary } from "./binary.js";
+import type { OpenCodeCompatibilityEvidence } from "./capability-probe.js";
 
 const exec = promisify(execFile);
 
 export interface OpenCodeTransport {
+  /** Verifies an unreviewed executable in a disposable database, never in this target. */
+  verifyCompatibility?(evidence: OpenCodeCompatibilityEvidence): Promise<void>;
   run(args: readonly string[], options?: { cwd?: string }): Promise<string>;
   request(
     route: string,
@@ -55,7 +58,15 @@ export function createOpenCodeTransport(options: {
   };
   const authorization = password === undefined
     ? undefined : `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
+  let verifier: ((evidence: OpenCodeCompatibilityEvidence) => Promise<void>) | undefined;
   return {
+    async verifyCompatibility(evidence) {
+      if (!verifier) {
+        const { createCompatibilityVerifier } = await import("./compatibility.js");
+        verifier = createCompatibilityVerifier({ binary, env, cwd: cwd ?? process.cwd() });
+      }
+      await verifier(evidence);
+    },
     async run(args, runOptions) {
       try {
         // execFile intentionally avoids shell interpolation on both supported platforms.

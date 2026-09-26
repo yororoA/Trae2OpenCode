@@ -57,7 +57,7 @@ describe("probeOpenCodeCapabilities for OpenCode v1", () => {
     assert.deepStrictEqual(report, {
       dialect: "v1", binaryVersion: "1.18.32", serverVersion: "1.18.32",
       nativeImport: true, nativeExport: true,
-      schemaHash: V1_SESSION_SCHEMA_HASH, writable: true, reasons: [],
+      schemaHash: V1_SESSION_SCHEMA_HASH, writable: true, compatibility: "verified-release", reasons: [],
     });
     assert.deepStrictEqual(calls, ["version", V1_HEALTH_ROUTE, V1_OPENAPI_ROUTE]);
   });
@@ -70,10 +70,10 @@ describe("probeOpenCodeCapabilities for OpenCode v1", () => {
     assert.equal(report.writable, true);
   });
 
-  it("fails closed on an unlisted v1 release, a v2 server and a mismatched contract", async () => {
+  it("fails closed on an unmatched v1 binary, a v2 server and a mismatched contract", async () => {
     await assert.rejects(
       requireOpenCodeCapabilities(connection({ binaryVersion: "1.18.31" }).transport),
-      { code: "T2O_OPENCODE_VERSION_UNSUPPORTED" },
+      { code: "T2O_OPENCODE_COMPATIBILITY_BINARY_REQUIRED" },
     );
     await assert.rejects(
       requireOpenCodeCapabilities(connection({ serverVersion: "2.0.12" }).transport),
@@ -91,6 +91,26 @@ describe("probeOpenCodeCapabilities for OpenCode v1", () => {
     );
   });
 
+  it("requires isolated CLI evidence even when an unreviewed v1 HTTP schema matches", async () => {
+    const { transport } = connection({ binaryVersion: "1.18.31", serverVersion: "1.18.31" });
+    await assert.rejects(requireOpenCodeCapabilities(transport),
+      { code: "T2O_OPENCODE_COMPATIBILITY_UNVERIFIED" });
+    let canaries = 0;
+    transport.verifyCompatibility = async (evidence) => {
+      canaries++;
+      assert.equal(evidence.dialect, "v1");
+      assert.equal(evidence.binaryVersion, "1.18.31");
+      assert.equal(evidence.schemaHash, V1_SESSION_SCHEMA_HASH);
+    };
+    const report = await requireOpenCodeCapabilities(transport);
+    assert.equal(report.writable, true);
+    assert.equal(report.compatibility, "isolated-roundtrip");
+    assert.equal(canaries, 1);
+    transport.verifyCompatibility = async () => { throw new Error("CLI cannot import"); };
+    await assert.rejects(requireOpenCodeCapabilities(transport),
+      { code: "T2O_OPENCODE_COMPATIBILITY_UNVERIFIED" });
+  });
+
   it("fails closed when deletion or child listing is absent", async () => {
     await assert.rejects(
       requireOpenCodeCapabilities(connection({ dropDelete: true }).transport),
@@ -105,7 +125,7 @@ describe("probeOpenCodeCapabilities for OpenCode v1", () => {
   it("reports the reason without claiming writability", async () => {
     const report = await probeOpenCodeCapabilities(connection({ binaryVersion: "1.0.0" }).transport);
     assert.equal(report.writable, false);
-    assert.equal(report.dialect, "v2");
-    assert.deepStrictEqual(report.reasons, ["T2O_OPENCODE_VERSION_UNSUPPORTED"]);
+    assert.equal(report.dialect, "v1");
+    assert.deepStrictEqual(report.reasons, ["T2O_OPENCODE_COMPATIBILITY_BINARY_REQUIRED"]);
   });
 });

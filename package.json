@@ -1,6 +1,6 @@
 {
   "name": "trae2opencode",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Migrate recoverable TRAE sessions to OpenCode",
   "bin": {
     "trae2opencode": "./dist/cli/index.js"
@@ -8,6 +8,7 @@
   "files": [
     "dist/**/*.js",
     "!dist/**/__tests__/**",
+    "CHANGELOG.md",
     "docs/**/*.md",
     "fixtures/opencode/2.0.12/evidence/transfer.schema.json",
     "fixtures/opencode/1.18.32/evidence/session.schema.json",
@@ -32,8 +33,9 @@
     "verify:opencode": "tsx scripts/verify-opencode-roundtrip.ts",
     "verify:platform": "tsx scripts/verify-platform.ts",
     "verify:versions": "tsx scripts/verify-version-contract.ts",
-    "verify:v1": "tsx scripts/verify-opencode-v1.ts",
+    "verify:integration:v1": "tsx scripts/verify-opencode-v1.ts",
     "verify:resilience": "node --max-old-space-size=512 --import tsx scripts/verify-resilience.ts",
+    "verify:version": "tsx scripts/verify-product-version.ts",
     "verify:package": "tsx scripts/verify-package.ts",
     "verify:live": "tsx scripts/verify-live-runtime.ts",
     "migrate:local": "npm run build && node dist/cli/interactive-migrate.js",
@@ -41,7 +43,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.integration.json",
     "smoke": "node dist/cli/index.js --version",
-    "check": "npm run lint && npm test && npm run typecheck && npm run build && npm run smoke"
+    "check": "npm run lint && npm test && npm run typecheck && npm run verify:version && npm run build && npm run smoke"
   },
   "keywords": [],
   "author": "yororoA",

@@ -56,7 +56,9 @@ macOS 的 `open -a "Trae CN" --args ...` 经 3.3.104 实机确认可能丢弃调
 | --- | --- |
 | `T2O_OPENCODE_DIRECTORY_INVALID` | 指定已存在的绝对项目目录；工具不会 mkdir |
 | `T2O_OPENCODE_PATH_MAP_INVALID` | `--path-map` 两侧及 `--fallback-directory` 均需绝对路径；含空格整体加引号 |
-| `T2O_OPENCODE_VERSION_UNSUPPORTED` | v2 需 CLI 与 server 同为 2.0.12 / 2.0.16，v1 需同为 1.18.32 / 1.17.9；其他版本不会仅凭“较新”自动放行 |
+| `T2O_OPENCODE_VERSION_UNSUPPORTED` | 版本格式、预发布或未知主版本不受支持；只探测稳定的 1.x/2.x |
+| `T2O_OPENCODE_COMPATIBILITY_BINARY_REQUIRED` | 未收录版本需要与目标服务完全同版本的 CLI；设置 `T2O_OPENCODE_BINARY` 或 `--binary` |
+| `T2O_OPENCODE_COMPATIBILITY_UNVERIFIED` | 协议一致但隔离导入、回读或删除验证未通过；尚未写入用户目标，使用已验证基线或报告版本与错误码 |
 | `T2O_OPENCODE_SCHEMA_UNSUPPORTED` | 实际 schema 与固定契约不同；保留 IR，等待经验证的 adapter |
 | `T2O_OPENCODE_REQUEST_FAILED` | 检查 server 进程、端口和认证环境变量；server URL 不含凭据 |
 | `T2O_OPENCODE_MAPPING_REJECTED` | 源会话缺少完成时间/映射证据或包含不支持内容；不会补造字段 |
@@ -67,6 +69,10 @@ macOS 的 `open -a "Trae CN" --args ...` 经 3.3.104 实机确认可能丢弃调
 
 成功导入必须有回读对账。`partial` 表示来源不完整，不保证任意缺失都能映射。
 凭据检测只覆盖已识别格式、结构和有限嵌套编码；不保证识别所有无标记密码。
+
+未收录的稳定版本不再因版本号直接拒绝，但仍需完整 schema 一致和隔离往返验证通过。
+`doctor` / `dry-run` 不会修改用户目标，会按需在独立临时库测试合成会话。
+详见[OpenCode 协议兼容性检测](opencode-compatibility.md)。
 
 ### Revert 后时间线空白或请求 invalid
 

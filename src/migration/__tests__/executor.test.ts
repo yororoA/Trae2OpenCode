@@ -169,6 +169,32 @@ describe("migration executor", () => {
     assert.equal((await verifyMigration(filename, fake.api)).hasFailures, false);
   }));
 
+  it("resumes an unreviewed compatible version and protects later edits on upgrade", () => setup(async ({ plan, fake, filename, outputDirectory }) => {
+    const unreviewed = {
+      ...descriptor, binaryVersion: "2.0.13", serverVersion: "2.0.13",
+      fingerprint: hashCanonicalJson("unreviewed-contract"),
+    };
+    // describe() represents a successful protocol + isolated compatibility check.
+    fake.api.describe = async () => structuredClone(unreviewed);
+    assert.equal((await migrate(plan, fake.api, { outputDirectory })).verified, 1);
+    assert.equal((await migrate(plan, fake.api, { resumeManifest: filename })).verified, 1);
+    assert.equal((await verifyMigration(filename, fake.api)).hasFailures, false);
+    assert.equal(fake.imports.length, 1);
+    const upgraded = {
+      ...unreviewed, binaryVersion: "2.0.14", serverVersion: "2.0.14",
+      fingerprint: hashCanonicalJson("next-unreviewed-contract"),
+    };
+    fake.api.describe = async () => structuredClone(upgraded);
+    assert.equal((await migrate(plan, fake.api, { resumeManifest: filename })).verified, 1);
+    assert.deepEqual((await readManifest(filename)).target, upgraded);
+    fake.sessions.get(plan.sessions[0].targetId)!.messages[0].text = "user continued the conversation";
+    fake.api.describe = async () => structuredClone(unreviewed);
+    await assert.rejects(migrate(plan, fake.api, { resumeManifest: filename }),
+      { code: "T2O_MIGRATION_TARGET_CHANGED" });
+    assert.equal(fake.imports.length, 1);
+    assert.deepEqual((await readManifest(filename)).target, upgraded);
+  }));
+
   it("rejects a changed source plan, target contract, or edited successful target", () => setup(async ({ plan, fake, filename, outputDirectory }) => {
     await migrate(plan, fake.api, { outputDirectory });
     const changed = structuredClone(plan);

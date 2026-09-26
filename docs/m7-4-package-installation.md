@@ -11,7 +11,7 @@
 - `fixtures/opencode/2.0.12/evidence/transfer.schema.json`：生产模块启动所需的
   固定契约，安装验收与源码逐字节 hash 比对。
 - `fixtures/ir/v1/valid-trae-assembled.json`：明确标注为合成的离线使用样本。
-- Markdown 操作文档；npm 自动附带 README 与 package.json。
+- Markdown 操作文档与 `CHANGELOG.md`；npm 自动附带 README 与 package.json。
 
 不包含本地 tmp、真实会话、源码测试、node_modules 或采集报告。`prepack`
 先移除 dist 再使用已安装 TypeScript 的声明 bin 构建，防止旧编译文件残留。

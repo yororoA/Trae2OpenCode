@@ -37,7 +37,7 @@
         "name": "Trae2OpenCode",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "macOS, Windows, Linux",
-        "softwareVersion": "1.0.0",
+        "softwareVersion": "1.1.0",
         "description": "Migrate recoverable TRAE sessions on macOS and Windows to verified OpenCode v1 and v2 targets.",
         "url": "https://trae2opencode.yororoice.top/",
         "codeRepository": "https://github.com/yororoA/Trae2OpenCode",
@@ -316,7 +316,7 @@
               <div class="terminal-panel" aria-live="polite">
                 <div class="terminal-line terminal-line-muted">
                   <span>trae2opencode</span>
-                  <span>v1.0.0</span>
+                  <span data-product-version>v1.1.0</span>
                 </div>
                 <div class="terminal-output" data-terminal-output>
                   <p><span class="terminal-prompt">$</span> npm run migrate:local</p>
@@ -362,7 +362,7 @@
               <span class="feature-number">02</span>
               <h3 data-i18n="capabilities.safetyTitle">默认保护</h3>
               <p data-i18n="capabilities.safetyText">
-                自动剥离已识别凭据；无法证明归属的目标、未知版本与不完整写入都会停止。
+                自动剥离已识别凭据；目标归属、协议兼容性或完整性验证失败时都会停止。
               </p>
             </article>
             <article class="feature-card">
@@ -472,13 +472,13 @@ npm run migrate:local</code></pre>
         <div class="section-inner reveal">
           <div class="compatibility-heading">
             <p class="eyebrow" data-i18n="compatibility.eyebrow">明确的兼容边界</p>
-            <h2 data-i18n="compatibility.title">只迁移经过验证的组合</h2>
+            <h2 data-i18n="compatibility.title">兼容性，由实际验证决定</h2>
           </div>
           <div class="compatibility-table" role="table" aria-label="兼容版本">
             <div class="compatibility-row compatibility-row-header" role="row">
               <span role="columnheader" data-i18n="compatibility.component">组件</span>
-              <span role="columnheader" data-i18n="compatibility.supported">已验证范围</span>
-              <span role="columnheader" data-i18n="compatibility.behavior">超出范围</span>
+              <span role="columnheader" data-i18n="compatibility.supported">验证基线 / 要求</span>
+              <span role="columnheader" data-i18n="compatibility.behavior">其他情况</span>
             </div>
             <div class="compatibility-row" role="row">
               <strong role="cell">TRAE CN</strong>
@@ -488,12 +488,12 @@ npm run migrate:local</code></pre>
             <div class="compatibility-row" role="row">
               <strong role="cell">OpenCode v2</strong>
               <span role="cell">2.0.12 / 2.0.16</span>
-              <span role="cell" data-i18n="compatibility.reject">拒绝写入</span>
+              <span role="cell" data-i18n="compatibility.probeV2">其他稳定 2.x 自动检测</span>
             </div>
             <div class="compatibility-row" role="row">
               <strong role="cell">OpenCode v1</strong>
               <span role="cell">1.17.9 / 1.18.32</span>
-              <span role="cell" data-i18n="compatibility.reject">拒绝写入</span>
+              <span role="cell" data-i18n="compatibility.probeV1">其他稳定 1.x 自动检测</span>
             </div>
             <div class="compatibility-row" role="row">
               <strong role="cell" data-i18n="compatibility.platform">本机来源读取</strong>
@@ -509,7 +509,7 @@ npm run migrate:local</code></pre>
           <p class="compatibility-note" id="v1-support">
             <i data-lucide="shield-check" aria-hidden="true"></i>
             <span data-i18n="compatibility.note">
-              OpenCode v1 当前仅验证 1.17.9 与 1.18.32 两个版本，不表示两者之间的所有版本均受支持。
+              表中 OpenCode 版本为已验证基线；其他稳定 1.x/2.x 需使用同版本 CLI，通过协议及隔离往返验证后才能迁移。
             </span>
           </p>
         </div>
@@ -563,6 +563,6 @@ npm run migrate:local</code></pre>
     </footer>
 
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
-    <script src="./app.js?v=3"></script>
+    <script src="./app.js?v=4"></script>
   </body>
 </html>
