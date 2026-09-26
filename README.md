@@ -85,8 +85,10 @@ Windows 上 npm 只会生成 `.cmd` / `.ps1` 垫片，Node 无法直接执行它
 
 同时安装 v1 桌面端和 v2 CLI 时，工具会发现两个目标并提供多选。选择 `all` 可让同一批
 TRAE 会话依次迁移到 v1、v2；源 bundle 只导出一次，但每个目标拥有独立 manifest 和回读
-结果。常见桌面端内置 CLI 会自动发现；特殊安装目录可用
-`T2O_OPENCODE_V1_BINARY` / `T2O_OPENCODE_V2_BINARY` 分别指定。
+结果。v1/v2 数据库 schema 不兼容，不能共用默认的 `opencode.db`；双目标运行必须通过
+`T2O_OPENCODE_V1_DB` 或 `T2O_OPENCODE_V2_DB` 至少指定一个不同的数据库文件。
+v1 桌面端没有可直接调用的独立 CLI，需另装 `opencode-ai` 并用
+`T2O_OPENCODE_V1_BINARY` 指定；v2 桌面端内置 CLI 和 PATH CLI 可自动发现。
 
 正在运行的未收录版本会先接受协议检测。若本机 CLI 版本与它不同，请安装同版本 CLI，
 或用 `T2O_OPENCODE_BINARY` 指定同版本可执行文件。隔离验证使用独立临时数据库，
@@ -149,7 +151,7 @@ npm run migrate:local -n  # 自动跳过需要 OVERWRITE 的会话
 请输入编号（如 1,3-5；输入 all 全选）：1,3
 
 发现多个 OpenCode 目标，请选择（支持多选）：
-  1. OpenCode 1.18.32 · v1 · 桌面端内置 CLI
+  1. OpenCode 1.18.32 · v1 · 指定 CLI
   2. OpenCode 2.0.18 · v2 · PATH CLI
 请输入编号（如 1,2；输入 all 全选）：all
 ```

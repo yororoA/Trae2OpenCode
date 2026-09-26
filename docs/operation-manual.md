@@ -80,8 +80,8 @@ v1 没有 service descriptor，工具会自行以同一会话库启动 `opencode
 
 Windows 上 npm 只生成 `.cmd` / `.ps1` 垫片，Node 无法直接执行它们，因此工具会自动解析
 垫片指向的原生 `opencode.exe`。解析失败时用 `T2O_OPENCODE_BINARY` 指向该文件。
-同时存在 v1 桌面端与 v2 CLI 时，工具还会检查常见桌面端安装目录并列出两个目标；
-特殊安装目录可分别通过 `T2O_OPENCODE_V1_BINARY`、`T2O_OPENCODE_V2_BINARY` 指定。
+v2 桌面端内置 CLI 会从常见安装目录发现。v1 桌面端在进程内启动服务，没有独立 CLI；
+如需迁移到 v1，仍需安装 `opencode-ai`，再通过 `T2O_OPENCODE_V1_BINARY` 指定。
 
 如果 service descriptor 指向正在运行的未收录版本，程序会检查其协议，要求本地 CLI
 与它同版本以执行隔离验证。可用 `T2O_OPENCODE_BINARY` 指向同版本可执行文件。
@@ -166,14 +166,16 @@ npm run migrate:local
 
 ```text
 发现多个 OpenCode 目标，请选择（支持多选）：
-  1. OpenCode 1.18.32 · v1 · 桌面端内置 CLI
+  1. OpenCode 1.18.32 · v1 · 指定 CLI
   2. OpenCode 2.0.18 · v2 · PATH CLI
 请输入编号（如 1,2；输入 all 全选）：all
 ```
 
 选择多个目标时，程序复用同一份已脱敏 bundle，串行迁移并分别回读。v1/v2 使用不同
 manifest；一个目标失败会记录在最终汇总中，但不会把另一个目标的成功结果回滚或混用。
-无人值守环境可设置 `T2O_OPENCODE_TARGETS=v1,v2`。
+两个方言不能共用同一 SQLite 文件，必须通过 `T2O_OPENCODE_V1_DB` 或
+`T2O_OPENCODE_V2_DB` 至少分离一个数据库。无人值守环境可设置
+`T2O_OPENCODE_TARGETS=v1,v2`。
 
 ## 迁移过程中程序会做什么
 
@@ -405,9 +407,11 @@ node dist/cli/index.js rollback \
 | `T2O_TRAE_CDP` | TRAE 调试端口不是 `http://127.0.0.1:9222`。 |
 | `T2O_OPENCODE_SERVER` | 需要迁移到自行维护的 OpenCode server。设置后工具不会启动临时服务。 |
 | `T2O_OPENCODE_BINARY` | 保持原有单目标行为，指定一个原生 CLI；未收录版本需与服务版本一致。 |
-| `T2O_OPENCODE_V1_BINARY` | 指定 v1 目标 CLI，适用于桌面端安装在非标准目录。 |
+| `T2O_OPENCODE_V1_BINARY` | 指定配套的 v1 `opencode-ai` CLI；v1 桌面端本身不提供独立 CLI。 |
 | `T2O_OPENCODE_V2_BINARY` | 指定 v2 目标 CLI，适用于 PATH 之外的安装。 |
 | `T2O_OPENCODE_TARGETS` | 无人值守选择 `v1`、`v2` 或 `v1,v2`；交互运行通常不需要设置。 |
+| `T2O_OPENCODE_V1_DB` | v1 使用的 `OPENCODE_DB`；双目标迁移时用于隔离数据库。 |
+| `T2O_OPENCODE_V2_DB` | v2 使用的 `OPENCODE_DB`；双目标迁移时用于隔离数据库。 |
 | `T2O_MIGRATION_EXPORT` | 将 bundle 保存到受控的自定义私有目录。 |
 | `T2O_MIGRATION_RUN` | 将 manifest 保存到受控的自定义私有目录。 |
 | `T2O_REPLACE_EXISTING=1` | 无交互确认覆盖；仅用于已确保没有其他 OpenCode 写入者的自动化环境。 |

@@ -155,12 +155,19 @@ hit restricted`，退出码 1。该失败发生于报告工具的自更新阶段
 PATH 指向 v2 CLI 时，工具会启动或连接 v2 服务，因此迁移结果只出现在 v2 数据库；
 已安装但未被选作目标的 v1 桌面端不会自动同步。
 
-现改为发现 PATH 与桌面端内置 CLI，按方言提供多选。同一份脱敏 bundle 可串行迁移到
-v1、v2，每个目标独立执行协议检查、原生导入、回读和 manifest 管理。清理与 replacement
-证据也按方言过滤，不能拿 v2 manifest 覆盖 v1 会话。标准安装目录无法发现时，通过
-`T2O_OPENCODE_V1_BINARY` / `T2O_OPENCODE_V2_BINARY` 指定；自动化可设置
+现改为发现 PATH、显式目标 CLI 和提供独立 CLI 的桌面端，按方言提供多选。同一份脱敏
+bundle 可串行迁移到 v1、v2，每个目标独立执行协议检查、原生导入、回读和 manifest
+管理。清理与 replacement 证据也按方言过滤，不能拿 v2 manifest 覆盖 v1 会话。
+v1 桌面端没有独立 CLI，需另装 `opencode-ai`；通过
+`T2O_OPENCODE_V1_BINARY` / `T2O_OPENCODE_V2_BINARY` 指定后，自动化可设置
 `T2O_OPENCODE_TARGETS=v1,v2`。三系统 CI 使用真实 v1/v2 二进制复用一份合成 IR 验收。
 
 同一轮实现后还发现 `verify:opencode` 仍只读取 `--binary`、测试覆盖变量或 PATH 上的单个
 CLI，因此 v2 CLI 与 v1 桌面端共存时只验证 v2。公开验证入口现已复用相同的目标发现逻辑：
 默认分别验证两个方言并隔离报告目录；显式 `--binary` 时继续保持单目标兼容行为。
+
+macOS 将 v2 桌面端替换为 v1 1.18.32 后，v1 启动时报
+`Database is not empty and has no session table`。检查安装包确认 v1/v2 默认都打开
+`~/.local/share/opencode/opencode.db`，卸载应用不会移除原 v2 数据库。工具现要求双目标
+使用不同数据库，并将目标级 `OPENCODE_DB` 传给服务、CLI 和迁移子进程；不会自动搬移
+已有数据库。用户侧一次性备份与分离步骤见[故障排查](troubleshooting.md)。

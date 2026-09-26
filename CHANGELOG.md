@@ -9,6 +9,8 @@ independent of IR, manifest, mapping, and verification-report format versions.
   v1 desktop installation and a v2 CLI while keeping target manifests isolated.
 - **Fixed:** `verify:opencode` now verifies both installed dialects by default instead
   of checking only the PATH-selected CLI.
+- **Fixed:** Dual-target migration rejects a shared v1/v2 SQLite database and supports
+  separate `OPENCODE_DB` values per dialect.
 
 ## [1.1.0] - 2026-09-26
 

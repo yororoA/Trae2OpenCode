@@ -93,8 +93,10 @@ npm run --silent verify:opencode -- --json
 命令复用迁移的 `requireOpenCodeCapabilities` 与隔离往返场景，不维护另一份版本清单。
 稳定 v1/v2 先检查实际版本、路由和完整 schema，再执行原生导入导出、回读、重复导入
 保护、父子会话关联、删除保护及 v2 compaction 回读。基线版本也会完整执行这些场景。
-不指定 `--binary` 时，命令与一键迁移共用目标发现逻辑：检查 PATH 和桌面端内置 CLI，
-同时存在 v1/v2 时依次验证两者。`T2O_OPENCODE_TARGETS` 可限制方言。
+不指定 `--binary` 时，命令与一键迁移共用目标发现逻辑：检查 PATH、显式指定的 v1/v2
+CLI，以及提供独立 CLI 的桌面端。同时存在 v1/v2 时依次验证两者；
+`T2O_OPENCODE_TARGETS` 可限制方言。v1 桌面端自身不提供可直接调用的 CLI，需另装
+`opencode-ai` 并设置 `T2O_OPENCODE_V1_BINARY`。
 `--binary` 优先于集成测试使用的 `T2O_TEST_OPENCODE_BINARY`，设置任一项时保持单目标
 验证；Windows 同样支持 npm 垫片解析。
 
@@ -112,6 +114,10 @@ npm run --silent verify:opencode -- --json
 场景全部通过；真实会话仍需独立映射和回读。多目标中一个失败不会阻止另一个验证，
 但最终退出码仍为非零，顶层报告标记 `failed`。若重复使用输出目录，应同时检查退出码
 与报告的 `checkedAt`。
+
+兼容性验证使用独立临时数据库，因此可以同时验证 v1/v2。真实迁移不同：两个方言的
+SQLite schema 不兼容，不能共用默认 `opencode.db`。选择双目标迁移前必须通过
+`T2O_OPENCODE_V1_DB` / `T2O_OPENCODE_V2_DB` 分离数据库；工具不会自动移动现有数据。
 
 [M0 历史报告](m0-4-import-roundtrip.md) 的未完成 assistant 丢失实验保持归档，
 不再由此命令重跑。新版使用随包提供的合成 IR，通过生产 mapper 生成各方言输入。

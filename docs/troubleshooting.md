@@ -67,6 +67,32 @@ macOS 的 `open -a "Trae CN" --args ...` 经 3.3.104 实机确认可能丢弃调
 | `T2O_SENSITIVE_CONTENT_REQUIRES_REBINDING` | 当前选中数据含已识别凭据；从独立输入副本移除凭据值并重新验证，凭据另行绑定 |
 | `target.probed=false` | dry-run 尚未探测目标；提供 `--server` 后才验证目标契约 |
 
+### `Database is not empty and has no session table`
+
+OpenCode v1 与 v2 默认都可能使用 `~/.local/share/opencode/opencode.db`，但数据库 schema
+不兼容。卸载应用不会删除该文件；从 v2 切换到 v1 后，v1 会检测到非空的 v2 数据库并
+主动退出，而不是覆盖它。
+
+先完全退出 OpenCode，并确认备份目标不存在。macOS 可将原 v2 数据库保留为独立文件：
+
+```sh
+db="$HOME/.local/share/opencode/opencode.db"
+cp -p "$db" "$db.v2-backup-$(date +%Y%m%d%H%M%S)"
+mv "$db" "$HOME/.local/share/opencode/opencode-v2.db"
+```
+
+重新启动 v1 桌面端后，它会创建自己的默认 `opencode.db`。继续使用旧 v2 CLI 数据时，
+显式设置 `OPENCODE_DB=opencode-v2.db`。双目标迁移也必须分离数据库，例如让 v1 使用
+默认文件、v2 使用保留文件：
+
+```sh
+T2O_OPENCODE_V2_DB=opencode-v2.db npm run migrate:local
+```
+
+v1 桌面端没有独立 CLI。迁移前需另行安装 `opencode-ai` CLI，并通过
+`T2O_OPENCODE_V1_BINARY` 指向它；执行迁移时关闭桌面端，完成后再重新打开。
+工具不会自动移动、删除或改写已有 OpenCode 数据库。
+
 成功导入必须有回读对账。`partial` 表示来源不完整，不保证任意缺失都能映射。
 凭据检测只覆盖已识别格式、结构和有限嵌套编码；不保证识别所有无标记密码。
 
