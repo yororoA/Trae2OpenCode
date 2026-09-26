@@ -58,6 +58,18 @@ jobs:
         if: matrix.node == '22'
         run: npm install --prefix tmp/opencode-adjacent --no-package-lock --no-save @opencode/cli@2.0.11
 
+      - name: Install OpenCode 2.0.18 for the public command regression
+        if: matrix.node == '22'
+        run: npm install --prefix tmp/opencode-unreviewed --no-package-lock --no-save @opencode/cli@2.0.18
+
+      - name: Run public roundtrip command with baseline v2
+        if: matrix.node == '22'
+        run: npm run verify:opencode -- --binary tmp/opencode/node_modules/@opencode/cli/bin/opencode.exe --output tmp/roundtrip-v2-baseline
+
+      - name: Run public roundtrip command with unreviewed v2
+        if: matrix.node == '22'
+        run: npm run verify:opencode -- --binary tmp/opencode-unreviewed/node_modules/@opencode/cli/bin/opencode.exe --output tmp/roundtrip-v2-unreviewed
+
       - name: Verify current and adjacent version contracts
         if: matrix.node == '22'
         run: npm run verify:versions
@@ -77,6 +89,14 @@ jobs:
           T2O_TEST_OPENCODE_BINARY: tmp/opencode-v1-current/node_modules/opencode-ai/bin/opencode.exe
           T2O_TEST_V1_ADJACENT_BINARY: tmp/opencode-v1-unreviewed/node_modules/opencode-ai/bin/opencode.exe
 
+      - name: Run public roundtrip command with baseline v1
+        if: matrix.node == '22'
+        run: npm run verify:opencode -- --binary tmp/opencode-v1-current/node_modules/opencode-ai/bin/opencode.exe --output tmp/roundtrip-v1-baseline
+
+      - name: Run public roundtrip command with unreviewed v1
+        if: matrix.node == '22'
+        run: npm run verify:opencode -- --binary tmp/opencode-v1-unreviewed/node_modules/opencode-ai/bin/opencode.exe --output tmp/roundtrip-v1-unreviewed
+
       - name: Verify bounded heap and process interruption recovery
         if: matrix.node == '22'
         run: npm run verify:resilience
@@ -92,4 +112,6 @@ jobs:
             tmp/m7-1-platform-report.json
             tmp/m7-2-version-report.json
             tmp/m7-3-resilience-report.json
+            tmp/roundtrip-v*/report.json
+            tmp/roundtrip-v*/*.schema.json
           if-no-files-found: warn

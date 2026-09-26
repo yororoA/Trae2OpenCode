@@ -5,6 +5,7 @@
     "noEmit": true
   },
   "include": [
+    "scripts/verify-opencode-roundtrip.ts",
     "scripts/verify-platform.ts",
     "scripts/verify-version-contract.ts",
     "scripts/verify-resilience.ts",
