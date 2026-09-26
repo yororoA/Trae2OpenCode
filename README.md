@@ -240,6 +240,7 @@ TRAE 本身的历史被删除，源数据始终保持只读。
 
 - [操作手册：从准备到验证、续跑与回滚](docs/operation-manual.md)
 - [OpenCode 协议兼容性检测](docs/opencode-compatibility.md)
+- [产品与数据格式版本管理](docs/versioning.md)、[变更记录](CHANGELOG.md)
 - [故障排查与错误码](docs/troubleshooting.md)
 - [离线 CLI、dry-run、导入与回读](docs/m5-1-readonly-cli.md)、[迁移记录与续跑](docs/m5-3-manifest-resume.md)
 - [凭据处理边界](docs/m5-6-sensitive-content.md)、[回滚与恢复](docs/m5-5-rollback.md)
