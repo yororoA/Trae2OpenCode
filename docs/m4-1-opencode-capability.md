@@ -1,12 +1,14 @@
 # M4-1：OpenCode 版本与原生导入契约探测
 
-日期：2026-09-24。当前支持 OpenCode 2.0.12 和 2.0.16。
+初始契约日期：2026-09-24；2026-09-26 增加清单外稳定版本的自动兼容性检测。
 
 ## 探测契约
 
-`probeOpenCodeCapabilities` 只执行 `--version`、`GET /api/info` 和
-`GET /openapi.json`，不创建目标会话。CLI 与实际服务端版本必须分别位于
-`2.0.12`、`2.0.16` 显式白名单内；两个版本之间的混合连接也经过真实往返验证。
+`probeOpenCodeCapabilities` 对用户目标只读取版本及 OpenAPI，不创建目标会话。
+v2 读取 `/api/info` 和 `/openapi.json`，v1 读取 `/global/health` 和 `/doc`。
+基线 v2 `2.0.12` / `2.0.16`、v1 `1.17.9` / `1.18.32` 使用已有行为证据。
+其他稳定 1.x/2.x 要求同版本 CLI，在独立临时库完成导入、导出、回读和删除保护验证，
+并在测试结束后重新核对实际目标的版本与 schema。
 OpenAPI 的 `info.version` 为 HTTP 接口版本 `0.0.1`，不能用作产品版本门禁。
 
 开启写入资格前同时检查：
@@ -14,7 +16,8 @@ OpenAPI 的 `info.version` 为 HTTP 接口版本 `0.0.1`，不能用作产品版
 - 原生 import POST 与 export GET 存在。
 - import 请求与 export 响应封装匹配已验证格式。
 - `SessionTransfer.Data` 可达的全部 schema 与 M0 固化证据匹配。
-- 不接受外部 `$ref`、缺失 schema 或白名单外版本。
+- 不接受外部 `$ref`、缺失 schema、预发布版本或未实现的主版本。
+- 清单外稳定版本必须通过[隔离往返验证](opencode-compatibility.md)。
 
 schema 对象 key 顺序不影响比较，不相关 API/schema 变化不阻断已验证能力。
 可达 schema 中新增可选字段也需要重新验证，不会自行扩大支持范围。
@@ -34,9 +37,10 @@ HTTP JSON 回读采用流式解析。超限会明确失败，不静默截断。�
 服务端错误正文和认证值不会进入错误报告。
 
 `withIsolatedOpenCodeServer` 在私有临时目录启动独立配置、数据、缓存、状态
-和数据库的 OpenCode 服务，禁用项目配置、模型获取与自动更新。成功或异常退出
-均停止子进程并删除临时目录。Windows 运行所需的系统环境变量被保留；Windows
-实机验证属于 M7，目前不声称已完成。
+和数据库的 OpenCode 服务，禁用项目配置、默认插件、模型获取与自动更新。用户目录也被
+隔离；临时项目目录先解析为物理路径，以避免 macOS `/var` 别名影响 v1 cwd。
+成功或异常退出均停止子进程并删除临时目录。Windows 运行所需的系统环境变量被保留。
+以下初始测试记录只描述当时验收，新增版本覆盖见 [M7-2](m7-2-version-contract.md)。
 
 ## 范围与缺陷分析
 
