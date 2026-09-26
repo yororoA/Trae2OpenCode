@@ -75,6 +75,39 @@ npm run migrate:local
 manifest 保留实际版本号和 schema hash。读取 manifest 本身不授予目标写入权限；续跑时
 仍会重新检查兼容性，以及目标所有权和完整内容 hash。
 
+## 独立验证本机 OpenCode
+
+无需启动 TRAE 或现有 OpenCode 服务：
+
+```sh
+npm run verify:opencode
+npm run verify:opencode -- --binary /path/to/opencode --output tmp/my-opencode-check
+npm run --silent verify:opencode -- --json
+```
+
+命令复用迁移的 `requireOpenCodeCapabilities` 与隔离往返场景，不维护另一份版本清单。
+稳定 v1/v2 先检查实际版本、路由和完整 schema，再执行原生导入导出、回读、重复导入
+保护、父子会话关联、删除保护及 v2 compaction 回读。基线版本也会完整执行这些场景。
+`--binary` 优先于集成测试使用的 `T2O_TEST_OPENCODE_BINARY`，未设置时从 PATH 解析
+`opencode`，Windows 同样支持 npm 垫片解析。
+
+默认终端显示实际版本和简洁结果。`--json` 输出单行 JSON，失败保留 `T2O_*` 错误码与
+对应非零退出码；非法命令参数返回 `2`。成功报告位于 `tmp/opencode-roundtrip/report.json`，
+可通过 `--output` 修改目录：
+
+| 产物 | 内容 |
+| --- | --- |
+| `report.json` | `reportVersion: 2`、实际 CLI/服务版本、方言、兼容性来源、schema hash 和已通过的检查 |
+| `transfer.schema.json`（v2） | 从私有服务抽取的可达 transfer schema |
+| `session.schema.json`（v1） | 从私有服务抽取的 Session/Message/Part schema |
+
+报告不含会话正文、随机会话 ID、服务口令或临时路径。退出码 `0` 表示本次合成映射
+场景全部通过；真实会话仍需独立映射和回读。失败不会生成本次成功报告；若重复使用
+输出目录，应同时检查退出码与已有报告的 `checkedAt`。
+
+[M0 历史报告](m0-4-import-roundtrip.md) 的未完成 assistant 丢失实验保持归档，
+不再由此命令重跑。新版使用随包提供的合成 IR，通过生产 mapper 生成各方言输入。
+
 ## 验证记录
 
 2026-09-26，macOS / Node 18.20.8：
@@ -97,3 +130,17 @@ manifest 保留实际版本号和 schema hash。读取 manifest 本身不授予�
 
 CI 已配置三系统的 v2 `2.0.12` / `2.0.11` 与 v1 `1.18.32` / `1.18.31` 验收。
 本机记录不代替 Windows/Linux 的 CI 结果，也不代表任意来源状态或用户路径都能无损映射。
+
+### 公开验证命令回归（2026-09-26）
+
+- 范围：`verify:opencode` 入口、迁移共用的隔离场景、命令参数和报告输出。
+- 缺陷分析：旧入口仍断言 `2.0.12`，导致迁移可用的 `2.0.18` 在此命令中失败。
+  已移除独立的版本断言，复用协议检查与隔离场景；历史 M0 证据保持归档。
+- 生成用例：新增 9 项测试，覆盖两个方言的基线与未收录版本、报告真实版本、
+  协议不匹配时拒写、证据绑定、消息丢失、版本变化、清理、参数优先级和失败退出。
+- 验证结果：macOS / Node 18.20.8，455 项测试、lint、类型检查、构建、smoke、
+  `verify:versions`、`verify:v1` 与 `verify:package` 通过。实际运行 `verify:opencode`
+  验证 `2.0.18`、`2.0.12`、`1.18.31`、`1.18.32`，四者均通过。
+
+CI 新增三系统直接执行上述四个版本的公开命令，并上传报告和 schema。单测辅助工具
+`utree flush` 已尝试，但其全局技能自更新写入被 sandbox 拒绝；此处记录实际测试结果。

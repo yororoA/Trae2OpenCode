@@ -72,6 +72,8 @@ opencode --version
 ```
 
 建议使用上述基线版本；其他稳定 1.x/2.x 会在迁移前自动检测兼容性。
+也可运行 `npm run verify:opencode` 单独检查本机 OpenCode，命令复用相同协议规则和
+隔离往返验证，支持 `--binary`、`--output` 与 `--json`；详见[独立验证说明](docs/opencode-compatibility.md#独立验证本机-opencode)。
 `migrate:local` 会读取
 OpenCode 当前 service descriptor 发现动态端口，并检查本机 `http://127.0.0.1:4096`。没有可用
 服务时会临时启动仅监听本机的 `4097` 进程，沿用当前本地 OpenCode 会话库，迁移结束后只关闭

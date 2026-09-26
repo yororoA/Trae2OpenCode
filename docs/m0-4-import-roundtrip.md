@@ -5,26 +5,19 @@
 > 状态：合成会话验证完成，存在已证实的内容丢失边界。
 > 本结果不能替代 M0-3 的 TRAE 真实消息恢复验收。
 
-## 运行方式
+## 历史证据与当前命令
 
-安装依赖并确保 `opencode --version` 为 `2.0.12`：
+本文记录 2026-09-23 的 M0 实验及 `reportVersion: 1` 证据，保留当时对未完成
+assistant 的丢失观察。表格和字段约束均针对该次 2.0.12 实验。
 
-```sh
-npm run verify:opencode
-```
+当前 `npm run verify:opencode` 已复用迁移的协议兼容性检测和隔离往返场景，
+支持通过检测的稳定 v1/v2，默认输出 `reportVersion: 2` 到 `tmp/opencode-roundtrip/`。
+用法和覆盖范围见[协议兼容性检测](./opencode-compatibility.md#独立验证本机-opencode)。
+新版命令不再重跑下文的未完成 assistant 对照实验，也不用于重建本目录的历史报告。
 
-默认输出在 `tmp/opencode-roundtrip/`，包含结构 schema 和脱敏结果报告。
-需要更新仓库证据时，显式指定输出目录：
-
-```sh
-npm run verify:opencode -- --output fixtures/opencode/2.0.12/evidence
-```
-
-脚本只使用仓库中的合成 fixture。它创建私有服务、独立数据库及 XDG 配置、
-数据、缓存、状态目录，禁用项目配置、模型列表获取及自动更新；不发送模型
-请求或执行 fixture 中的工具。随机服务密码仅存在于进程内存和子进程环境，
-不会写入报告。每次运行结束时关闭私有服务并删除本次临时数据。
-本次只在 macOS 验证，其他 OpenCode 版本会被脚本拒绝。
+两代验证均只使用人工合成输入，在私有服务与独立临时数据库中运行，不发送模型
+请求或执行 fixture 中的工具。当前命令还隔离 HOME 与 XDG 配置、数据、缓存、状态
+目录；每次运行结束关闭私有服务并删除本次临时数据。
 
 若命令通道异常，参见[开发环境故障排查](./development-troubleshooting.md)。
 
@@ -33,7 +26,7 @@ npm run verify:opencode -- --output fixtures/opencode/2.0.12/evidence
 - 合成输入：[session-transfer.json](../fixtures/opencode/2.0.12/session-transfer.json)。
 - 实机 schema：[transfer.schema.json](../fixtures/opencode/2.0.12/evidence/transfer.schema.json)。
 - 结果与内容 hash：[report.json](../fixtures/opencode/2.0.12/evidence/report.json)。
-- 执行入口：`scripts/verify-opencode-roundtrip.ts`。
+- 历史执行入口：`scripts/verify-opencode-roundtrip.ts`（现已切换为共用兼容性验证）。
 
 schema 从私有服务的 `/openapi.json` 获取，仅保留 `SessionTransfer.Data`
 及其引用的结构。输入和 CLI 回读均通过该 schema 校验。

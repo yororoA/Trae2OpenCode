@@ -137,3 +137,14 @@ hit restricted`，退出码 1。该失败发生于报告工具的自更新阶段
 
 本次保留 sandbox 边界，不绕过权限。测试范围、分析、用例和实际验证结果记录在
 仓库 `docs/m4-1-opencode-capability.md`；项目 `npm run check` 已独立成功。
+
+## 2026-09-26：迁移通过但 verify:opencode 拒绝相同版本
+
+本机 OpenCode 2.0.18 已通过 `migrate:local` 的协议与隔离往返检测，但
+`npm run verify:opencode` 仍提示 `Only OpenCode 2.0.12 is mapped; refusing this version`。
+根因是公开验证入口仍使用 M0 的固定版本实验脚本，未接入后续共用兼容性逻辑。
+
+现已让公开命令与迁移探测共用隔离场景，并将该脚本纳入类型检查和三系统的原生命令
+回归。实跑 2.0.18、2.0.12、1.18.31、1.18.32 均通过；版本号、schema 与行为检查
+继续生效。遇到类似入口不一致时，应直接回归用户执行的 npm 命令，不能仅凭 adapter
+测试通过判断完成。新版报告与历史 M0 证据的区别见[兼容性文档](opencode-compatibility.md)。
