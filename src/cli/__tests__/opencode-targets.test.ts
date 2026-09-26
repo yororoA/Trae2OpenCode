@@ -4,7 +4,9 @@ import { describe, it } from "node:test";
 import {
   desktopOpenCodeBinaryCandidates,
   discoverOpenCodeTargets,
+  openCodeTargetEnvironment,
   preferredOpenCodeTargets,
+  requireDistinctOpenCodeTargetDatabases,
   requestedOpenCodeTargets,
   type OpenCodeTargetCandidate,
 } from "../opencode-targets.js";
@@ -118,5 +120,29 @@ describe("OpenCode target discovery", () => {
     }))[0];
     assert.equal(target.binary, "./relative-opencode");
     assert.equal(path.isAbsolute(target.binary), false);
+  });
+
+  it("applies only the selected dialect database without mutating the base environment", () => {
+    const base = {
+      OPENCODE_DB: "shared.db",
+      T2O_OPENCODE_V1_DB: "v1.db",
+      T2O_OPENCODE_V2_DB: "v2.db",
+    };
+    assert.equal(openCodeTargetEnvironment("v1", base).OPENCODE_DB, "v1.db");
+    assert.equal(openCodeTargetEnvironment("v2", base).OPENCODE_DB, "v2.db");
+    assert.equal(base.OPENCODE_DB, "shared.db");
+  });
+
+  it("rejects dual targets sharing the default or configured database", () => {
+    assert.throws(() => requireDistinctOpenCodeTargetDatabases([v1, v2], {}),
+      /OPENCODE_TARGET_DATABASE_CONFLICT/);
+    assert.throws(() => requireDistinctOpenCodeTargetDatabases([v1, v2], {
+      T2O_OPENCODE_V1_DB: "same.db",
+      T2O_OPENCODE_V2_DB: "./same.db",
+    }), /OPENCODE_TARGET_DATABASE_CONFLICT/);
+    assert.doesNotThrow(() => requireDistinctOpenCodeTargetDatabases([v1, v2], {
+      T2O_OPENCODE_V2_DB: "opencode-v2.db",
+    }));
+    assert.doesNotThrow(() => requireDistinctOpenCodeTargetDatabases([v1], {}));
   });
 });

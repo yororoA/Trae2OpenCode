@@ -21,6 +21,39 @@ export type OpenCodeTargetCandidate = {
   source: OpenCodeTargetSource;
 };
 
+const targetDatabaseVariable = (dialect: OpenCodeDialect) =>
+  dialect === "v1" ? "T2O_OPENCODE_V1_DB" : "T2O_OPENCODE_V2_DB";
+
+export function openCodeTargetEnvironment(
+  dialect: OpenCodeDialect,
+  baseEnvironment: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+  const env = { ...baseEnvironment };
+  const database = baseEnvironment[targetDatabaseVariable(dialect)];
+  if (database) env.OPENCODE_DB = database;
+  return env;
+}
+
+/** v1 and v2 database schemas cannot safely occupy the same SQLite file. */
+export function requireDistinctOpenCodeTargetDatabases(
+  targets: readonly Pick<OpenCodeTargetCandidate, "dialect">[],
+  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform,
+): void {
+  const dialects = new Set(targets.map((target) => target.dialect));
+  if (!dialects.has("v1") || !dialects.has("v2")) return;
+  const normalize = (value: string | undefined) => {
+    const database = value?.trim() || env.OPENCODE_DB?.trim() || "opencode.db";
+    const normalized = platform === "win32"
+      ? path.win32.normalize(database).toLowerCase()
+      : path.normalize(database);
+    return normalized === "./opencode.db" ? "opencode.db" : normalized;
+  };
+  if (normalize(env.T2O_OPENCODE_V1_DB) === normalize(env.T2O_OPENCODE_V2_DB)) {
+    throw new Error("OPENCODE_TARGET_DATABASE_CONFLICT");
+  }
+}
+
 export interface OpenCodeTargetDiscoveryOptions {
   platform?: NodeJS.Platform;
   env?: NodeJS.ProcessEnv;

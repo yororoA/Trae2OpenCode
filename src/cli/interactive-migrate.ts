@@ -29,7 +29,9 @@ import { probeOpenCodeCapabilities } from "../target/opencode/capability-probe.j
 import { createOpenCodeTransport } from "../target/opencode/transport.js";
 import {
   discoverOpenCodeTargets,
+  openCodeTargetEnvironment,
   preferredOpenCodeTargets,
+  requireDistinctOpenCodeTargetDatabases,
   requestedOpenCodeTargets,
   type OpenCodeTargetCandidate,
 } from "./opencode-targets.js";
@@ -683,13 +685,16 @@ export type ManagedOpenCodeServer = {
 };
 
 /** v1 reports its version only over `/global/health`, and prints its URL on stdout. */
-async function startManagedV1Server(binary: string): Promise<ManagedOpenCodeServer> {
+async function startManagedV1Server(
+  binary: string,
+  baseEnvironment: NodeJS.ProcessEnv,
+): Promise<ManagedOpenCodeServer> {
   const temporaryParent = path.join(process.cwd(), "tmp");
   await fs.mkdir(temporaryParent, { recursive: true, mode: 0o700 });
   const stateDirectory = await fs.mkdtemp(path.join(temporaryParent, "opencode-state-"));
   const password = randomBytes(32).toString("hex");
   const env: NodeJS.ProcessEnv = {
-    ...createManagedOpenCodeEnvironment(stateDirectory),
+    ...createManagedOpenCodeEnvironment(stateDirectory, baseEnvironment),
     OPENCODE_SERVER_PASSWORD: password,
     NO_COLOR: "1",
   };
@@ -724,18 +729,22 @@ async function startManagedV1Server(binary: string): Promise<ManagedOpenCodeServ
   }
   await stopManagedServer(child);
   await fs.rm(stateDirectory, { recursive: true, force: true });
+  if (printed.includes("Database is not empty and has no session table")) {
+    throw new Error("OPENCODE_TARGET_DATABASE_CONFLICT");
+  }
   throw new Error("OPENCODE_SERVER_START_FAILED");
 }
 
 async function startManagedOpenCodeServer(
   binary: string,
   dialect: OpenCodeDialect,
+  baseEnvironment: NodeJS.ProcessEnv,
 ): Promise<ManagedOpenCodeServer> {
-  if (dialect === "v1") return startManagedV1Server(binary);
+  if (dialect === "v1") return startManagedV1Server(binary, baseEnvironment);
   const temporaryParent = path.join(process.cwd(), "tmp");
   await fs.mkdir(temporaryParent, { recursive: true, mode: 0o700 });
   const stateDirectory = await fs.mkdtemp(path.join(temporaryParent, "opencode-state-"));
-  const env = createManagedOpenCodeEnvironment(stateDirectory);
+  const env = createManagedOpenCodeEnvironment(stateDirectory, baseEnvironment);
   const child = spawn(binary, [
     "serve", "--hostname", "127.0.0.1",
     "--port", "0", "--service",
@@ -782,11 +791,12 @@ async function runCli(
   cliPath: string,
   server: string,
   password?: string,
+  environment: NodeJS.ProcessEnv = process.env,
 ): Promise<CliRunResult> {
   const child = spawn(process.execPath, [cliPath, ...args], {
     cwd: process.cwd(),
     env: {
-      ...process.env,
+      ...environment,
       ...(password ? { OPENCODE_SERVER_PASSWORD: password } : {}),
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -1048,13 +1058,14 @@ async function migrateSelectedSession(options: {
   cliPath: string;
   binary: string;
   dialect: OpenCodeDialect;
+  environment: NodeJS.ProcessEnv;
   position: number;
   total: number;
   targetPosition: number;
   targetTotal: number;
 }): Promise<boolean> {
   const {
-    job, target, cdp, server, password, rootDirectory, cliPath, binary, dialect,
+    job, target, cdp, server, password, rootDirectory, cliPath, binary, dialect, environment,
     position, total, targetPosition, targetTotal,
   } = options;
   const { session, directories } = job;
@@ -1093,7 +1104,7 @@ async function migrateSelectedSession(options: {
       "export", "--cdp", cdp, "--cdp-target", target.id,
       "--session", session.id, "--output", exportDirectory,
       "--redact-credentials", "--json",
-    ], cliPath, server);
+    ], cliPath, server, undefined, environment);
     if (!exported.ok) return false;
     if (exported.outputText.includes("T2O_SENSITIVE_CONTENT_REDACTED")) {
       console.log("已自动将疑似凭据替换为脱敏占位符，该会话按部分恢复迁移。");
@@ -1110,7 +1121,7 @@ async function migrateSelectedSession(options: {
   const preview = await runCli([
     "migrate", "--input", inputFile, "--dry-run", "--server", server,
     "--binary", binary, "--fallback-directory", rootDirectory, "--json",
-  ], cliPath, server, password);
+  ], cliPath, server, password, environment);
   if (!preview.ok) return false;
   const previewResult = cliJsonResult(preview.outputText);
   if (previewResult?.ready !== 1 || previewResult.blocked !== 0 ||
@@ -1143,7 +1154,7 @@ async function migrateSelectedSession(options: {
   const migrated = await runCli([
     "migrate", "--input", inputFile, "--server", server,
     "--binary", binary, "--fallback-directory", rootDirectory, ...mode.args, "--json",
-  ], cliPath, server, password);
+  ], cliPath, server, password, environment);
   if (!migrated.ok) return false;
   const migrationResult = cliJsonResult(migrated.outputText);
   if (migrationResult?.skipped === 1 && migrationResult.created === 0 &&
@@ -1202,6 +1213,7 @@ async function runOpenCodeTarget(options: {
     rootDirectory, cliPath, overwritePolicy, targetPosition, targetTotal,
   } = options;
   let managedServer: ManagedOpenCodeServer | undefined;
+  const environment = openCodeTargetEnvironment(candidate.dialect);
   const active = activeServices.find((service) =>
     service.dialect === candidate.dialect && service.version === candidate.version) ??
     activeServices.find((service) => service.dialect === candidate.dialect);
@@ -1215,14 +1227,20 @@ async function runOpenCodeTarget(options: {
     if (!server) {
       console.log("未发现该目标的本机服务，正在使用对应 CLI 临时启动...");
       try {
-        managedServer = await startManagedOpenCodeServer(candidate.binary, candidate.dialect);
+        managedServer = await startManagedOpenCodeServer(
+          candidate.binary,
+          candidate.dialect,
+          environment,
+        );
         server = managedServer.url;
         password = managedServer.password;
-      } catch {
-        console.error(
-          `无法启动 OpenCode ${candidate.version}（${candidate.dialect}）目标；` +
-          "请确认对应 CLI 可执行 serve。",
-        );
+      } catch (error) {
+        const databaseConflict = error instanceof Error &&
+          error.message === "OPENCODE_TARGET_DATABASE_CONFLICT";
+        console.error(databaseConflict
+          ? "OpenCode v1/v2 数据库格式冲突；请为两个方言配置不同的 OPENCODE_DB 文件。"
+          : `无法启动 OpenCode ${candidate.version}（${candidate.dialect}）目标；` +
+            "请确认对应 CLI 可执行 serve。");
         return { candidate, completed: 0, failed: sessions.length, skipped: 0 };
       }
     } else {
@@ -1233,6 +1251,7 @@ async function runOpenCodeTarget(options: {
       serverUrl: server,
       password,
       binary: candidate.binary,
+      env: environment,
     });
     console.log("正在检查目标协议；未收录版本会自动执行隔离往返验证...");
     const capabilities = await probeOpenCodeCapabilities(transport);
@@ -1293,6 +1312,7 @@ async function runOpenCodeTarget(options: {
         cliPath,
         binary: candidate.binary,
         dialect: candidate.dialect,
+        environment,
         position: index + 1,
         total: migrationJobs.length,
         targetPosition,
@@ -1383,6 +1403,15 @@ async function main(): Promise<number> {
     console.error(code === "OPENCODE_TARGET_UNAVAILABLE"
       ? "没有发现可用的 OpenCode v1/v2 CLI；请安装后重试，或分别指定目标 CLI。"
       : "OpenCode 目标选择无效，或请求的 v1/v2 目标不可用。");
+    return 4;
+  }
+  try {
+    requireDistinctOpenCodeTargetDatabases(openCodeTargets);
+  } catch {
+    console.error(
+      "OpenCode v1 与 v2 不能共用同一个 opencode.db。请保留现有数据库，" +
+      "并用 T2O_OPENCODE_V1_DB / T2O_OPENCODE_V2_DB 指定不同文件。",
+    );
     return 4;
   }
 
