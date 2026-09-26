@@ -55,9 +55,10 @@ npm run check
 
 该检查会执行 lint、单元测试、类型检查、构建和 CLI smoke；它不会迁移任何真实会话。
 
-### 第 2 步：安装受支持版本的 OpenCode
+### 第 2 步：准备 OpenCode 并检查兼容性
 
-安装并确认 OpenCode v2 `2.0.12` / `2.0.16`，或 v1 `1.18.32` / `1.17.9`：
+已有稳定 1.x/2.x 可直接运行 `npm run verify:opencode` 检查兼容性。
+需要安装时，可按所用方言选择以下已验证基线之一：
 
 ```sh
 npm install -g @opencode/cli@2.0.16   # v2
@@ -67,7 +68,7 @@ opencode --version
 
 上述清单是已验证基线。其他稳定 1.x/2.x 会自动校验必要接口和完整 schema，再使用
 同版本 CLI 在独立临时库完成导入、导出、回读及删除保护验证。通过后允许迁移；
-CLI 与服务版本不同、预发布版本、未知主版本或验证失败仍拒绝。
+清单外版本的 CLI 与服务版本不同、预发布版本、未知主版本或验证失败仍拒绝。
 目标方言由可执行文件版本决定，不接受手动指定：v2 使用 HTTP `SessionTransfer`，v1 使用 `opencode import` /
 `opencode export` 子命令。
 
