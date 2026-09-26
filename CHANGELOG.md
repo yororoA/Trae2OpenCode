@@ -3,7 +3,12 @@
 This project follows [Semantic Versioning](https://semver.org/). Product versions are
 independent of IR, manifest, mapping, and verification-report format versions.
 
-## [1.1.0] - Unreleased
+## [Unreleased]
+
+- **Added:** Interactive multi-target migration can reuse one source bundle for both an OpenCode
+  v1 desktop installation and a v2 CLI while keeping target manifests isolated.
+
+## [1.1.0] - 2026-09-26
 
 ### Added
 
@@ -12,8 +17,6 @@ independent of IR, manifest, mapping, and verification-report format versions.
   verified baselines, including isolated import, export, conflict, and deletion checks.
 - Interactive multi-session migration with overwrite protection, resume, credential
   redaction, and post-write reconciliation.
-- Interactive multi-target migration can reuse one source bundle for both an OpenCode
-  v1 desktop installation and a v2 CLI while keeping target manifests isolated.
 - Public `verify:opencode` compatibility verification for both target dialects.
 
 ### Changed
