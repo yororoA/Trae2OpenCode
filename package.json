@@ -34,6 +34,7 @@
     "verify:platform": "tsx scripts/verify-platform.ts",
     "verify:versions": "tsx scripts/verify-version-contract.ts",
     "verify:integration:v1": "tsx scripts/verify-opencode-v1.ts",
+    "verify:multi-target": "tsx scripts/verify-multi-target.ts",
     "verify:resilience": "node --max-old-space-size=512 --import tsx scripts/verify-resilience.ts",
     "verify:version": "tsx scripts/verify-product-version.ts",
     "verify:package": "tsx scripts/verify-package.ts",

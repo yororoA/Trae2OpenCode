@@ -97,6 +97,13 @@ jobs:
         if: matrix.node == '22'
         run: npm run verify:opencode -- --binary tmp/opencode-v1-unreviewed/node_modules/opencode-ai/bin/opencode.exe --output tmp/roundtrip-v1-unreviewed
 
+      - name: Verify one bundle against v1 and v2 targets
+        if: matrix.node == '22'
+        run: npm run verify:multi-target
+        env:
+          T2O_TEST_OPENCODE_V1_BINARY: tmp/opencode-v1-current/node_modules/opencode-ai/bin/opencode.exe
+          T2O_TEST_OPENCODE_V2_BINARY: tmp/opencode/node_modules/@opencode/cli/bin/opencode.exe
+
       - name: Verify bounded heap and process interruption recovery
         if: matrix.node == '22'
         run: npm run verify:resilience
@@ -112,6 +119,8 @@ jobs:
             tmp/m7-1-platform-report.json
             tmp/m7-2-version-report.json
             tmp/m7-3-resilience-report.json
+            tmp/multi-target/report.json
+            tmp/multi-target/*/migration-manifest.json
             tmp/roundtrip-v*/report.json
             tmp/roundtrip-v*/*.schema.json
           if-no-files-found: warn

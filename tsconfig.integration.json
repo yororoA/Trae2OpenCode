@@ -6,6 +6,7 @@
   },
   "include": [
     "scripts/verify-opencode-roundtrip.ts",
+    "scripts/verify-multi-target.ts",
     "scripts/verify-product-version.ts",
     "scripts/verify-platform.ts",
     "scripts/verify-version-contract.ts",
