@@ -8,11 +8,12 @@ import { rollbackMigration } from "../src/migration/rollback.js";
 import { createMigrationTarget } from "../src/migration/target.js";
 import { readBundleFile } from "../src/migration/bundle-file.js";
 import { probeOpenCodeCapabilities } from "../src/target/opencode/capability-probe.js";
+import { isVerifiedOpenCodeVersion } from "../src/target/opencode/contract.js";
 import { resolveOpenCodeBinary } from "../src/target/opencode/binary.js";
 import { withIsolatedOpenCodeServer } from "../src/target/opencode/isolated-server.js";
 
 /**
- * Every allow-listed OpenCode 1.x release must pass this against its real native binary:
+ * Baseline and unreviewed compatible OpenCode 1.x releases use their real native binary:
  * version, health, `/doc` routes, the reviewed schema hash, a real import/export round
  * trip with readback reconciliation, conflict detection and rollback.
  */
@@ -42,6 +43,8 @@ async function verifyVersion(label: string, binary: string) {
     assert.equal(capabilities.dialect, "v1", `${label}: expected the v1 dialect`);
     assert.equal(capabilities.binaryVersion, capabilities.serverVersion);
     assert.ok(capabilities.schemaHash, `${label}: missing schema hash`);
+    assert.equal(capabilities.compatibility, isVerifiedOpenCodeVersion(capabilities.binaryVersion)
+      ? "verified-release" : "isolated-roundtrip");
 
     const plan = await buildMigrationPlan(structuredClone(bundle) as MigrationBundle, {
       dialect: capabilities.dialect,
@@ -50,6 +53,7 @@ async function verifyVersion(label: string, binary: string) {
     });
     assert.deepEqual(plan.sessions.map((item) => item.status), ["ready"]);
     const target = createMigrationTarget({ serverUrl: server.serverUrl, transport: server.transport });
+    assert.equal(await target.readSession(plan.sessions[0]!.targetId), null);
     const output = `${server.directory}/run`;
     const first = await migrate(plan, target, { outputDirectory: output });
     assert.equal(first.verified, plan.sessions.length);
@@ -63,6 +67,9 @@ async function verifyVersion(label: string, binary: string) {
 
     const verified = await verifyMigration(`${output}/${first.manifest}`, target);
     assert.equal(verified.hasFailures, false);
+    const resumed = await migrate(plan, target, { resumeManifest: `${output}/${first.manifest}` });
+    assert.equal(resumed.hasFailures, false);
+    assert.equal(resumed.verified, first.verified);
 
     const second = await migrate(plan, target, { outputDirectory: `${server.directory}/run2` });
     assert.equal(second.verified, 0);
@@ -75,6 +82,7 @@ async function verifyVersion(label: string, binary: string) {
 
     results.push({
       label, binary: resolved, version: capabilities.binaryVersion,
+      compatibility: capabilities.compatibility, resume: true,
       schemaHash: capabilities.schemaHash, messages: readback.messages.length,
       parts: parts.length, status: "verified",
     });

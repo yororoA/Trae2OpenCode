@@ -49,6 +49,27 @@ describe("migration manifest persistence", () => {
     assert.deepEqual((await readManifest(filename)).target, manifest.target);
   }));
 
+  it("persists unreviewed stable versions without discarding the exact target identity", () => temporary(async (filename) => {
+    for (const version of ["2.0.11", "2.1.0", "1.18.31"]) {
+      const manifest = emptyManifest();
+      manifest.target.binaryVersion = version;
+      manifest.target.serverVersion = version;
+      await withManifestStore(filename, (store) => store.save(manifest));
+      assert.deepEqual((await readManifest(filename)).target, manifest.target);
+    }
+  }));
+
+  it("still rejects malformed, prerelease and cross-dialect manifest versions", () => temporary(async (filename) => {
+    for (const [binaryVersion, serverVersion] of [
+      ["3.0.0", "3.0.0"], ["2.1.0-beta", "2.1.0-beta"], ["2.0.13", "1.18.31"], ["2.01.0", "2.01.0"],
+    ]) {
+      const manifest = emptyManifest();
+      Object.assign(manifest.target, { binaryVersion, serverVersion });
+      await assert.rejects(withManifestStore(filename, (store) => store.save(manifest)),
+        { code: "T2O_MIGRATION_CHECKPOINT_FAILED" });
+    }
+  }));
+
   it("rejects concurrent users of a checkpoint and releases the lock after failure", () => temporary(async (filename) => {
     await assert.rejects(withManifestStore(filename, async () => {
       await assert.rejects(withManifestStore(filename, async () => assert.fail("Concurrent writer")),

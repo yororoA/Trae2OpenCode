@@ -6,7 +6,7 @@ import * as path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
 import { resolveOpenCodeBinary } from "./binary.js";
-import { isSupportedOpenCodeVersion } from "./contract.js";
+import { openCodeDialectForVersion, parseOpenCodeVersion } from "./contract.js";
 import { createOpenCodeTransport, type OpenCodeTransport } from "./transport.js";
 
 async function stop(server: ChildProcess): Promise<void> {
@@ -32,14 +32,21 @@ export async function withIsolatedOpenCodeServer<T>(
 ): Promise<T> {
   const temporaryRoot = path.resolve(options.temporaryRoot ?? os.tmpdir());
   await fs.mkdir(temporaryRoot, { recursive: true });
-  const root = await fs.mkdtemp(path.join(temporaryRoot, "t2o-opencode-"));
+  // v1 derives its stored directory from the physical process cwd (not a symlink alias).
+  const root = await fs.realpath(await fs.mkdtemp(path.join(temporaryRoot, "t2o-opencode-")));
   await fs.chmod(root, 0o700);
   const password = randomBytes(32).toString("hex");
-  const binary = resolveOpenCodeBinary(options.binary ?? "opencode");
+  const configuredBinary = resolveOpenCodeBinary(options.binary ?? "opencode");
+  // A caller's relative path must keep its meaning when the child switches to the temp cwd.
+  const binary = /[/\\]/.test(configuredBinary) ? path.resolve(configuredBinary) : configuredBinary;
   const env: NodeJS.ProcessEnv = {
     PATH: process.env.PATH,
     SystemRoot: process.env.SystemRoot,
     WINDIR: process.env.WINDIR,
+    HOME: root,
+    USERPROFILE: root,
+    APPDATA: path.join(root, "roaming"),
+    LOCALAPPDATA: path.join(root, "local"),
     TEMP: root,
     TMP: root,
     LANG: "en_US.UTF-8",
@@ -52,6 +59,7 @@ export async function withIsolatedOpenCodeServer<T>(
     OPENCODE_CONFIG_DIR: path.join(root, "config", "opencode"),
     OPENCODE_CONFIG_CONTENT: "{}",
     OPENCODE_DISABLE_PROJECT_CONFIG: "1",
+    OPENCODE_DISABLE_DEFAULT_PLUGINS: "1",
     OPENCODE_DISABLE_MODELS_FETCH: "1",
     OPENCODE_DISABLE_AUTOUPDATE: "1",
     OPENCODE_SERVER_PASSWORD: password,
@@ -62,8 +70,8 @@ export async function withIsolatedOpenCodeServer<T>(
   let server: ChildProcess | undefined;
   try {
     const version = (await connect("http://127.0.0.1").run(["--version"])).trim();
-    const parsedVersion = /^(?:opencode v?)?(\d+\.\d+\.\d+)$/.exec(version)?.[1] ?? null;
-    if (!isSupportedOpenCodeVersion(parsedVersion)) {
+    const parsedVersion = parseOpenCodeVersion(version);
+    if (openCodeDialectForVersion(parsedVersion) === undefined) {
       throw new Trae2OpenCodeError("T2O_OPENCODE_VERSION_UNSUPPORTED");
     }
     server = spawn(binary, ["serve", "--hostname", "127.0.0.1", "--port", "0"], {

@@ -20,13 +20,14 @@ import {
   type TraeSessionMetadata,
 } from "../source/trae/session-metadata.js";
 import {
-  isSupportedOpenCodeVersion,
   openCodeDialectForVersion,
   parseOpenCodeVersion,
-  SUPPORTED_OPENCODE_VERSIONS,
+  VERIFIED_OPENCODE_VERSIONS,
   type OpenCodeDialect,
 } from "../target/opencode/contract.js";
 import { resolveOpenCodeBinary } from "../target/opencode/binary.js";
+import { probeOpenCodeCapabilities } from "../target/opencode/capability-probe.js";
+import { createOpenCodeTransport } from "../target/opencode/transport.js";
 
 const INTERACTIVE_EXPORT_REVISION = 11;
 const MANAGED_OPENCODE_PORT = 4097;
@@ -442,10 +443,16 @@ function printFailure(outputText: string, server: string): void {
       console.error(`无法连接 OpenCode，请确认服务正在运行：${server}`);
       break;
     case "T2O_OPENCODE_VERSION_UNSUPPORTED":
+      console.error("OpenCode 版本格式、主版本或预发布状态不受支持；当前可检测稳定的 v1/v2 版本。");
+      break;
     case "T2O_OPENCODE_SCHEMA_UNSUPPORTED":
-      console.error(
-        `OpenCode 版本或协议不受支持，需要 ${SUPPORTED_OPENCODE_VERSIONS.join(" / ")}。`,
-      );
+      console.error("OpenCode 实际协议与迁移契约不一致，已停止迁移。");
+      break;
+    case "T2O_OPENCODE_COMPATIBILITY_BINARY_REQUIRED":
+      console.error("未收录的 OpenCode 版本需要同版本 CLI 执行隔离验证；请用 T2O_OPENCODE_BINARY 指定。");
+      break;
+    case "T2O_OPENCODE_COMPATIBILITY_UNVERIFIED":
+      console.error("OpenCode 协议检查通过，但隔离导入、回读或删除验证失败，未向目标写入会话。");
       break;
     case "T2O_OPENCODE_V1_UNSUPPORTED_STATE":
       console.error(
@@ -703,7 +710,7 @@ async function startManagedOpenCodeServer(
       try {
         const descriptor: unknown = JSON.parse(await fs.readFile(descriptorFile, "utf8"));
         const service = parseOpenCodeServiceDescriptor(descriptor);
-        if (service && isSupportedOpenCodeVersion(service.version) &&
+        if (service && openCodeDialectForVersion(service.version) === "v2" &&
           await canAccessOpenCodeServer(service.url, service.password)) {
           return {
             url: service.url,
@@ -1127,25 +1134,25 @@ async function main(): Promise<number> {
     if (!process.env.T2O_OPENCODE_SERVER) {
       const discovered = await discoverOpenCodeService();
       if (discovered) {
-        if (!isSupportedOpenCodeVersion(discovered.version)) {
+        if (openCodeDialectForVersion(discovered.version) === undefined) {
           console.error(
-            `检测到正在运行的 OpenCode ${discovered.version}，当前仅支持 ` +
-            `${SUPPORTED_OPENCODE_VERSIONS.join(" / ")}。` +
-            "请完全退出 OpenCode 桌面端或停止该服务后重试。",
+            `检测到正在运行的 OpenCode ${discovered.version}，当前只能检测稳定的 v1/v2 协议。` +
+            "请使用稳定版本；不会另启服务并发访问同一数据库。",
           );
           return 4;
         }
         server = discovered.url;
         serverPassword = discovered.password;
         console.log(`已连接当前 OpenCode ${discovered.version} 本机服务。`);
-      } else if (!await canAccessOpenCodeServer(server, serverPassword)) {
+      } else if (!await canAccessOpenCodeServer(server, serverPassword) &&
+        !await canAccessOpenCodeServerV1(server, serverPassword)) {
         console.log("默认 OpenCode 服务不可访问，正在临时启动本机服务...");
         let dialect: OpenCodeDialect;
         try {
           dialect = await detectOpenCodeBinaryDialect(binary);
         } catch {
           console.error(
-            `无法识别 OpenCode 可执行文件：${binary}。请安装 ${SUPPORTED_OPENCODE_VERSIONS.join(" / ")}，` +
+            `无法识别 OpenCode 可执行文件：${binary}。已验证版本：${VERIFIED_OPENCODE_VERSIONS.join(" / ")}，` +
             "或用 T2O_OPENCODE_BINARY 指定可执行文件路径。",
           );
           return 4;
@@ -1155,16 +1162,28 @@ async function main(): Promise<number> {
           server = managedServer.url;
           serverPassword = managedServer.password;
         } catch {
-          console.error(`无法自动启动 OpenCode，请确认已安装 ${SUPPORTED_OPENCODE_VERSIONS.join(" / ")}。`);
+          console.error("无法自动启动 OpenCode，请确认已安装提供 serve 命令的稳定 v1/v2 CLI。");
           return 4;
         }
       }
     }
 
-    const migrationTarget = createMigrationTarget({
+    const transport = createOpenCodeTransport({
       serverUrl: server,
       password: serverPassword,
       binary,
+    });
+    console.log("正在检查 OpenCode 协议；未收录版本会自动执行隔离往返验证...");
+    const capabilities = await probeOpenCodeCapabilities(transport);
+    if (!capabilities.writable) {
+      printFailure(JSON.stringify({ code: capabilities.reasons[0] }), server);
+      return 4;
+    }
+    console.log(capabilities.compatibility === "isolated-roundtrip"
+      ? `OpenCode ${capabilities.serverVersion} 兼容性检测通过（协议及隔离往返）。`
+      : `OpenCode ${capabilities.serverVersion} 已验证版本，协议检查通过。`);
+    const migrationTarget = createMigrationTarget({
+      serverUrl: server, password: serverPassword, binary, transport,
     });
     for (const job of jobs) {
       if (!job.replacementManifest) continue;

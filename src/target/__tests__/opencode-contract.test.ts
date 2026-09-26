@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import {
   assertOpenCodeSchema, assertOpenCodeTransfer, extractTransferSchema, TRANSFER_SCHEMA_HASH,
+  openCodeDialectForVersion, isVerifiedOpenCodeVersion,
 } from "../opencode/contract.js";
 
 const schema = JSON.parse(readFileSync(new URL(
@@ -13,6 +14,24 @@ const transfer = JSON.parse(readFileSync(new URL(
 ), "utf8"));
 
 describe("OpenCode transfer contract", () => {
+  it("distinguishes stable adapter candidates from reviewed releases", () => {
+    for (const version of ["2.0.11", "2.1.0", "2.99.999"]) {
+      assert.equal(openCodeDialectForVersion(version), "v2");
+      assert.equal(isVerifiedOpenCodeVersion(version), false);
+    }
+    for (const version of ["1.18.31", "1.19.0"]) {
+      assert.equal(openCodeDialectForVersion(version), "v1");
+      assert.equal(isVerifiedOpenCodeVersion(version), false);
+    }
+    for (const version of ["1.17.9", "1.18.32", "2.0.12", "2.0.16"]) {
+      assert.equal(isVerifiedOpenCodeVersion(version), true);
+    }
+    for (const version of [null, "", "3.0.0", "2.1.0-beta", "v2.0.12", "2.00.12", "2.0.12\n"]) {
+      assert.equal(openCodeDialectForVersion(version), undefined);
+      assert.equal(isVerifiedOpenCodeVersion(version), false);
+    }
+  });
+
   it("validates the reviewed fixture including all four tool states", () => {
     assert.doesNotThrow(() => assertOpenCodeTransfer(transfer));
     assert.equal(assertOpenCodeSchema(schema), TRANSFER_SCHEMA_HASH);

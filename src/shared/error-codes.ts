@@ -241,7 +241,15 @@ export const ERROR_DEFINITIONS = {
   },
   T2O_OPENCODE_VERSION_UNSUPPORTED: {
     exitCode: 5,
-    message: "The OpenCode version has no verified import contract.",
+    message: "The OpenCode version is malformed, prerelease, or outside the implemented v1/v2 dialects.",
+  },
+  T2O_OPENCODE_COMPATIBILITY_BINARY_REQUIRED: {
+    exitCode: 5,
+    message: "An unreviewed OpenCode target requires a local CLI of the exact same version for isolated verification.",
+  },
+  T2O_OPENCODE_COMPATIBILITY_UNVERIFIED: {
+    exitCode: 5,
+    message: "OpenCode protocol matched, but isolated import/export and deletion verification did not pass; target writes stopped.",
   },
   T2O_OPENCODE_SERVER_INVALID: {
     exitCode: 5,

@@ -1,5 +1,6 @@
 import { hashCanonicalJson } from "../ir/canonical.js";
 import type { JsonValue } from "../ir/types.js";
+import { Trae2OpenCodeError } from "../shared/errors.js";
 import { requireOpenCodeCapabilities } from "../target/opencode/capability-probe.js";
 import { openCodeDialectForVersion, type OpenCodeDialect } from "../target/opencode/contract.js";
 import type { OpenCodeSession } from "../target/opencode/mapping.js";
@@ -24,9 +25,11 @@ export interface MigrationTarget {
   deleteSession?(id: string, expectedHash: string, exclusiveTarget: boolean): Promise<void>;
 }
 
-/** The dialect is a property of the verified binary, never of a caller option. */
+/** The descriptor is produced only after protocol and compatibility validation. */
 export function descriptorDialect(descriptor: MigrationTargetDescriptor): OpenCodeDialect {
-  return openCodeDialectForVersion(descriptor.binaryVersion) ?? "v2";
+  const dialect = openCodeDialectForVersion(descriptor.binaryVersion);
+  if (!dialect) throw new Trae2OpenCodeError("T2O_OPENCODE_VERSION_UNSUPPORTED");
+  return dialect;
 }
 
 /** Endpoint + verified contract, not a claim of database identity or authentication. */

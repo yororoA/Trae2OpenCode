@@ -38,6 +38,7 @@ async function setup(run: (harness: {
   state: { stored: OpenCodeTransfer | null; version: string; fail: boolean; lose: boolean; wrongId: boolean; dropMessage: boolean };
   calls: string[][];
   root: string;
+  transport: OpenCodeTransport;
 }) => Promise<void>) {
   await fs.mkdir("tmp", { recursive: true });
   const root = await fs.mkdtemp(path.resolve("tmp", "native test $() "));
@@ -78,7 +79,7 @@ async function setup(run: (harness: {
   const adapter = createNativeOpenCodeAdapter({
     serverUrl: "http://127.0.0.1:9999", temporaryRoot: root, transport,
   });
-  try { await run({ transfer, adapter, state, calls, root }); }
+  try { await run({ transfer, adapter, state, calls, root, transport }); }
   finally { await fs.rm(root, { recursive: true, force: true }); }
 }
 
@@ -124,7 +125,7 @@ describe("native OpenCode CLI adapter", () => {
   it("does not write when version, directory or completion gates fail and accepts the former size limit", async () => {
     await setup(async ({ transfer, adapter, state, calls, root }) => {
       state.version = "2.0.13";
-      await assert.rejects(adapter.importSession(transfer), { code: "T2O_OPENCODE_VERSION_UNSUPPORTED" });
+      await assert.rejects(adapter.importSession(transfer), { code: "T2O_OPENCODE_COMPATIBILITY_UNVERIFIED" });
       state.version = "2.0.12";
       transfer.info.location.directory = path.join(root, "missing");
       await assert.rejects(adapter.importSession(transfer), { code: "T2O_OPENCODE_DIRECTORY_INVALID" });
@@ -134,6 +135,24 @@ describe("native OpenCode CLI adapter", () => {
       (transfer.messages[1].time as JsonObject).completed = 1700000004000;
       transfer.messages[0].text = "x".repeat(32 * 1024 * 1024);
       await adapter.importSession(transfer);
+      assert.equal(calls.length, 1);
+    });
+  });
+
+  it("keeps the actual target untouched until an unreviewed binary passes its canary", async () => {
+    await setup(async ({ transfer, adapter, state, calls, root, transport }) => {
+      state.version = "2.0.13";
+      transport.verifyCompatibility = async () => { throw new Error("Cannot retain reasoning"); };
+      await assert.rejects(adapter.importSession(transfer),
+        { code: "T2O_OPENCODE_COMPATIBILITY_UNVERIFIED" });
+      assert.equal(state.stored, null);
+      assert.deepEqual(calls, []);
+      assert.deepEqual(await fs.readdir(root), []);
+      transport.verifyCompatibility = async () => {
+        assert.deepEqual(calls, []);
+        assert.equal(state.stored, null);
+      };
+      assert.deepEqual(await adapter.importSession(transfer), transfer);
       assert.equal(calls.length, 1);
     });
   });

@@ -3,7 +3,7 @@ import type { JsonValue } from "../../ir/types.js";
 import type { ErrorCode } from "../../shared/error-codes.js";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
 import {
-  assertOpenCodeSchema, EXPORT_ROUTE, IMPORT_ROUTE, isRecord,
+  assertOpenCodeSchema, EXPORT_ROUTE, IMPORT_ROUTE, isRecord, isVerifiedOpenCodeVersion,
   openCodeDialectForVersion, parseOpenCodeVersion as parseVersion,
   supportedVersionsForDialect, TRANSFER_REF, type OpenCodeDialect,
 } from "./contract.js";
@@ -21,7 +21,15 @@ export interface OpenCodeCapabilities {
   nativeExport: boolean;
   schemaHash: string | null;
   writable: boolean;
+  compatibility: "unsupported" | "protocol-only" | "verified-release" | "isolated-roundtrip";
   reasons: ErrorCode[];
+}
+
+export interface OpenCodeCompatibilityEvidence {
+  dialect: OpenCodeDialect;
+  binaryVersion: string;
+  serverVersion: string;
+  schemaHash: string;
 }
 
 function schemaAt(operation: unknown, response: boolean): unknown {
@@ -94,8 +102,8 @@ async function probeV2(
 /**
  * v1 has no session transfer route: `import` and `export` are top-level subcommands that
  * write the local session library directly. v1 prints its CLI usage to stderr, which the
- * transport deliberately never reads, so the pinned releases are the capability statement;
- * the first import additionally proves it through readback reconciliation.
+ * transport deliberately never reads. Unreviewed releases therefore also require an
+ * isolated CLI round trip; HTTP schema alone cannot establish import/export behavior.
  */
 async function probeV1(
   transport: OpenCodeTransport, report: OpenCodeCapabilities,
@@ -120,12 +128,12 @@ async function probeV1(
   report.nativeExport = true;
 }
 
-/** Read-only, fail-closed probe of both the executable and the actual target server. */
-export async function probeOpenCodeCapabilities(transport: OpenCodeTransport): Promise<OpenCodeCapabilities> {
+/** Only reads version/HTTP evidence; never accesses user sessions. */
+async function probeProtocol(transport: OpenCodeTransport): Promise<OpenCodeCapabilities> {
   const report: OpenCodeCapabilities = {
     dialect: "v2",
     binaryVersion: null, serverVersion: null, nativeImport: false, nativeExport: false,
-    schemaHash: null, writable: false, reasons: [],
+    schemaHash: null, writable: false, compatibility: "unsupported", reasons: [],
   };
   try {
     report.binaryVersion = parseVersion(await transport.run(["--version"]));
@@ -134,10 +142,51 @@ export async function probeOpenCodeCapabilities(transport: OpenCodeTransport): P
     report.dialect = dialect;
     if (dialect === "v1") await probeV1(transport, report);
     else await probeV2(transport, report);
-    report.writable = true;
+    report.compatibility = "protocol-only";
   } catch (error) {
     report.reasons.push(error instanceof Trae2OpenCodeError
       ? error.code : "T2O_OPENCODE_CAPABILITY_UNAVAILABLE");
+  }
+  return report;
+}
+
+/** Target probe is read-only. Unreviewed versions are exercised in a disposable database. */
+export async function probeOpenCodeCapabilities(transport: OpenCodeTransport): Promise<OpenCodeCapabilities> {
+  const report = await probeProtocol(transport);
+  if (report.reasons.length) return report;
+  const reviewed = isVerifiedOpenCodeVersion(report.binaryVersion) &&
+    isVerifiedOpenCodeVersion(report.serverVersion);
+  if (reviewed) {
+    report.compatibility = "verified-release";
+    report.writable = true;
+    return report;
+  }
+  try {
+    // A local CLI of another version cannot demonstrate the running server's behavior.
+    if (report.binaryVersion !== report.serverVersion) {
+      throw new Trae2OpenCodeError("T2O_OPENCODE_COMPATIBILITY_BINARY_REQUIRED");
+    }
+    if (!transport.verifyCompatibility) {
+      throw new Trae2OpenCodeError("T2O_OPENCODE_COMPATIBILITY_UNVERIFIED");
+    }
+    const evidence: OpenCodeCompatibilityEvidence = {
+      dialect: report.dialect, binaryVersion: report.binaryVersion!,
+      serverVersion: report.serverVersion!, schemaHash: report.schemaHash!,
+    };
+    await transport.verifyCompatibility(evidence);
+    // A service restart/upgrade during the isolated run invalidates that evidence.
+    const current = await probeProtocol(transport);
+    const unchanged = current.reasons.length === 0 &&
+      current.dialect === evidence.dialect &&
+      current.binaryVersion === evidence.binaryVersion &&
+      current.serverVersion === evidence.serverVersion &&
+      current.schemaHash === evidence.schemaHash;
+    if (!unchanged) throw new Trae2OpenCodeError("T2O_MIGRATION_TARGET_CHANGED");
+    report.compatibility = "isolated-roundtrip";
+    report.writable = true;
+  } catch (error) {
+    report.reasons.push(error instanceof Trae2OpenCodeError
+      ? error.code : "T2O_OPENCODE_COMPATIBILITY_UNVERIFIED");
   }
   return report;
 }
