@@ -165,7 +165,7 @@
           <h1 data-text="Trae2OpenCode">Trae2OpenCode</h1>
           <p class="hero-statement" data-i18n="hero.statement">把 TRAE 会话，完整带到 OpenCode。</p>
           <p class="hero-description" data-i18n="hero.description">
-            一条命令迁移消息、推理与工具调用。自动识别 OpenCode v1/v2 协议，支持中断续跑，并在写入后逐项回读核验。
+            一条命令迁移消息、推理与工具调用。自动发现并可同时迁移到 OpenCode v1/v2，支持中断续跑，并在每个目标写入后逐项回读核验。
           </p>
           <div class="hero-actions">
             <a
@@ -206,7 +206,7 @@
         </div>
         <div class="proof-item">
           <strong>v1 + v2</strong>
-          <span data-i18n="proof.protocols">双协议目标适配</span>
+          <span data-i18n="proof.protocols">v1/v2 可同时迁移</span>
         </div>
         <div class="proof-item">
           <strong>Readback</strong>
@@ -509,7 +509,7 @@ npm run migrate:local</code></pre>
           <p class="compatibility-note" id="v1-support">
             <i data-lucide="shield-check" aria-hidden="true"></i>
             <span data-i18n="compatibility.note">
-              表中 OpenCode 版本为已验证基线；其他稳定 1.x/2.x 需使用同版本 CLI，通过协议及隔离往返验证后才能迁移。
+              表中 OpenCode 版本为已验证基线；其他稳定 1.x/2.x 需使用同版本 CLI 并通过隔离验证。发现两个方言时可在一次运行中同时迁移。
             </span>
           </p>
         </div>
@@ -563,6 +563,6 @@ npm run migrate:local</code></pre>
     </footer>
 
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
-    <script src="./app.js?v=4"></script>
+    <script src="./app.js?v=5"></script>
   </body>
 </html>

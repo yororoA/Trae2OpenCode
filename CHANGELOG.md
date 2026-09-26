@@ -12,6 +12,8 @@ independent of IR, manifest, mapping, and verification-report format versions.
   verified baselines, including isolated import, export, conflict, and deletion checks.
 - Interactive multi-session migration with overwrite protection, resume, credential
   redaction, and post-write reconciliation.
+- Interactive multi-target migration can reuse one source bundle for both an OpenCode
+  v1 desktop installation and a v2 CLI while keeping target manifests isolated.
 - Public `verify:opencode` compatibility verification for both target dialects.
 
 ### Changed

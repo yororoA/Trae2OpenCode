@@ -16,6 +16,8 @@ Quality CI 覆盖 macOS、Windows、Linux，分别执行 Node 18.20.8 和 Node 2
 - Linux：明确拒绝 TRAE 本地发现；使用离线 IR 验证目标链路。
 - 三端均通过隔离 OpenCode 实例进行原生 CLI import、manifest、verify、
   resume 和重复迁移检查。合成 runtime 不能替代真实已登录 TRAE 的最终验收。
+- Node 22 额外用同一份合成 IR 依次迁移到 v1、v2 独立目标，分别生成 manifest
+  并回读验证，防止多目标编排复用错误数据库或迁移记录。
 
 ## 测试维护
 
@@ -38,6 +40,14 @@ npm install --prefix tmp/opencode --no-package-lock --no-save @opencode/cli@2.0.
 为 `verify:platform` 设置 `T2O_TEST_OPENCODE_BINARY` 到安装后的
 `tmp/opencode/node_modules/@opencode/cli/bin/opencode.exe`，或使用 PATH 上的
 同版本原生二进制。CI 指定完整路径以避免 Windows npm shim 的 shell 差异。
+
+双目标验收使用：
+
+```bash
+T2O_TEST_OPENCODE_V1_BINARY=tmp/opencode-v1-current/node_modules/opencode-ai/bin/opencode.exe \
+T2O_TEST_OPENCODE_V2_BINARY=tmp/opencode/node_modules/@opencode/cli/bin/opencode.exe \
+npm run verify:multi-target
+```
 
 本机 macOS / Node 18.20.8：339 项单测、lint、typecheck、build、smoke 通过；
 两个默认目录、原生导入与对账、resume、重复跳过通过。回读 2 条消息、

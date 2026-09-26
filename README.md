@@ -76,11 +76,16 @@ opencode --version
 隔离往返验证，支持 `--binary`、`--output` 与 `--json`；详见[独立验证说明](docs/opencode-compatibility.md#独立验证本机-opencode)。
 `migrate:local` 会读取
 OpenCode 当前 service descriptor 发现动态端口，并检查本机 `http://127.0.0.1:4096`。没有可用
-服务时会临时启动仅监听本机的 `4097` 进程，沿用当前本地 OpenCode 会话库，迁移结束后只关闭
-该临时进程。因此通常不需要手动启动 OpenCode server。
+服务时会用对应 CLI 临时启动仅监听本机的动态端口，沿用该版本的本地 OpenCode 会话库，
+迁移结束后只关闭临时进程。因此通常不需要手动启动 OpenCode server。
 
 Windows 上 npm 只会生成 `.cmd` / `.ps1` 垫片，Node 无法直接执行它们，因此工具会自动解析
 垫片里指向的原生 `opencode.exe`；解析失败时可用 `T2O_OPENCODE_BINARY` 或 `--binary` 指定。
+
+同时安装 v1 桌面端和 v2 CLI 时，工具会发现两个目标并提供多选。选择 `all` 可让同一批
+TRAE 会话依次迁移到 v1、v2；源 bundle 只导出一次，但每个目标拥有独立 manifest 和回读
+结果。常见桌面端内置 CLI 会自动发现；特殊安装目录可用
+`T2O_OPENCODE_V1_BINARY` / `T2O_OPENCODE_V2_BINARY` 分别指定。
 
 正在运行的未收录版本会先接受协议检测。若本机 CLI 版本与它不同，请安装同版本 CLI，
 或用 `T2O_OPENCODE_BINARY` 指定同版本可执行文件。隔离验证使用独立临时数据库，
@@ -141,14 +146,19 @@ npm run migrate:local -n  # 自动跳过需要 OVERWRITE 的会话
   2. 阅读 README · partial · 2026/09/24 14:20:00
   3. 发布检查 · complete · 2026/09/24 13:10:00
 请输入编号（如 1,3-5；输入 all 全选）：1,3
+
+发现多个 OpenCode 目标，请选择（支持多选）：
+  1. OpenCode 1.18.32 · v1 · 桌面端内置 CLI
+  2. OpenCode 2.0.18 · v2 · PATH CLI
+请输入编号（如 1,2；输入 all 全选）：all
 ```
 
 随后工具依次完成：
 
-1. 为每个所选会话创建独立 bundle 和 manifest。
+1. 为每个所选会话创建一份 bundle，并为每个 OpenCode 目标创建独立 manifest。
 2. 自动剥离正文、标题和工具 payload 中已识别的凭据。
 3. 在真正写入前检查迁移完整性和 OpenCode 兼容性。
-4. 逐个导入到 OpenCode，并回读消息、reasoning、工具记录和 hash；单个失败不阻止后续会话。
+4. 按目标逐个导入，并回读消息、reasoning、工具记录和 hash；单个目标或会话失败不阻止后续项。
 5. 成功后保留最新迁移记录，清理同一会话已被替代的旧终态记录。
 
 如果目标中已存在同一来源会话，并且本地保留着本工具上次成功迁移的 manifest，程序会
@@ -216,7 +226,7 @@ TRAE 本身的历史被删除，源数据始终保持只读。
 | 目录 | 用途 | 是否含会话正文 |
 | --- | --- | --- |
 | `trae-export/` | 最新 bundle，用于重新映射和续跑 | 是 |
-| `migration-run/` | manifest、回读证据和迁移状态 | 否 |
+| `migration-run/` | 按来源和目标隔离的 manifest、回读证据与迁移状态 | 否 |
 
 这两个目录均为本地私人数据，已经在 `.gitignore` 中忽略，**不要提交、共享或上传**。
 工具只自动清理由当前 verified 版本替代的旧终态目录；失败、进行中或无法确认安全性的记录
@@ -231,6 +241,7 @@ TRAE 本身的历史被删除，源数据始终保持只读。
 | `无法自动启动 OpenCode` | 确认 `opencode --version` 可运行，再用 `npm run verify:opencode` 检查兼容性；需要重装时可选择上述已验证基线。 |
 | `OpenCode 版本或协议不受支持` | 确认是稳定 1.x/2.x；实际路由和 schema 必须与基线一致。 |
 | `未收录的 OpenCode 版本需要同版本 CLI` | 安装与目标服务相同版本的 CLI，或用 `T2O_OPENCODE_BINARY` 指定。 |
+| `请求的 v1/v2 目标不可用` | 确认对应 CLI 已安装；特殊目录分别设置 `T2O_OPENCODE_V1_BINARY`、`T2O_OPENCODE_V2_BINARY`。 |
 | `隔离导入、回读或删除验证失败` | 尚未向目标写入会话；使用已验证基线版本，保留错误码用于排查。 |
 | `所选会话包含当前无法无损映射的内容` | 工具尚未写入 OpenCode。保留产物并查看[故障排查](docs/troubleshooting.md)。 |
 | `目标会话已存在，但缺少可验证的旧 manifest` | 目标归属无法证明，因此不会覆盖；恢复对应 manifest 或在 OpenCode 中人工确认处理。 |

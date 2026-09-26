@@ -148,3 +148,15 @@ hit restricted`，退出码 1。该失败发生于报告工具的自更新阶段
 回归。实跑 2.0.18、2.0.12、1.18.31、1.18.32 均通过；版本号、schema 与行为检查
 继续生效。遇到类似入口不一致时，应直接回归用户执行的 npm 命令，不能仅凭 adapter
 测试通过判断完成。新版报告与历史 M0 证据的区别见[兼容性文档](opencode-compatibility.md)。
+
+## 2026-09-26：Windows 同时安装 v1 桌面端和 v2 CLI 时只写入 v2
+
+原一键入口只解析一个 `opencode` 命令并维护一组 server、binary 和 manifest。
+PATH 指向 v2 CLI 时，工具会启动或连接 v2 服务，因此迁移结果只出现在 v2 数据库；
+已安装但未被选作目标的 v1 桌面端不会自动同步。
+
+现改为发现 PATH 与桌面端内置 CLI，按方言提供多选。同一份脱敏 bundle 可串行迁移到
+v1、v2，每个目标独立执行协议检查、原生导入、回读和 manifest 管理。清理与 replacement
+证据也按方言过滤，不能拿 v2 manifest 覆盖 v1 会话。标准安装目录无法发现时，通过
+`T2O_OPENCODE_V1_BINARY` / `T2O_OPENCODE_V2_BINARY` 指定；自动化可设置
+`T2O_OPENCODE_TARGETS=v1,v2`。三系统 CI 使用真实 v1/v2 二进制复用一份合成 IR 验收。

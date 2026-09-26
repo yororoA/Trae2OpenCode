@@ -74,12 +74,14 @@ opencode --version
 
 不必先启动 OpenCode server。迁移程序会读取当前 OpenCode service descriptor
 发现动态端口，并检查 `127.0.0.1:4096`。都不可用时会临时启动仅本机可访问的
-`127.0.0.1:4097` 进程，沿用当前本地 OpenCode 会话库，迁移结束后只关闭该进程。
+动态端口进程，沿用对应版本的本地 OpenCode 会话库，迁移结束后只关闭该进程。
 v1 没有 service descriptor，工具会自行以同一会话库启动 `opencode serve` 并生成
 一次性随机口令，仅监听回环地址。
 
 Windows 上 npm 只生成 `.cmd` / `.ps1` 垫片，Node 无法直接执行它们，因此工具会自动解析
 垫片指向的原生 `opencode.exe`。解析失败时用 `T2O_OPENCODE_BINARY` 指向该文件。
+同时存在 v1 桌面端与 v2 CLI 时，工具还会检查常见桌面端安装目录并列出两个目标；
+特殊安装目录可分别通过 `T2O_OPENCODE_V1_BINARY`、`T2O_OPENCODE_V2_BINARY` 指定。
 
 如果 service descriptor 指向正在运行的未收录版本，程序会检查其协议，要求本地 CLI
 与它同版本以执行隔离验证。可用 `T2O_OPENCODE_BINARY` 指向同版本可执行文件。
@@ -157,8 +159,21 @@ npm run migrate:local
 ```
 
 列表中的 `complete` 或 `partial` 是来源恢复等级，不是失败提示。`partial` 表示 TRAE
-没有持久化某些字段，但其余可验证内容仍可能安全迁移。每个会话使用独立 bundle 和
-manifest；某个会话失败后，程序会继续处理其余选项并在最后汇总成功、失败数量。
+没有持久化某些字段，但其余可验证内容仍可能安全迁移。每个会话使用独立 bundle，
+每个目标使用独立 manifest；某个会话失败后，程序会继续处理其余选项并在最后汇总。
+
+若发现多个 OpenCode 方言，还会显示目标列表：
+
+```text
+发现多个 OpenCode 目标，请选择（支持多选）：
+  1. OpenCode 1.18.32 · v1 · 桌面端内置 CLI
+  2. OpenCode 2.0.18 · v2 · PATH CLI
+请输入编号（如 1,2；输入 all 全选）：all
+```
+
+选择多个目标时，程序复用同一份已脱敏 bundle，串行迁移并分别回读。v1/v2 使用不同
+manifest；一个目标失败会记录在最终汇总中，但不会把另一个目标的成功结果回滚或混用。
+无人值守环境可设置 `T2O_OPENCODE_TARGETS=v1,v2`。
 
 ## 迁移过程中程序会做什么
 
@@ -167,10 +182,10 @@ manifest；某个会话失败后，程序会继续处理其余选项并在最后
 1. 从所选 workbench 的 renderer 逐个导出会话。
 2. 分别检查每个 bundle 是否超过 `1 GiB`，并检查单会话是否超过 `384 MiB`。
 3. 自动替换标题、消息正文和工具 payload 中已识别的凭据。
-4. 进行 dry-run，确认 OpenCode 版本和数据映射。
-5. 导入到 OpenCode。
-6. 回读 OpenCode 内容，对比消息、reasoning、工具记录和 hash。
-7. 保留当前最新记录，并清理同一会话已被替代的旧终态记录。
+4. 对每个所选目标进行 dry-run，确认 OpenCode 版本、方言和数据映射。
+5. 按目标串行导入到 OpenCode。
+6. 分别回读各目标内容，对比消息、reasoning、工具记录和 hash。
+7. 为各目标保留独立记录，并只清理同一方言中已被替代的旧终态记录。
 
 在第 4 步失败时，程序不会写入 OpenCode。不要修改 bundle、manifest 或错误码来绕过
 检查，它们用于防止把不完整或错误关联的会话写入目标。
@@ -389,14 +404,17 @@ node dist/cli/index.js rollback \
 | --- | --- |
 | `T2O_TRAE_CDP` | TRAE 调试端口不是 `http://127.0.0.1:9222`。 |
 | `T2O_OPENCODE_SERVER` | 需要迁移到自行维护的 OpenCode server。设置后工具不会启动临时服务。 |
-| `T2O_OPENCODE_BINARY` | 指定原生 CLI；未收录版本需与目标服务版本完全一致。 |
+| `T2O_OPENCODE_BINARY` | 保持原有单目标行为，指定一个原生 CLI；未收录版本需与服务版本一致。 |
+| `T2O_OPENCODE_V1_BINARY` | 指定 v1 目标 CLI，适用于桌面端安装在非标准目录。 |
+| `T2O_OPENCODE_V2_BINARY` | 指定 v2 目标 CLI，适用于 PATH 之外的安装。 |
+| `T2O_OPENCODE_TARGETS` | 无人值守选择 `v1`、`v2` 或 `v1,v2`；交互运行通常不需要设置。 |
 | `T2O_MIGRATION_EXPORT` | 将 bundle 保存到受控的自定义私有目录。 |
 | `T2O_MIGRATION_RUN` | 将 manifest 保存到受控的自定义私有目录。 |
 | `T2O_REPLACE_EXISTING=1` | 无交互确认覆盖；仅用于已确保没有其他 OpenCode 写入者的自动化环境。 |
 
 设置自定义 bundle 或 manifest 路径时，工具不会自动清理那些目录。保留它们直到确认不再
-需要续跑、核验或回滚。多选迁移不能共用单个自定义 bundle/manifest 路径；多选时请取消
-这两个路径覆盖，让程序为每个会话创建独立目录。
+需要续跑、核验或回滚。多会话迁移不能共用单个自定义 bundle/manifest 路径；多目标迁移
+不能共用 `T2O_MIGRATION_RUN`。此时请使用默认目录，让程序按会话和目标分别创建记录。
 
 更多底层 CLI 用法、错误码及安全边界见[故障排查](troubleshooting.md)和
 [迁移记录与续跑](m5-3-manifest-resume.md)。
