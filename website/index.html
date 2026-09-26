@@ -472,13 +472,13 @@ npm run migrate:local</code></pre>
         <div class="section-inner reveal">
           <div class="compatibility-heading">
             <p class="eyebrow" data-i18n="compatibility.eyebrow">明确的兼容边界</p>
-            <h2 data-i18n="compatibility.title">只迁移经过验证的组合</h2>
+            <h2 data-i18n="compatibility.title">兼容性，由实际验证决定</h2>
           </div>
           <div class="compatibility-table" role="table" aria-label="兼容版本">
             <div class="compatibility-row compatibility-row-header" role="row">
               <span role="columnheader" data-i18n="compatibility.component">组件</span>
-              <span role="columnheader" data-i18n="compatibility.supported">已验证范围</span>
-              <span role="columnheader" data-i18n="compatibility.behavior">超出范围</span>
+              <span role="columnheader" data-i18n="compatibility.supported">验证基线 / 要求</span>
+              <span role="columnheader" data-i18n="compatibility.behavior">其他情况</span>
             </div>
             <div class="compatibility-row" role="row">
               <strong role="cell">TRAE CN</strong>
@@ -488,12 +488,12 @@ npm run migrate:local</code></pre>
             <div class="compatibility-row" role="row">
               <strong role="cell">OpenCode v2</strong>
               <span role="cell">2.0.12 / 2.0.16</span>
-              <span role="cell" data-i18n="compatibility.probe">稳定版本自动检测</span>
+              <span role="cell" data-i18n="compatibility.probeV2">其他稳定 2.x 自动检测</span>
             </div>
             <div class="compatibility-row" role="row">
               <strong role="cell">OpenCode v1</strong>
               <span role="cell">1.17.9 / 1.18.32</span>
-              <span role="cell" data-i18n="compatibility.probe">稳定版本自动检测</span>
+              <span role="cell" data-i18n="compatibility.probeV1">其他稳定 1.x 自动检测</span>
             </div>
             <div class="compatibility-row" role="row">
               <strong role="cell" data-i18n="compatibility.platform">本机来源读取</strong>
@@ -509,7 +509,7 @@ npm run migrate:local</code></pre>
           <p class="compatibility-note" id="v1-support">
             <i data-lucide="shield-check" aria-hidden="true"></i>
             <span data-i18n="compatibility.note">
-              OpenCode v1 基线为 1.17.9 与 1.18.32；其他稳定版本需通过协议及隔离往返验证。
+              表中 OpenCode 版本为已验证基线；其他稳定 1.x/2.x 需使用同版本 CLI，通过协议及隔离往返验证后才能迁移。
             </span>
           </p>
         </div>
@@ -563,6 +563,6 @@ npm run migrate:local</code></pre>
     </footer>
 
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
-    <script src="./app.js?v=3"></script>
+    <script src="./app.js?v=4"></script>
   </body>
 </html>
