@@ -32,7 +32,7 @@
     "verify:opencode": "tsx scripts/verify-opencode-roundtrip.ts",
     "verify:platform": "tsx scripts/verify-platform.ts",
     "verify:versions": "tsx scripts/verify-version-contract.ts",
-    "verify:v1": "tsx scripts/verify-opencode-v1.ts",
+    "verify:integration:v1": "tsx scripts/verify-opencode-v1.ts",
     "verify:resilience": "node --max-old-space-size=512 --import tsx scripts/verify-resilience.ts",
     "verify:package": "tsx scripts/verify-package.ts",
     "verify:live": "tsx scripts/verify-live-runtime.ts",

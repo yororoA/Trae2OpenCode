@@ -77,6 +77,11 @@ manifest 保留实际版本号和 schema hash。读取 manifest 本身不授予�
 
 ## 独立验证本机 OpenCode
 
+| 命令 | 用途 |
+| --- | --- |
+| `npm run verify:opencode` | 日常兼容性检查，自动识别本机 OpenCode v1/v2 |
+| `npm run verify:integration:v1` | 开发 / CI 的 v1 专项集成回归，覆盖迁移、续跑、冲突与回滚 |
+
 无需启动 TRAE 或现有 OpenCode 服务：
 
 ```sh
@@ -139,7 +144,7 @@ CI 已配置三系统的 v2 `2.0.12` / `2.0.11` 与 v1 `1.18.32` / `1.18.31` 验
 - 生成用例：新增 9 项测试，覆盖两个方言的基线与未收录版本、报告真实版本、
   协议不匹配时拒写、证据绑定、消息丢失、版本变化、清理、参数优先级和失败退出。
 - 验证结果：macOS / Node 18.20.8，455 项测试、lint、类型检查、构建、smoke、
-  `verify:versions`、`verify:v1` 与 `verify:package` 通过。实际运行 `verify:opencode`
+  `verify:versions`、`verify:integration:v1` 与 `verify:package` 通过。实际运行 `verify:opencode`
   验证 `2.0.18`、`2.0.12`、`1.18.31`、`1.18.32`，四者均通过。
 
 CI 新增三系统直接执行上述四个版本的公开命令，并上传报告和 schema。单测辅助工具

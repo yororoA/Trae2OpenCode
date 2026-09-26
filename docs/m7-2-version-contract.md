@@ -40,6 +40,10 @@ npm run verify:versions
 
 ## OpenCode v1 契约（`opencode-ai`）
 
+`npm run verify:integration:v1` 是开发和 CI 使用的 v1 专项集成回归，覆盖迁移、
+回读、续跑、冲突及回滚。日常检查本机 OpenCode 兼容性使用
+`npm run verify:opencode`，该命令同时支持 v1/v2。
+
 Windows 上常见的 OpenCode 是 v1，它与 v2 在三层上都不兼容：v1 的 OpenAPI 在 `/doc`
 而不是 `/openapi.json`，没有 `/api/info`，也没有任何会话导入导出 HTTP 路由；
 CLI 的 `export` / `import` 是顶层子命令且不接受 `--server` / `--directory`；
@@ -83,7 +87,7 @@ v1 基线为 **1.18.32** 与 **1.17.9**，两个都使用 npm 官方发布的原
 npm install --prefix tmp/opencode-v1-adjacent --no-package-lock --no-save opencode-ai@1.17.9
 T2O_TEST_OPENCODE_BINARY="$(command -v opencode)" \
 T2O_TEST_V1_ADJACENT_BINARY="$PWD/tmp/opencode-v1-adjacent/node_modules/opencode-ai/bin/opencode.exe" \
-npm run verify:v1
+npm run verify:integration:v1
 ```
 
 脚本对每个给定二进制在隔离数据目录中执行完整链路，输出

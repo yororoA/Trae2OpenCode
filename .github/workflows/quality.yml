@@ -84,7 +84,7 @@ jobs:
 
       - name: Verify v1 protocol compatibility and recovery
         if: matrix.node == '22'
-        run: npm run verify:v1
+        run: npm run verify:integration:v1
         env:
           T2O_TEST_OPENCODE_BINARY: tmp/opencode-v1-current/node_modules/opencode-ai/bin/opencode.exe
           T2O_TEST_V1_ADJACENT_BINARY: tmp/opencode-v1-unreviewed/node_modules/opencode-ai/bin/opencode.exe

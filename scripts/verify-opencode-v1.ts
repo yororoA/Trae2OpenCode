@@ -18,7 +18,7 @@ import { withIsolatedOpenCodeServer } from "../src/target/opencode/isolated-serv
  * trip with readback reconciliation, conflict detection and rollback.
  */
 // Convention mirrors verify-version-contract: current binary from PATH unless
-// T2O_TEST_OPENCODE_BINARY overrides it; adjacent allow-listed release from
+// T2O_TEST_OPENCODE_BINARY overrides it; adjacent native release from
 // tmp/opencode-v1-adjacent unless T2O_TEST_V1_ADJACENT_BINARY overrides it.
 const adjacentDefault = path.resolve("tmp/opencode-v1-adjacent/node_modules/opencode-ai/bin/opencode.exe");
 const configured = [
