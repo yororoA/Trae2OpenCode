@@ -49,6 +49,7 @@ function session(
 function replacementManifest(
   sourceId: string,
   runId = "00000000-0000-4000-8000-000000000001",
+  targetVersion = "2.0.12",
 ): MigrationManifest {
   const hash = `sha256:${"a".repeat(64)}`;
   const expected = {
@@ -64,8 +65,8 @@ function replacementManifest(
     planHash: hash,
     target: {
       endpointHash: hash,
-      binaryVersion: "2.0.12",
-      serverVersion: "2.0.12",
+      binaryVersion: targetVersion,
+      serverVersion: targetVersion,
       schemaHash: hash,
       fingerprint: hash,
     },
@@ -286,6 +287,11 @@ describe("interactive migration helpers", () => {
     assert.notEqual(first.exportDirectory, updated.exportDirectory);
     assert.match(first.exportDirectory, /trae-export[\\/]session-[a-f0-9]{16}$/);
     assert.doesNotMatch(first.exportDirectory, new RegExp(sourceSessionId));
+    const v1 = resolveMigrationDirectories(root, sourceSessionId, undefined, undefined, undefined, "v1");
+    const v2 = resolveMigrationDirectories(root, sourceSessionId, undefined, undefined, undefined, "v2");
+    assert.equal(v1.exportDirectory, v2.exportDirectory);
+    assert.notEqual(v1.runDirectory, v2.runDirectory);
+    assert.notEqual(v1.runDirectory, first.runDirectory);
     assert.deepEqual(
       resolveMigrationDirectories(root, "session-a", "/tmp/export", "/tmp/run"),
       { exportDirectory: path.resolve("/tmp/export"), runDirectory: path.resolve("/tmp/run") },
@@ -354,6 +360,8 @@ describe("interactive migration helpers", () => {
   it("accepts only verified tool-owned manifests as replacement evidence", () => {
     const manifest = replacementManifest("session-a");
     assert.equal(isReplacementManifestForSession(manifest, "session-a"), true);
+    assert.equal(isReplacementManifestForSession(manifest, "session-a", "v2"), true);
+    assert.equal(isReplacementManifestForSession(manifest, "session-a", "v1"), false);
     assert.equal(isReplacementManifestForSession(manifest, "session-b"), false);
 
     manifest.sessions[0].created = false;
@@ -449,6 +457,36 @@ describe("interactive migration helpers", () => {
     }
   });
 
+  it("never uses another OpenCode dialect as replacement evidence", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "trae2opencode-target-dialect-"));
+    const current = path.join(root, "session-1111111111111111");
+    const v2Directory = path.join(root, "session-2222222222222222");
+    const v1Directory = path.join(root, "session-3333333333333333");
+    try {
+      await fs.mkdir(current);
+      await writeManifest(v2Directory, replacementManifest("session-a"));
+      await writeManifest(v1Directory, replacementManifest(
+        "session-a",
+        "00000000-0000-4000-8000-000000000002",
+        "1.18.32",
+      ));
+      assert.equal(await findReplacementManifest({
+        sourceSessionId: "session-a",
+        runRoot: root,
+        currentRunDirectory: current,
+        targetDialect: "v1",
+      }), path.join(v1Directory, "migration-manifest.json"));
+      assert.equal(await findReplacementManifest({
+        sourceSessionId: "session-a",
+        runRoot: root,
+        currentRunDirectory: current,
+        targetDialect: "v2",
+      }), path.join(v2Directory, "migration-manifest.json"));
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("drops replacement mode when the previously migrated target was deleted", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "trae2opencode-target-"));
     try {
@@ -496,6 +534,39 @@ describe("interactive migration helpers", () => {
       assert.equal((await fs.stat(current)).isDirectory(), true);
       assert.equal((await fs.stat(other)).isDirectory(), true);
       assert.equal(await fs.readFile(path.join(invalidRun, "unrelated.txt"), "utf8"), "keep");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("cleans obsolete manifests only within the current OpenCode dialect", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "trae2opencode-cleanup-target-"));
+    const exportRoot = path.join(root, "trae-export");
+    const runRoot = path.join(root, "migration-run");
+    const current = path.join(runRoot, "session-1111111111111111");
+    const obsoleteV2 = path.join(runRoot, "session-2222222222222222");
+    const retainedV1 = path.join(runRoot, "session-3333333333333333");
+    await fs.mkdir(exportRoot);
+    await fs.mkdir(runRoot);
+    await fs.mkdir(current);
+    try {
+      await writeManifest(obsoleteV2, replacementManifest("session-a"));
+      await writeManifest(retainedV1, replacementManifest(
+        "session-a",
+        "00000000-0000-4000-8000-000000000002",
+        "1.18.32",
+      ));
+      const cleaned = await cleanupObsoleteArtifacts({
+        sourceSessionId: "session-a",
+        exportRoot,
+        runRoot,
+        currentExportDirectory: path.join(exportRoot, "session-4444444444444444"),
+        currentRunDirectory: current,
+        targetDialect: "v2",
+      });
+      assert.deepEqual(cleaned, { exportDirectories: 0, runDirectories: 1 });
+      await assert.rejects(fs.stat(obsoleteV2), { code: "ENOENT" });
+      assert.equal((await fs.stat(retainedV1)).isDirectory(), true);
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }

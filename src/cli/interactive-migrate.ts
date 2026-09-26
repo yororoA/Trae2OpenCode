@@ -25,12 +25,16 @@ import {
   VERIFIED_OPENCODE_VERSIONS,
   type OpenCodeDialect,
 } from "../target/opencode/contract.js";
-import { resolveOpenCodeBinary } from "../target/opencode/binary.js";
 import { probeOpenCodeCapabilities } from "../target/opencode/capability-probe.js";
 import { createOpenCodeTransport } from "../target/opencode/transport.js";
+import {
+  discoverOpenCodeTargets,
+  preferredOpenCodeTargets,
+  requestedOpenCodeTargets,
+  type OpenCodeTargetCandidate,
+} from "./opencode-targets.js";
 
 const INTERACTIVE_EXPORT_REVISION = 11;
-const MANAGED_OPENCODE_PORT = 4097;
 const ARTIFACT_DIRECTORY = /^session-[a-f0-9]{16}$/;
 const WORKBENCH_URL =
   /\/out\/vs\/code\/electron-browser\/workbench\/workbench\.html(?:\?|$)/;
@@ -64,13 +68,19 @@ export type ArtifactCleanupResult = {
   runDirectories: number;
 };
 
-function selectionKey(sourceSessionId: string, sourceUpdatedAt?: number): string {
+function selectionKey(
+  sourceSessionId: string,
+  sourceUpdatedAt?: number,
+  targetDialect?: OpenCodeDialect,
+): string {
+  const identity = [
+    INTERACTIVE_EXPORT_REVISION,
+    sourceSessionId,
+    sourceUpdatedAt ?? null,
+    ...(targetDialect ? [targetDialect] : []),
+  ];
   return createHash("sha256")
-    .update(JSON.stringify([
-      INTERACTIVE_EXPORT_REVISION,
-      sourceSessionId,
-      sourceUpdatedAt ?? null,
-    ]))
+    .update(JSON.stringify(identity))
     .digest("hex")
     .slice(0, 16);
 }
@@ -81,15 +91,17 @@ export function resolveMigrationDirectories(
   exportOverride?: string,
   runOverride?: string,
   sourceUpdatedAt?: number,
+  targetDialect?: OpenCodeDialect,
 ): MigrationDirectories {
   const exportRoot = path.resolve(exportOverride ?? path.join(rootDirectory, "trae-export"));
   const runRoot = path.resolve(runOverride ?? path.join(rootDirectory, "migration-run"));
   const hasExportOverride = exportOverride !== undefined;
   const hasRunOverride = runOverride !== undefined;
-  const key = `session-${selectionKey(sourceSessionId, sourceUpdatedAt)}`;
+  const exportKey = `session-${selectionKey(sourceSessionId, sourceUpdatedAt)}`;
+  const runKey = `session-${selectionKey(sourceSessionId, sourceUpdatedAt, targetDialect)}`;
   return {
-    exportDirectory: hasExportOverride ? exportRoot : path.join(exportRoot, key),
-    runDirectory: hasRunOverride ? runRoot : path.join(runRoot, key),
+    exportDirectory: hasExportOverride ? exportRoot : path.join(exportRoot, exportKey),
+    runDirectory: hasRunOverride ? runRoot : path.join(runRoot, runKey),
   };
 }
 
@@ -224,14 +236,17 @@ export function isTerminalManifestForSession(
 export function isReplacementManifestForSession(
   manifest: MigrationManifest,
   sourceSessionId: string,
+  targetDialect?: OpenCodeDialect,
 ): boolean {
   const session = manifest.sessions[0];
+  const manifestDialect = openCodeDialectForVersion(manifest.target.serverVersion);
   return manifest.rollbackState === undefined &&
     manifest.sessions.length === 1 &&
     session.sourceId === sourceSessionId &&
     session.state === "verified" &&
     session.created &&
-    session.deletionHash !== undefined;
+    session.deletionHash !== undefined &&
+    (targetDialect === undefined || manifestDialect === targetDialect);
 }
 
 export function replacementResumeNeedsExclusiveAccess(
@@ -334,6 +349,7 @@ export async function findReplacementManifest(options: {
   sourceSessionId: string;
   runRoot: string;
   currentRunDirectory: string;
+  targetDialect?: OpenCodeDialect;
 }): Promise<string | undefined> {
   const candidates: Array<{ filename: string; modifiedAt: number }> = [];
   const entries = await fs.readdir(options.runRoot, { withFileTypes: true }).catch(() => []);
@@ -346,7 +362,11 @@ export async function findReplacementManifest(options: {
       if (!stat.isDirectory() || stat.isSymbolicLink()) continue;
       const filename = path.join(directory, "migration-manifest.json");
       const manifest = await readManifest(filename);
-      if (!isReplacementManifestForSession(manifest, options.sourceSessionId)) continue;
+      if (!isReplacementManifestForSession(
+        manifest,
+        options.sourceSessionId,
+        options.targetDialect,
+      )) continue;
       candidates.push({ filename, modifiedAt: stat.mtimeMs });
     } catch {
       // Invalid or active artifacts cannot authorize replacement.
@@ -381,6 +401,7 @@ export async function cleanupObsoleteArtifacts(options: {
   runRoot: string;
   currentExportDirectory: string;
   currentRunDirectory: string;
+  targetDialect?: OpenCodeDialect;
 }): Promise<ArtifactCleanupResult> {
   const result = { exportDirectories: 0, runDirectories: 0 };
   const cleanupRoot = async (
@@ -402,6 +423,8 @@ export async function cleanupObsoleteArtifacts(options: {
         } else {
           const manifest = await readManifest(path.join(directory, "migration-manifest.json"));
           if (!isTerminalManifestForSession(manifest, options.sourceSessionId)) continue;
+          if (options.targetDialect !== undefined &&
+            openCodeDialectForVersion(manifest.target.serverVersion) !== options.targetDialect) continue;
         }
         if (!await removeUnchangedDirectory(directory, initial)) continue;
         if (kind === "export") result.exportDirectories++;
@@ -529,58 +552,40 @@ async function canAccessOpenCodeServer(
   server: string,
   password = process.env.OPENCODE_SERVER_PASSWORD,
 ): Promise<boolean> {
+  return await probeOpenCodeServerVersion(server, "v2", password) !== undefined;
+}
+
+async function probeOpenCodeServerVersion(
+  server: string,
+  dialect: OpenCodeDialect,
+  password?: string,
+): Promise<string | undefined> {
   try {
     const username = process.env.OPENCODE_SERVER_USERNAME ?? "opencode";
     const authorization = password === undefined
       ? undefined
       : `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
-    const response = await fetch(new URL("/api/info", server), {
+    const response = await fetch(new URL(
+      dialect === "v1" ? "/global/health" : "/api/info",
+      server,
+    ), {
       headers: authorization ? { authorization } : {},
       redirect: "error",
       signal: AbortSignal.timeout(3_000),
     });
-    return response.status === 200;
+    if (response.status !== 200) return undefined;
+    const body: unknown = await response.json();
+    if (body === null || typeof body !== "object") return undefined;
+    if (dialect === "v1" && (body as { healthy?: unknown }).healthy !== true) return undefined;
+    const version = parseOpenCodeVersion((body as { version?: unknown }).version);
+    return openCodeDialectForVersion(version) === dialect ? version ?? undefined : undefined;
   } catch {
-    return false;
+    return undefined;
   }
 }
 
 async function canAccessOpenCodeServerV1(server: string, password?: string): Promise<boolean> {
-  try {
-    const username = process.env.OPENCODE_SERVER_USERNAME ?? "opencode";
-    const authorization = password === undefined
-      ? undefined
-      : `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
-    const response = await fetch(new URL("/global/health", server), {
-      headers: authorization ? { authorization } : {},
-      redirect: "error",
-      signal: AbortSignal.timeout(3_000),
-    });
-    if (response.status !== 200) return false;
-    const body: unknown = await response.json();
-    return body !== null && typeof body === "object" &&
-      (body as { healthy?: unknown }).healthy === true;
-  } catch {
-    return false;
-  }
-}
-
-/** The executable decides the target dialect; a `serve --service` flag cannot be guessed. */
-async function detectOpenCodeBinaryDialect(binary: string): Promise<OpenCodeDialect> {
-  const output = await new Promise<string>((resolve) => {
-    let collected = "";
-    const child = spawn(binary, ["--version"], {
-      stdio: ["ignore", "pipe", "pipe"], windowsHide: true,
-    });
-    child.stdout?.on("data", (chunk: Buffer) => { collected += chunk.toString(); });
-    child.stderr?.on("data", (chunk: Buffer) => { collected += chunk.toString(); });
-    child.once("error", () => resolve(""));
-    child.once("exit", (code) => resolve(code === 0 ? collected : ""));
-  });
-  const version = parseOpenCodeVersion(output);
-  const dialect = openCodeDialectForVersion(version);
-  if (dialect === undefined) throw new Error("OPENCODE_BINARY_UNSUPPORTED");
-  return dialect;
+  return await probeOpenCodeServerVersion(server, "v1", password) !== undefined;
 }
 
 async function discoverOpenCodeService(): Promise<OpenCodeServiceDescriptor | undefined> {
@@ -597,7 +602,9 @@ async function discoverOpenCodeService(): Promise<OpenCodeServiceDescriptor | un
       const descriptor = parseOpenCodeServiceDescriptor(
         JSON.parse(await fs.readFile(filename, "utf8")),
       );
-      if (descriptor && await canAccessOpenCodeServer(descriptor.url, descriptor.password)) {
+      if (descriptor &&
+        await probeOpenCodeServerVersion(descriptor.url, "v2", descriptor.password) ===
+          descriptor.version) {
         return descriptor;
       }
     } catch {
@@ -605,6 +612,42 @@ async function discoverOpenCodeService(): Promise<OpenCodeServiceDescriptor | un
     }
   }
   return undefined;
+}
+
+type ActiveOpenCodeService = {
+  dialect: OpenCodeDialect;
+  version: string;
+  url: string;
+  password?: string;
+};
+
+async function discoverActiveOpenCodeServices(
+  configuredServer?: string,
+): Promise<ActiveOpenCodeService[]> {
+  const services: ActiveOpenCodeService[] = [];
+  const add = (service: ActiveOpenCodeService) => {
+    if (!services.some((item) => item.dialect === service.dialect && item.url === service.url)) {
+      services.push(service);
+    }
+  };
+  if (!configuredServer) {
+    const descriptor = await discoverOpenCodeService();
+    if (descriptor && openCodeDialectForVersion(descriptor.version) === "v2") {
+      add({
+        dialect: "v2",
+        version: descriptor.version,
+        url: descriptor.url,
+        password: descriptor.password,
+      });
+    }
+  }
+  const server = configuredServer ?? "http://127.0.0.1:4096";
+  const password = process.env.OPENCODE_SERVER_PASSWORD;
+  for (const dialect of ["v1", "v2"] as const) {
+    const version = await probeOpenCodeServerVersion(server, dialect, password);
+    if (version) add({ dialect, version, url: server, ...(password ? { password } : {}) });
+  }
+  return services;
 }
 
 async function stopManagedServer(child: ChildProcess): Promise<void> {
@@ -651,7 +694,7 @@ async function startManagedV1Server(binary: string): Promise<ManagedOpenCodeServ
     NO_COLOR: "1",
   };
   const child = spawn(binary, [
-    "serve", "--hostname", "127.0.0.1", "--port", String(MANAGED_OPENCODE_PORT),
+    "serve", "--hostname", "127.0.0.1", "--port", "0",
   ], {
     cwd: process.cwd(), env, stdio: ["ignore", "pipe", "pipe"], windowsHide: true,
   });
@@ -695,7 +738,7 @@ async function startManagedOpenCodeServer(
   const env = createManagedOpenCodeEnvironment(stateDirectory);
   const child = spawn(binary, [
     "serve", "--hostname", "127.0.0.1",
-    "--port", String(MANAGED_OPENCODE_PORT), "--service",
+    "--port", "0", "--service",
   ], {
     cwd: process.cwd(),
     env,
@@ -867,6 +910,44 @@ async function chooseSessions(
   }
 }
 
+function targetSourceLabel(source: OpenCodeTargetCandidate["source"]): string {
+  if (source === "desktop") return "桌面端内置 CLI";
+  if (source === "configured") return "指定 CLI";
+  return "PATH CLI";
+}
+
+async function chooseOpenCodeTargets(
+  candidates: readonly OpenCodeTargetCandidate[],
+): Promise<OpenCodeTargetCandidate[]> {
+  if (candidates.length === 0) throw new Error("OPENCODE_TARGET_UNAVAILABLE");
+  const requested = requestedOpenCodeTargets(process.env.T2O_OPENCODE_TARGETS, candidates);
+  if (requested) {
+    console.log(`已选择 OpenCode 目标：${requested.map((item) => item.dialect).join("、")}。`);
+    return requested;
+  }
+  if (candidates.length === 1) {
+    const candidate = candidates[0];
+    console.log(`已发现 OpenCode ${candidate.version}（${candidate.dialect}）。`);
+    return [candidate];
+  }
+  console.log("\n发现多个 OpenCode 目标，请选择（支持多选）：");
+  candidates.forEach((candidate, index) => {
+    console.log(
+      `  ${index + 1}. OpenCode ${candidate.version} · ${candidate.dialect} · ` +
+      targetSourceLabel(candidate.source),
+    );
+  });
+  const rl = createInterface({ input, output });
+  try {
+    const answer = await rl.question("请输入编号（如 1,2；输入 all 全选）：");
+    const indexes = parseChoiceIndexes(answer, candidates.length);
+    if (!indexes) throw new Error("OPENCODE_TARGET_SELECTION_INVALID");
+    return indexes.map((index) => candidates[index]);
+  } finally {
+    rl.close();
+  }
+}
+
 type SessionMigrationJob = {
   session: SessionChoice;
   directories: MigrationDirectories;
@@ -884,14 +965,32 @@ export function requiresOverwriteApproval(job: {
 async function createSessionMigrationJob(
   rootDirectory: string,
   session: SessionChoice,
+  targetDialect: OpenCodeDialect,
 ): Promise<SessionMigrationJob> {
-  const directories = resolveMigrationDirectories(
+  let directories = resolveMigrationDirectories(
     rootDirectory,
     session.id,
     process.env.T2O_MIGRATION_EXPORT,
     process.env.T2O_MIGRATION_RUN,
     session.updatedAt,
+    targetDialect,
   );
+  if (process.env.T2O_MIGRATION_RUN === undefined) {
+    const legacy = resolveMigrationDirectories(
+      rootDirectory,
+      session.id,
+      process.env.T2O_MIGRATION_EXPORT,
+      undefined,
+      session.updatedAt,
+    );
+    const legacyManifest = await readManifest(
+      path.join(legacy.runDirectory, "migration-manifest.json"),
+    ).catch(() => undefined);
+    if (legacyManifest &&
+      openCodeDialectForVersion(legacyManifest.target.serverVersion) === targetDialect) {
+      directories = { ...directories, runDirectory: legacy.runDirectory };
+    }
+  }
   const manifestFile = path.join(directories.runDirectory, "migration-manifest.json");
   const manifestStat = await fs.stat(manifestFile).catch(() => undefined);
   let resumeNeedsExclusiveAccess = false;
@@ -906,6 +1005,7 @@ async function createSessionMigrationJob(
         sourceSessionId: session.id,
         runRoot: path.dirname(directories.runDirectory),
         currentRunDirectory: directories.runDirectory,
+        targetDialect,
       })
     : undefined;
   return {
@@ -947,14 +1047,23 @@ async function migrateSelectedSession(options: {
   rootDirectory: string;
   cliPath: string;
   binary: string;
+  dialect: OpenCodeDialect;
   position: number;
   total: number;
+  targetPosition: number;
+  targetTotal: number;
 }): Promise<boolean> {
-  const { job, target, cdp, server, password, rootDirectory, cliPath, binary, position, total } = options;
+  const {
+    job, target, cdp, server, password, rootDirectory, cliPath, binary, dialect,
+    position, total, targetPosition, targetTotal,
+  } = options;
   const { session, directories } = job;
   const { exportDirectory, runDirectory } = directories;
   const inputFile = path.join(exportDirectory, "migration-bundle.json");
-  console.log(`\n[${position}/${total}] 正在处理：${session.title}`);
+  const progress = targetTotal > 1
+    ? `目标 ${targetPosition}/${targetTotal} · 会话 ${position}/${total}`
+    : `${position}/${total}`;
+  console.log(`\n[${progress}] 正在处理：${session.title}`);
 
   const existingBundle = await fs.stat(inputFile).catch(() => undefined);
   if (existingBundle) {
@@ -1058,6 +1167,7 @@ async function migrateSelectedSession(options: {
       runRoot: path.dirname(runDirectory),
       currentExportDirectory: exportDirectory,
       currentRunDirectory: runDirectory,
+      targetDialect: dialect,
     });
     const totalCleaned = cleaned.exportDirectories + cleaned.runDirectories;
     if (totalCleaned > 0) {
@@ -1065,6 +1175,140 @@ async function migrateSelectedSession(options: {
     }
   }
   return true;
+}
+
+type OpenCodeTargetRunResult = {
+  candidate: OpenCodeTargetCandidate;
+  completed: number;
+  failed: number;
+  skipped: number;
+};
+
+async function runOpenCodeTarget(options: {
+  candidate: OpenCodeTargetCandidate;
+  activeServices: readonly ActiveOpenCodeService[];
+  configuredServer?: string;
+  sessions: readonly SessionChoice[];
+  workbench: WorkbenchTarget;
+  cdp: string;
+  rootDirectory: string;
+  cliPath: string;
+  overwritePolicy: OverwritePolicy;
+  targetPosition: number;
+  targetTotal: number;
+}): Promise<OpenCodeTargetRunResult> {
+  const {
+    candidate, activeServices, configuredServer, sessions, workbench, cdp,
+    rootDirectory, cliPath, overwritePolicy, targetPosition, targetTotal,
+  } = options;
+  let managedServer: ManagedOpenCodeServer | undefined;
+  const active = activeServices.find((service) =>
+    service.dialect === candidate.dialect && service.version === candidate.version) ??
+    activeServices.find((service) => service.dialect === candidate.dialect);
+  let server = configuredServer ?? active?.url;
+  let password = configuredServer ? process.env.OPENCODE_SERVER_PASSWORD : active?.password;
+  console.log(
+    `\n=== OpenCode ${candidate.version}（${candidate.dialect}）` +
+    `目标 ${targetPosition}/${targetTotal} ===`,
+  );
+  try {
+    if (!server) {
+      console.log("未发现该目标的本机服务，正在使用对应 CLI 临时启动...");
+      try {
+        managedServer = await startManagedOpenCodeServer(candidate.binary, candidate.dialect);
+        server = managedServer.url;
+        password = managedServer.password;
+      } catch {
+        console.error(
+          `无法启动 OpenCode ${candidate.version}（${candidate.dialect}）目标；` +
+          "请确认对应 CLI 可执行 serve。",
+        );
+        return { candidate, completed: 0, failed: sessions.length, skipped: 0 };
+      }
+    } else {
+      console.log(`已连接 OpenCode ${active?.version ?? candidate.version} 本机服务。`);
+    }
+
+    const transport = createOpenCodeTransport({
+      serverUrl: server,
+      password,
+      binary: candidate.binary,
+    });
+    console.log("正在检查目标协议；未收录版本会自动执行隔离往返验证...");
+    const capabilities = await probeOpenCodeCapabilities(transport);
+    if (!capabilities.writable || capabilities.dialect !== candidate.dialect) {
+      printFailure(JSON.stringify({ code: capabilities.reasons[0] }), server);
+      return { candidate, completed: 0, failed: sessions.length, skipped: 0 };
+    }
+    console.log(capabilities.compatibility === "isolated-roundtrip"
+      ? `OpenCode ${capabilities.serverVersion} 兼容性检测通过（协议及隔离往返）。`
+      : `OpenCode ${capabilities.serverVersion} 已验证版本，协议检查通过。`);
+
+    const jobs = await Promise.all(
+      sessions.map((session) =>
+        createSessionMigrationJob(rootDirectory, session, candidate.dialect)),
+    );
+    const migrationTarget = createMigrationTarget({
+      serverUrl: server, password, binary: candidate.binary, transport,
+    });
+    for (const job of jobs) {
+      if (!job.replacementManifest) continue;
+      try {
+        const exists = await replacementTargetExists(
+          job.replacementManifest,
+          (targetId) => migrationTarget.readSession(targetId),
+        );
+        if (!exists) delete job.replacementManifest;
+      } catch {
+        console.error("无法核对已有目标会话，已停止该目标以保护 OpenCode 数据。");
+        return { candidate, completed: 0, failed: sessions.length, skipped: 0 };
+      }
+    }
+
+    const overwriteCount = jobs.filter(requiresOverwriteApproval).length;
+    const skipped = overwritePolicy === "skip" ? overwriteCount : 0;
+    const migrationJobs = overwritePolicy === "skip"
+      ? jobs.filter((job) => !requiresOverwriteApproval(job))
+      : jobs;
+    if (overwritePolicy === "skip") {
+      console.log(skipped > 0
+        ? `-n：已跳过该目标中 ${skipped} 个需要 OVERWRITE 的会话；其余会话继续处理。`
+        : "-n：该目标没有会话需要 OVERWRITE；新会话正常迁移，已有 manifest 执行续跑或回读校验。");
+    }
+    if (overwritePolicy !== "skip" &&
+      !await confirmOverwrite(overwriteCount, overwritePolicy)) {
+      console.error("未确认 OVERWRITE，未向该 OpenCode 目标写入任何会话。");
+      return { candidate, completed: 0, failed: migrationJobs.length, skipped };
+    }
+
+    let completed = 0;
+    for (const [index, job] of migrationJobs.entries()) {
+      const succeeded = await migrateSelectedSession({
+        job,
+        target: workbench,
+        cdp,
+        server,
+        password,
+        rootDirectory,
+        cliPath,
+        binary: candidate.binary,
+        dialect: candidate.dialect,
+        position: index + 1,
+        total: migrationJobs.length,
+        targetPosition,
+        targetTotal,
+      });
+      if (succeeded) completed++;
+    }
+    return {
+      candidate,
+      completed,
+      failed: migrationJobs.length - completed,
+      skipped,
+    };
+  } finally {
+    await managedServer?.close();
+  }
 }
 
 async function main(): Promise<number> {
@@ -1078,7 +1322,6 @@ async function main(): Promise<number> {
     return 4;
   }
   const cdp = process.env.T2O_TRAE_CDP ?? "http://127.0.0.1:9222";
-  let server = process.env.T2O_OPENCODE_SERVER ?? "http://127.0.0.1:4096";
   const rootDirectory = process.cwd();
   const cliPath = fileURLToPath(new URL("./index.js", import.meta.url));
 
@@ -1115,6 +1358,34 @@ async function main(): Promise<number> {
     return 4;
   }
 
+  const configuredServer = process.env.T2O_OPENCODE_SERVER;
+  const activeServices = await discoverActiveOpenCodeServices(configuredServer);
+  let candidates: OpenCodeTargetCandidate[];
+  try {
+    const discovered = await discoverOpenCodeTargets();
+    const activeVersions = Object.fromEntries(
+      activeServices.map((service) => [service.dialect, service.version]),
+    ) as Partial<Record<OpenCodeDialect, string>>;
+    candidates = preferredOpenCodeTargets(discovered, activeVersions);
+  } catch {
+    console.error(
+      `无法识别配置的 OpenCode 可执行文件。已验证版本：${VERIFIED_OPENCODE_VERSIONS.join(" / ")}；` +
+      "可分别用 T2O_OPENCODE_V1_BINARY / T2O_OPENCODE_V2_BINARY 指定。",
+    );
+    return 4;
+  }
+
+  let openCodeTargets: OpenCodeTargetCandidate[];
+  try {
+    openCodeTargets = await chooseOpenCodeTargets(candidates);
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "";
+    console.error(code === "OPENCODE_TARGET_UNAVAILABLE"
+      ? "没有发现可用的 OpenCode v1/v2 CLI；请安装后重试，或分别指定目标 CLI。"
+      : "OpenCode 目标选择无效，或请求的 v1/v2 目标不可用。");
+    return 4;
+  }
+
   const usesCustomArtifacts =
     process.env.T2O_MIGRATION_EXPORT !== undefined ||
     process.env.T2O_MIGRATION_RUN !== undefined;
@@ -1122,123 +1393,42 @@ async function main(): Promise<number> {
     console.error("多选迁移不能共用自定义 bundle 或 manifest 路径，请取消路径覆盖后重试。");
     return 4;
   }
-
-  const jobs = await Promise.all(
-    sessions.map((session) => createSessionMigrationJob(rootDirectory, session)),
-  );
-
-  const binary = resolveOpenCodeBinary(process.env.T2O_OPENCODE_BINARY ?? "opencode");
-  let managedServer: ManagedOpenCodeServer | undefined;
-  let serverPassword = process.env.OPENCODE_SERVER_PASSWORD;
-  try {
-    if (!process.env.T2O_OPENCODE_SERVER) {
-      const discovered = await discoverOpenCodeService();
-      if (discovered) {
-        if (openCodeDialectForVersion(discovered.version) === undefined) {
-          console.error(
-            `检测到正在运行的 OpenCode ${discovered.version}，当前只能检测稳定的 v1/v2 协议。` +
-            "请使用稳定版本；不会另启服务并发访问同一数据库。",
-          );
-          return 4;
-        }
-        server = discovered.url;
-        serverPassword = discovered.password;
-        console.log(`已连接当前 OpenCode ${discovered.version} 本机服务。`);
-      } else if (!await canAccessOpenCodeServer(server, serverPassword) &&
-        !await canAccessOpenCodeServerV1(server, serverPassword)) {
-        console.log("默认 OpenCode 服务不可访问，正在临时启动本机服务...");
-        let dialect: OpenCodeDialect;
-        try {
-          dialect = await detectOpenCodeBinaryDialect(binary);
-        } catch {
-          console.error(
-            `无法识别 OpenCode 可执行文件：${binary}。已验证版本：${VERIFIED_OPENCODE_VERSIONS.join(" / ")}，` +
-            "或用 T2O_OPENCODE_BINARY 指定可执行文件路径。",
-          );
-          return 4;
-        }
-        try {
-          managedServer = await startManagedOpenCodeServer(binary, dialect);
-          server = managedServer.url;
-          serverPassword = managedServer.password;
-        } catch {
-          console.error("无法自动启动 OpenCode，请确认已安装提供 serve 命令的稳定 v1/v2 CLI。");
-          return 4;
-        }
-      }
-    }
-
-    const transport = createOpenCodeTransport({
-      serverUrl: server,
-      password: serverPassword,
-      binary,
-    });
-    console.log("正在检查 OpenCode 协议；未收录版本会自动执行隔离往返验证...");
-    const capabilities = await probeOpenCodeCapabilities(transport);
-    if (!capabilities.writable) {
-      printFailure(JSON.stringify({ code: capabilities.reasons[0] }), server);
-      return 4;
-    }
-    console.log(capabilities.compatibility === "isolated-roundtrip"
-      ? `OpenCode ${capabilities.serverVersion} 兼容性检测通过（协议及隔离往返）。`
-      : `OpenCode ${capabilities.serverVersion} 已验证版本，协议检查通过。`);
-    const migrationTarget = createMigrationTarget({
-      serverUrl: server, password: serverPassword, binary, transport,
-    });
-    for (const job of jobs) {
-      if (!job.replacementManifest) continue;
-      try {
-        const exists = await replacementTargetExists(
-          job.replacementManifest,
-          (targetId) => migrationTarget.readSession(targetId),
-        );
-        if (!exists) delete job.replacementManifest;
-      } catch {
-        console.error("无法核对已有目标会话，已停止以保护 OpenCode 数据。");
-        return 4;
-      }
-    }
-    const overwriteCount = jobs.filter(requiresOverwriteApproval).length;
-    const skipped = overwritePolicy === "skip" ? overwriteCount : 0;
-    const migrationJobs = overwritePolicy === "skip"
-      ? jobs.filter((job) => !requiresOverwriteApproval(job))
-      : jobs;
-    if (overwritePolicy === "skip") {
-      console.log(skipped > 0
-        ? `-n：已跳过 ${skipped} 个需要删除旧目标并重新导入（OVERWRITE）的会话；其余会话继续处理。`
-        : "-n：没有会话需要 OVERWRITE；新会话正常迁移，已有当前 manifest 的会话执行续跑或回读校验。");
-    }
-    if (overwritePolicy !== "skip" &&
-      !await confirmOverwrite(overwriteCount, overwritePolicy)) {
-      console.error("未确认 OVERWRITE，本次未向 OpenCode 写入任何会话。");
-      return 4;
-    }
-
-    let completed = 0;
-    for (const [index, job] of migrationJobs.entries()) {
-      const succeeded = await migrateSelectedSession({
-        job,
-        target,
-        cdp,
-        server,
-        password: serverPassword,
-        rootDirectory,
-        cliPath,
-        binary,
-        position: index + 1,
-        total: migrationJobs.length,
-      });
-      if (succeeded) completed++;
-    }
-    const failed = migrationJobs.length - completed;
-    if (jobs.length > 1 || skipped > 0) {
-      const skippedText = skipped > 0 ? `，按 -n 跳过 ${skipped} 个` : "";
-      console.log(`\n批量处理完成：执行成功 ${completed} 个，执行失败 ${failed} 个${skippedText}。`);
-    }
-    return completed === migrationJobs.length ? 0 : 4;
-  } finally {
-    await managedServer?.close();
+  if (openCodeTargets.length > 1 && process.env.T2O_MIGRATION_RUN !== undefined) {
+    console.error("多目标迁移不能共用 T2O_MIGRATION_RUN；请使用默认的目标隔离记录目录。");
+    return 4;
   }
+  if (openCodeTargets.length > 1 && configuredServer !== undefined) {
+    console.error("T2O_OPENCODE_SERVER 只表示一个目标；多目标迁移请取消该设置并使用各目标 CLI。");
+    return 4;
+  }
+
+  const results: OpenCodeTargetRunResult[] = [];
+  for (const [index, candidate] of openCodeTargets.entries()) {
+    results.push(await runOpenCodeTarget({
+      candidate,
+      activeServices,
+      configuredServer,
+      sessions,
+      workbench: target,
+      cdp,
+      rootDirectory,
+      cliPath,
+      overwritePolicy,
+      targetPosition: index + 1,
+      targetTotal: openCodeTargets.length,
+    }));
+  }
+  if (openCodeTargets.length > 1) {
+    console.log("\n多目标迁移完成：");
+    for (const result of results) {
+      const skipped = result.skipped ? `，跳过 ${result.skipped} 个` : "";
+      console.log(
+        `  OpenCode ${result.candidate.version}（${result.candidate.dialect}）：` +
+        `成功 ${result.completed} 个，失败 ${result.failed} 个${skipped}`,
+      );
+    }
+  }
+  return results.every((result) => result.failed === 0) ? 0 : 4;
 }
 
 const isMainModule = process.argv[1] !== undefined &&
