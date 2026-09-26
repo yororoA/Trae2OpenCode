@@ -72,6 +72,12 @@ Windows 两个版本有 17 个历史测试失败：fixture 路径工具没有遵
   Node 的 `execFile` / `spawn` 对它们分别得到 `ENOENT` / `EINVAL`，默认的 `opencode`
   因此完全无法启动。新增 `resolveOpenCodeBinary`，从 PATH 上的垫片内容解析出其中的原生
   `opencode.exe`（已实测 `opencode-ai` 的三种垫片形态），并跳过 Node 托管的垫片。
+  旧版 `opencode-ai`（实测 `1.14.45`）的 npm bin 本身是 Node 启动器而不是原生可执行
+  文件，垫片只用 `node` 运行 `bin/opencode`，原生文件位于启动器同级的平台包
+  `node_modules/opencode-windows-<arch>{,-baseline}/bin/opencode.exe`。垫片解析改为同时
+  识别这两种形态：遇到 Node 启动器时沿其所在目录向上查找平台包，并优先取 x64 的
+  `-baseline` 构建（该构建在有/无 AVX2 的 CPU 上都可运行，因此无需复刻启动器的 CPU
+  探测）。未找到平台包时仍返回配置的原名而不会把启动器当作可执行文件返回。
 - 来源侧：`%APPDATA%\Trae CN\User` 命中默认候选，路径发现无需额外参数。
 - 目标侧：本机只有 v1（CLI `opencode-ai@1.18.32`、桌面端 `@opencode-aidesktop` 1.17.9），
   新增的 v1 adapter 在隔离数据目录中完成 import、export 回读、对账、verify、冲突检测

@@ -39,7 +39,8 @@ async function verifyVersion(label: string, binary: string) {
   const resolved = resolveOpenCodeBinary(binary);
   await withIsolatedOpenCodeServer({ binary: resolved }, async (server) => {
     const capabilities = await probeOpenCodeCapabilities(server.transport);
-    assert.equal(capabilities.writable, true, `${label}: expected a writable target`);
+    assert.equal(capabilities.writable, true,
+      `${label}: expected a writable target (${capabilities.reasons.join(", ") || "no reason reported"})`);
     assert.equal(capabilities.dialect, "v1", `${label}: expected the v1 dialect`);
     assert.equal(capabilities.binaryVersion, capabilities.serverVersion);
     assert.ok(capabilities.schemaHash, `${label}: missing schema hash`);
