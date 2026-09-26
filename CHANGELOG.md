@@ -7,6 +7,8 @@ independent of IR, manifest, mapping, and verification-report format versions.
 
 - **Added:** Interactive multi-target migration can reuse one source bundle for both an OpenCode
   v1 desktop installation and a v2 CLI while keeping target manifests isolated.
+- **Fixed:** `verify:opencode` now verifies both installed dialects by default instead
+  of checking only the PATH-selected CLI.
 
 ## [1.1.0] - 2026-09-26
 

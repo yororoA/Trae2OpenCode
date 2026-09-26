@@ -11,7 +11,9 @@
 assistant 的丢失观察。表格和字段约束均针对该次 2.0.12 实验。
 
 当前 `npm run verify:opencode` 已复用迁移的协议兼容性检测和隔离往返场景，
-支持通过检测的稳定 v1/v2，默认输出 `reportVersion: 2` 到 `tmp/opencode-roundtrip/`。
+支持通过检测的稳定 v1/v2；同时发现两个方言时会分别验证，并在
+`tmp/opencode-roundtrip/` 输出汇总及两个子报告。显式指定一个 binary 时仍直接输出
+该目标的 `reportVersion: 2`。
 用法和覆盖范围见[协议兼容性检测](./opencode-compatibility.md#独立验证本机-opencode)。
 新版命令不再重跑下文的未完成 assistant 对照实验，也不用于重建本目录的历史报告。
 

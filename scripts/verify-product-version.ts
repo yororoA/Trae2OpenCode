@@ -26,6 +26,17 @@ const softwareVersion = /"softwareVersion"\s*:\s*"([^"]+)"/.exec(website)?.[1];
 const visibleVersion = /data-product-version[^>]*>\s*v([^<\s]+)\s*</.exec(website)?.[1];
 assert.equal(softwareVersion, version, "Website structured product version differs");
 assert.equal(visibleVersion, version, "Website visible product version differs");
-assert.match(changelog, new RegExp(`^## \\[${version.replaceAll(".", "\\.")}\\] - Unreleased$`, "m"));
+const unreleasedHeading = "## [Unreleased]";
+const versionHeading = new RegExp(
+  `^## \\[${version.replaceAll(".", "\\.")}\\] - (?:Unreleased|\\d{4}-\\d{2}-\\d{2})$`,
+  "m",
+);
+assert.match(changelog, /^## \[Unreleased\]$/m, "Changelog is missing its next-release section");
+const versionMatch = versionHeading.exec(changelog);
+assert.ok(versionMatch, "Changelog is missing the current product version");
+assert.ok(
+  changelog.indexOf(unreleasedHeading) < versionMatch.index,
+  "Unreleased changes must precede the current product release",
+);
 
 console.log(`Product version ${version} is consistent.`);

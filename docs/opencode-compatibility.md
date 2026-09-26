@@ -79,7 +79,7 @@ manifest 保留实际版本号和 schema hash。读取 manifest 本身不授予�
 
 | 命令 | 用途 |
 | --- | --- |
-| `npm run verify:opencode` | 日常兼容性检查，自动识别本机 OpenCode v1/v2 |
+| `npm run verify:opencode` | 日常兼容性检查，自动发现并验证本机所有可用的 v1/v2 方言 |
 | `npm run verify:integration:v1` | 开发 / CI 的 v1 专项集成回归，覆盖迁移、续跑、冲突与回滚 |
 
 无需启动 TRAE 或现有 OpenCode 服务：
@@ -93,22 +93,25 @@ npm run --silent verify:opencode -- --json
 命令复用迁移的 `requireOpenCodeCapabilities` 与隔离往返场景，不维护另一份版本清单。
 稳定 v1/v2 先检查实际版本、路由和完整 schema，再执行原生导入导出、回读、重复导入
 保护、父子会话关联、删除保护及 v2 compaction 回读。基线版本也会完整执行这些场景。
-`--binary` 优先于集成测试使用的 `T2O_TEST_OPENCODE_BINARY`，未设置时从 PATH 解析
-`opencode`，Windows 同样支持 npm 垫片解析。
+不指定 `--binary` 时，命令与一键迁移共用目标发现逻辑：检查 PATH 和桌面端内置 CLI，
+同时存在 v1/v2 时依次验证两者。`T2O_OPENCODE_TARGETS` 可限制方言。
+`--binary` 优先于集成测试使用的 `T2O_TEST_OPENCODE_BINARY`，设置任一项时保持单目标
+验证；Windows 同样支持 npm 垫片解析。
 
-默认终端显示实际版本和简洁结果。`--json` 输出单行 JSON，失败保留 `T2O_*` 错误码与
-对应非零退出码；非法命令参数返回 `2`。成功报告位于 `tmp/opencode-roundtrip/report.json`，
-可通过 `--output` 修改目录：
+默认终端显示每个实际版本的简洁结果。`--json` 输出单行 JSON，失败保留 `T2O_*`
+错误码与对应非零退出码；非法命令参数返回 `2`。可通过 `--output` 修改报告目录。
+单目标保持原有布局；多目标使用以下布局：
 
 | 产物 | 内容 |
 | --- | --- |
-| `report.json` | `reportVersion: 2`、实际 CLI/服务版本、方言、兼容性来源、schema hash 和已通过的检查 |
-| `transfer.schema.json`（v2） | 从私有服务抽取的可达 transfer schema |
-| `session.schema.json`（v1） | 从私有服务抽取的 Session/Message/Part schema |
+| `report.json` | 多目标汇总、各方言状态和子报告位置；单目标时仍为原有完整报告 |
+| `v1/report.json`、`v1/session.schema.json` | v1 的完整验证结果和可达 schema |
+| `v2/report.json`、`v2/transfer.schema.json` | v2 的完整验证结果和可达 schema |
 
 报告不含会话正文、随机会话 ID、服务口令或临时路径。退出码 `0` 表示本次合成映射
-场景全部通过；真实会话仍需独立映射和回读。失败不会生成本次成功报告；若重复使用
-输出目录，应同时检查退出码与已有报告的 `checkedAt`。
+场景全部通过；真实会话仍需独立映射和回读。多目标中一个失败不会阻止另一个验证，
+但最终退出码仍为非零，顶层报告标记 `failed`。若重复使用输出目录，应同时检查退出码
+与报告的 `checkedAt`。
 
 [M0 历史报告](m0-4-import-roundtrip.md) 的未完成 assistant 丢失实验保持归档，
 不再由此命令重跑。新版使用随包提供的合成 IR，通过生产 mapper 生成各方言输入。

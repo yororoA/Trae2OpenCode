@@ -160,3 +160,7 @@ v1、v2，每个目标独立执行协议检查、原生导入、回读和 manife
 证据也按方言过滤，不能拿 v2 manifest 覆盖 v1 会话。标准安装目录无法发现时，通过
 `T2O_OPENCODE_V1_BINARY` / `T2O_OPENCODE_V2_BINARY` 指定；自动化可设置
 `T2O_OPENCODE_TARGETS=v1,v2`。三系统 CI 使用真实 v1/v2 二进制复用一份合成 IR 验收。
+
+同一轮实现后还发现 `verify:opencode` 仍只读取 `--binary`、测试覆盖变量或 PATH 上的单个
+CLI，因此 v2 CLI 与 v1 桌面端共存时只验证 v2。公开验证入口现已复用相同的目标发现逻辑：
+默认分别验证两个方言并隔离报告目录；显式 `--binary` 时继续保持单目标兼容行为。
