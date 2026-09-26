@@ -362,7 +362,7 @@
               <span class="feature-number">02</span>
               <h3 data-i18n="capabilities.safetyTitle">默认保护</h3>
               <p data-i18n="capabilities.safetyText">
-                自动剥离已识别凭据；无法证明归属的目标、未知版本与不完整写入都会停止。
+                自动剥离已识别凭据；目标归属、协议兼容性或完整性验证失败时都会停止。
               </p>
             </article>
             <article class="feature-card">
@@ -488,12 +488,12 @@ npm run migrate:local</code></pre>
             <div class="compatibility-row" role="row">
               <strong role="cell">OpenCode v2</strong>
               <span role="cell">2.0.12 / 2.0.16</span>
-              <span role="cell" data-i18n="compatibility.reject">拒绝写入</span>
+              <span role="cell" data-i18n="compatibility.probe">稳定版本自动检测</span>
             </div>
             <div class="compatibility-row" role="row">
               <strong role="cell">OpenCode v1</strong>
               <span role="cell">1.17.9 / 1.18.32</span>
-              <span role="cell" data-i18n="compatibility.reject">拒绝写入</span>
+              <span role="cell" data-i18n="compatibility.probe">稳定版本自动检测</span>
             </div>
             <div class="compatibility-row" role="row">
               <strong role="cell" data-i18n="compatibility.platform">本机来源读取</strong>
@@ -509,7 +509,7 @@ npm run migrate:local</code></pre>
           <p class="compatibility-note" id="v1-support">
             <i data-lucide="shield-check" aria-hidden="true"></i>
             <span data-i18n="compatibility.note">
-              OpenCode v1 当前仅验证 1.17.9 与 1.18.32 两个版本，不表示两者之间的所有版本均受支持。
+              OpenCode v1 基线为 1.17.9 与 1.18.32；其他稳定版本需通过协议及隔离往返验证。
             </span>
           </p>
         </div>
