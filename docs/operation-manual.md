@@ -66,7 +66,7 @@ npm install -g opencode-ai@1.18.32    # v1
 opencode --version
 ```
 
-上述清单是已验证基线。其他稳定 1.x/2.x 会自动校验必要接口和完整 schema，再使用
+上述清单是已验证基线。其他稳定 1.x/2.x 会自动校验必要接口并分析完整 schema，再使用
 同版本 CLI 在独立临时库完成导入、导出、回读及删除保护验证。通过后允许迁移；
 清单外版本的 CLI 与服务版本不同、预发布版本、未知主版本或验证失败仍拒绝。
 目标方言由可执行文件版本决定，不接受手动指定：v2 使用 HTTP `SessionTransfer`，v1 使用 `opencode import` /
@@ -309,7 +309,8 @@ npm install -g @opencode/cli@2.0.16
 ### 工具提示 OpenCode 版本或协议不受支持
 
 先根据错误码区分原因：版本格式、预发布和未知主版本会被拒绝；稳定版本仍需
-实际 import/export 路由和完整 schema 匹配。未收录版本还需同版本 CLI 完成隔离验证。
+实际 import/export 路由和 schema 必须完全匹配或只有安全增量。未收录版本和
+兼容 schema 增量还需同版本 CLI 完成隔离验证。
 即使基线版本也不会绕过 schema 检查。
 
 `T2O_OPENCODE_COMPATIBILITY_BINARY_REQUIRED` 表示需要指定同版本 CLI；

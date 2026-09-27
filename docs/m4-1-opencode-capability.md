@@ -1,6 +1,7 @@
 # M4-1：OpenCode 版本与原生导入契约探测
 
-初始契约日期：2026-09-24；2026-09-26 增加清单外稳定版本的自动兼容性检测。
+初始契约日期：2026-09-24；2026-09-26 增加清单外稳定版本的自动兼容性检测；
+2026-09-27 增加 schema 兼容分析和声明式协议规则。
 
 ## 探测契约
 
@@ -14,13 +15,19 @@ OpenAPI 的 `info.version` 为 HTTP 接口版本 `0.0.1`，不能用作产品版
 开启写入资格前同时检查：
 
 - 原生 import POST 与 export GET 存在。
-- import 请求与 export 响应封装匹配已验证格式。
-- `SessionTransfer.Data` 可达的全部 schema 与 M0 固化证据匹配。
+- import 请求与 export 响应封装通过兼容分析。
+- `SessionTransfer.Data` 可达的全部 schema 与 M0 固化证据完全相同，或只有可证明为
+  非破坏性的增量；兼容增量仍必须经过隔离往返。
 - 不接受外部 `$ref`、缺失 schema、预发布版本或未实现的主版本。
 - 清单外稳定版本必须通过[隔离往返验证](opencode-compatibility.md)。
 
-schema 对象 key 顺序不影响比较，不相关 API/schema 变化不阻断已验证能力。
-可达 schema 中新增可选字段也需要重新验证，不会自行扩大支持范围。
+协议探测由 `protocol-rules.ts` 声明版本范围、端点、必要操作、envelope 与 schema profile。
+schema 对象 key 顺序不影响比较，不相关 API/schema 变化不阻断已验证能力。封闭对象新增
+非必填字段、枚举/`anyOf` 扩展可以成为隔离验证候选；字段删除、类型/必填变化、
+枚举收窄、`oneOf` 扩展和未知约束继续拒绝。
+
+实际数据 schema 使用 `schemaHash` 标识；规则、必要操作、envelope 和数据 schema 的组合
+使用 `protocolHash` 标识。任一证据在隔离验证期间变化都会让本次结果失效。
 
 固定 schema hash：
 `sha256:8379854ab529739a39826bbabcb0103847c66368280803e4b5559f09415a3d32`。

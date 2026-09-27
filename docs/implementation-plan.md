@@ -523,7 +523,7 @@ M2 最终累计 98 项单元测试、lint、TypeScript typecheck、build、CLI s
 
 | ID | 任务 | 依赖 | 验收 |
 | --- | --- | --- | --- |
-| M4-1 | 版本与 OpenAPI capability probe | M1-1 | 已完成：双端版本、import/export 封装及可达 schema 严格校验 |
+| M4-1 | 版本与 OpenAPI capability probe | M1-1 | 已完成：声明式协议规则、双端版本、import/export 封装及可达 schema 兼容分析 |
 | M4-2 | IR -> `SessionTransfer.Data` 映射 | M1-2, M0-4 | 已完成：可映射联合类型通过 schema，未验证 error/unknown 拒写 |
 | M4-3 | 稳定 ID 与父子依赖排序 | M4-2 | 已完成：内容更新 ID 稳定，父先于子，缺父/环/重复拒绝 |
 | M4-4 | 原生 CLI import adapter | M4-1..3 | 已实现并通过 macOS 实机；Windows 无 shell 参数路径待 M7 矩阵验证 |
