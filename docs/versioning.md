@@ -11,8 +11,9 @@ Trae2OpenCode 从 `1.1.0` 开始显式维护产品版本。此前仓库一直保
 - `minor`：新增向后兼容的迁移能力、目标方言或工作流。
 - `patch`：修复缺陷，不改变已承诺的行为。
 
-当前 `1.1.0` 是开发版本，正式发布前在 `CHANGELOG.md` 中保持 `Unreleased`。
-合入 `main` 并完成发布验收后，才创建同名 `v1.1.0` tag；不为未发布的历史提交补 tag。
+`1.1.0` 已建立首个正式 tag。当前 `1.2.0` 是开发版本，正式发布前在
+`CHANGELOG.md` 中保持 `Unreleased`。合入 `main` 并完成发布验收后，才创建同名
+`v1.2.0` tag；不为未发布的历史提交补 tag。
 
 每次修改产品版本必须同步：
 
@@ -30,7 +31,7 @@ Trae2OpenCode 从 `1.1.0` 开始显式维护产品版本。此前仓库一直保
 | `schemaVersion` | 1 | TRAE 中间格式（IR）结构 |
 | `manifestVersion` | 1 | 迁移记录、续跑与回滚结构 |
 | `mappingVersion` | 8 | IR 到 OpenCode 的映射语义 |
-| `reportVersion` | 2 | OpenCode 独立验证报告结构 |
+| `reportVersion` | 3 | OpenCode 独立验证报告结构 |
 
 格式版本只在对应结构或语义变化时递增。一次产品发布可以不改变任何格式版本，也可以
 同时升级一个或多个格式版本；反之亦然。
