@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
+import { hashCanonicalJson } from "../../ir/canonical.js";
+import type { JsonValue } from "../../ir/types.js";
 import { probeOpenCodeCapabilities, requireOpenCodeCapabilities } from "../opencode/capability-probe.js";
-import { V1_HEALTH_ROUTE, V1_OPENAPI_ROUTE, V1_SESSION_SCHEMA_HASH } from "../opencode/v1/contract.js";
+import {
+  extractV1SessionSchema, V1_HEALTH_ROUTE, V1_OPENAPI_ROUTE, V1_SESSION_SCHEMA_HASH,
+} from "../opencode/v1/contract.js";
 import type { OpenCodeTransport } from "../opencode/transport.js";
 
 function makeV1Api() {
@@ -54,10 +58,14 @@ describe("probeOpenCodeCapabilities for OpenCode v1", () => {
   it("accepts a verified v1 release and reports the v1 dialect and contract hash", async () => {
     const { calls, transport } = connection();
     const report = await requireOpenCodeCapabilities(transport);
+    assert.match(report.protocolHash!, /^sha256:[a-f0-9]{64}$/);
     assert.deepStrictEqual(report, {
-      dialect: "v1", binaryVersion: "1.18.32", serverVersion: "1.18.32",
+      dialect: "v1", protocolRule: "v1-cli-library",
+      protocolHash: report.protocolHash,
+      binaryVersion: "1.18.32", serverVersion: "1.18.32",
       nativeImport: true, nativeExport: true,
-      schemaHash: V1_SESSION_SCHEMA_HASH, writable: true, compatibility: "verified-release", reasons: [],
+      schemaHash: V1_SESSION_SCHEMA_HASH, schemaCompatibility: "exact", schemaChanges: 0,
+      writable: true, compatibility: "verified-release", reasons: [],
     });
     assert.deepStrictEqual(calls, ["version", V1_HEALTH_ROUTE, V1_OPENAPI_ROUTE]);
   });
@@ -99,6 +107,8 @@ describe("probeOpenCodeCapabilities for OpenCode v1", () => {
     transport.verifyCompatibility = async (evidence) => {
       canaries++;
       assert.equal(evidence.dialect, "v1");
+      assert.equal(evidence.protocolRule, "v1-cli-library");
+      assert.match(evidence.protocolHash, /^sha256:[a-f0-9]{64}$/);
       assert.equal(evidence.binaryVersion, "1.18.31");
       assert.equal(evidence.schemaHash, V1_SESSION_SCHEMA_HASH);
     };
@@ -109,6 +119,26 @@ describe("probeOpenCodeCapabilities for OpenCode v1", () => {
     transport.verifyCompatibility = async () => { throw new Error("CLI cannot import"); };
     await assert.rejects(requireOpenCodeCapabilities(transport),
       { code: "T2O_OPENCODE_COMPATIBILITY_UNVERIFIED" });
+  });
+
+  it("requires isolated evidence before accepting additive v1 schema changes", async () => {
+    const api = makeV1Api();
+    api.components.schemas.UserMessage.properties.optionalNewField = { type: "string" };
+    const expectedHash = hashCanonicalJson(extractV1SessionSchema(api) as JsonValue);
+    let canaries = 0;
+    const { transport } = connection({ api });
+    transport.verifyCompatibility = async (evidence) => {
+      canaries++;
+      assert.equal(evidence.protocolRule, "v1-cli-library");
+      assert.match(evidence.protocolHash, /^sha256:[a-f0-9]{64}$/);
+      assert.equal(evidence.schemaHash, expectedHash);
+    };
+    const report = await requireOpenCodeCapabilities(transport);
+    assert.equal(report.schemaCompatibility, "compatible");
+    assert.equal(report.schemaChanges, 1);
+    assert.equal(report.schemaHash, expectedHash);
+    assert.equal(report.compatibility, "isolated-roundtrip");
+    assert.equal(canaries, 1);
   });
 
   it("fails closed when deletion or child listing is absent", async () => {

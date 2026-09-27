@@ -98,6 +98,11 @@ describe("shared isolated OpenCode roundtrip", () => {
         assert.equal(report.targetVersion, version);
         assert.equal(report.serverVersion, version);
         assert.equal(report.dialect, v1 ? "v1" : "v2");
+        assert.equal(report.protocolRule, v1 ? "v1-cli-library" : "v2-session-transfer");
+        assert.match(report.protocolHash, /^sha256:[a-f0-9]{64}$/);
+        assert.equal(report.schemaCompatibility, "exact");
+        assert.equal(report.schemaChanges, 0);
+        assert.equal(report.reportVersion, 3);
         assert.equal(report.compatibility, ["2.0.12", "1.18.32"].includes(version)
           ? "verified-release" : "isolated-roundtrip");
         assert.equal(report.status, "verified");
@@ -131,7 +136,10 @@ describe("shared isolated OpenCode roundtrip", () => {
         { binaryVersion: "2.0.11", serverVersion: "2.0.11", schemaHash: TRANSFER_SCHEMA_HASH },
         { binaryVersion: "2.0.18", serverVersion: "2.0.18", schemaHash: hashCanonicalJson("wrong") },
       ]) {
-        await assert.rejects(exerciseOpenCodeRoundtrip(server, { dialect: "v2", ...evidence }),
+        await assert.rejects(exerciseOpenCodeRoundtrip(server, {
+          dialect: "v2", protocolRule: "v2-session-transfer",
+          protocolHash: hashCanonicalJson("wrong"), ...evidence,
+        }),
           { code: "T2O_OPENCODE_COMPATIBILITY_UNVERIFIED" });
       }
       assert.deepEqual(writes, []);

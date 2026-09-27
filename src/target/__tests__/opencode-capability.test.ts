@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
+import { hashCanonicalJson } from "../../ir/canonical.js";
+import type { JsonValue } from "../../ir/types.js";
 import {
   probeOpenCodeCapabilities, requireOpenCodeCapabilities, type OpenCodeCompatibilityEvidence,
 } from "../opencode/capability-probe.js";
@@ -36,6 +38,17 @@ function makeApi() {
   };
 }
 
+function importRequestSchema(api: ReturnType<typeof makeApi>) {
+  const route = api.paths[IMPORT_ROUTE] as {
+    post: {
+      requestBody: {
+        content: { "application/json": { schema: { properties: Record<string, unknown> } } };
+      };
+    };
+  };
+  return route.post.requestBody.content["application/json"].schema;
+}
+
 function connection(options: {
   binaryVersion?: string; serverVersion?: string; status?: number; api?: unknown;
   verify?: (evidence: OpenCodeCompatibilityEvidence) => Promise<void>;
@@ -64,10 +77,14 @@ describe("probeOpenCodeCapabilities", () => {
   it("requires both product versions and the reviewed endpoint envelopes and schema", async () => {
     const { calls, transport } = connection();
     const report = await requireOpenCodeCapabilities(transport);
+    assert.match(report.protocolHash!, /^sha256:[a-f0-9]{64}$/);
     assert.deepStrictEqual(report, {
-      dialect: "v2", binaryVersion: "2.0.12", serverVersion: "2.0.12",
+      dialect: "v2", protocolRule: "v2-session-transfer",
+      protocolHash: report.protocolHash,
+      binaryVersion: "2.0.12", serverVersion: "2.0.12",
       nativeImport: true, nativeExport: true,
-      schemaHash: TRANSFER_SCHEMA_HASH, writable: true, compatibility: "verified-release", reasons: [],
+      schemaHash: TRANSFER_SCHEMA_HASH, schemaCompatibility: "exact", schemaChanges: 0,
+      writable: true, compatibility: "verified-release", reasons: [],
     });
     assert.deepStrictEqual(calls, ["version", "/api/info", "/openapi.json"]);
     assert.doesNotMatch(JSON.stringify(report), /secret-path|0.0.1/);
@@ -124,12 +141,66 @@ describe("probeOpenCodeCapabilities", () => {
       assert.equal(report.compatibility, "isolated-roundtrip");
       assert.equal(report.writable, true);
       assert.deepEqual(verified, [{
-        dialect: "v2", binaryVersion: version, serverVersion: version, schemaHash: TRANSFER_SCHEMA_HASH,
+        dialect: "v2", protocolRule: "v2-session-transfer",
+        protocolHash: report.protocolHash!,
+        binaryVersion: version, serverVersion: version, schemaHash: TRANSFER_SCHEMA_HASH,
       }]);
       assert.deepEqual(calls, [
         "version", "/api/info", "/openapi.json", "version", "/api/info", "/openapi.json",
       ]);
     }
+  });
+
+  it("requires an isolated round trip for additive schema changes, including reviewed versions", async () => {
+    for (const version of ["2.0.12", "2.0.18"]) {
+      const api = makeApi();
+      api.components.schemas["Session.Message.User"].properties.optionalNewField = { type: "string" };
+      const expectedHash = hashCanonicalJson({
+        $schema: "https://json-schema.org/draft/2020-12/schema",
+        $ref: TRANSFER_REF,
+        components: api.components,
+      } as JsonValue);
+      const verified: OpenCodeCompatibilityEvidence[] = [];
+      const report = await requireOpenCodeCapabilities(connection({
+        binaryVersion: version, serverVersion: version, api,
+        verify: async (evidence) => { verified.push(evidence); },
+      }).transport);
+      assert.equal(report.schemaCompatibility, "compatible");
+      assert.equal(report.schemaChanges, 1);
+      assert.equal(report.schemaHash, expectedHash);
+      assert.equal(report.compatibility, "isolated-roundtrip");
+      assert.deepEqual(verified, [{
+        dialect: "v2", protocolRule: "v2-session-transfer",
+        protocolHash: report.protocolHash!,
+        binaryVersion: version, serverVersion: version, schemaHash: expectedHash,
+      }]);
+    }
+  });
+
+  it("never authorizes compatible schema drift without behavioral evidence", async () => {
+    const api = makeApi();
+    api.components.schemas["Session.Message.User"].properties.optionalNewField = { type: "string" };
+    const report = await probeOpenCodeCapabilities(connection({ api }).transport);
+    assert.equal(report.schemaCompatibility, "compatible");
+    assert.equal(report.writable, false);
+    assert.deepEqual(report.reasons, ["T2O_OPENCODE_COMPATIBILITY_UNVERIFIED"]);
+  });
+
+  it("analyzes endpoint envelopes and binds compatible changes to protocol evidence", async () => {
+    const baseline = await requireOpenCodeCapabilities(connection().transport);
+    const api = makeApi();
+    importRequestSchema(api).properties.options = { type: "object" };
+    const verified: OpenCodeCompatibilityEvidence[] = [];
+    const report = await requireOpenCodeCapabilities(connection({
+      binaryVersion: "2.0.18", serverVersion: "2.0.18", api,
+      verify: async (evidence) => { verified.push(evidence); },
+    }).transport);
+    assert.equal(report.schemaCompatibility, "compatible");
+    assert.equal(report.schemaChanges, 1);
+    assert.equal(report.schemaHash, TRANSFER_SCHEMA_HASH);
+    assert.notEqual(report.protocolHash, baseline.protocolHash);
+    assert.equal(verified[0]?.protocolHash, report.protocolHash);
+    assert.equal(report.compatibility, "isolated-roundtrip");
   });
 
   it("never authorizes an unreviewed version from schema alone or a failed canary", async () => {
@@ -144,13 +215,17 @@ describe("probeOpenCodeCapabilities", () => {
   });
 
   it("rejects a target upgrade or schema change while the canary is running", async () => {
-    for (const change of ["version", "schema"]) {
+    for (const change of ["version", "schema", "envelope"]) {
       const options = { binaryVersion: "2.0.13", serverVersion: "2.0.13", api: makeApi() };
       const { transport } = connection({
         ...options,
         verify: async () => {
           if (change === "version") transport.run = async () => "2.0.14";
-          else options.api.components.schemas["Session.Message.User"].properties.text.type = "number";
+          else if (change === "schema") {
+            options.api.components.schemas["Session.Message.User"].properties.text.type = "number";
+          } else {
+            importRequestSchema(options.api).properties.options = { type: "object" };
+          }
         },
       });
       const report = await probeOpenCodeCapabilities(transport);
