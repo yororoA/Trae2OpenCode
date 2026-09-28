@@ -60,6 +60,8 @@ assert.ok(rootRelease?.["extra-files"]?.some(
 assert.match(String(releaseConfig["bootstrap-sha"]), /^[a-f0-9]{40}$/);
 assert.match(releaseWorkflow,
   /googleapis\/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071/);
+assert.match(releaseWorkflow,
+  /gh workflow run quality\.yml --repo "\$GITHUB_REPOSITORY" --ref "\$branch"/);
 
 const releaseTag = process.env.T2O_RELEASE_TAG?.trim();
 if (releaseTag) assert.equal(releaseTag, `v${version}`, "Release tag differs from package version");
