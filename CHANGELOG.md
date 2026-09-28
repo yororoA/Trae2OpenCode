@@ -6,6 +6,27 @@ independent of IR, manifest, mapping, and verification-report format versions.
 Released entries are generated from Conventional Commits by release-please. Feature
 pull requests do not add an `Unreleased` section or edit the product version manually.
 
+## [1.2.0](https://github.com/yororoA/Trae2OpenCode/compare/v1.1.0...v1.2.0) (2026-09-28)
+
+
+### Added
+
+* **opencode:** 增加声明式协议规则与schema兼容分析 ([f107473](https://github.com/yororoA/Trae2OpenCode/commit/f1074737442c94a5450cb235a89fa49ad0f4c6de))
+* **opencode:** 自动适配兼容的 schema 演进 ([#26](https://github.com/yororoA/Trae2OpenCode/issues/26)) ([b169787](https://github.com/yororoA/Trae2OpenCode/commit/b16978761ac2e3b525a8f65310b9b96f345f0647))
+
+
+### Fixed
+
+* **release:** 修复 Release PR 质量检查触发失败 ([#28](https://github.com/yororoA/Trae2OpenCode/issues/28)) ([05c8396](https://github.com/yororoA/Trae2OpenCode/commit/05c83962f89e8028289f5f0600f940a8f122b85b))
+* **release:** 固定首次自动发布基线 ([ab14361](https://github.com/yororoA/Trae2OpenCode/commit/ab14361dff1102bbb11d444caef82e51b12347d1))
+* **release:** 显式指定质量工作流仓库 ([1e73141](https://github.com/yororoA/Trae2OpenCode/commit/1e73141d0c56faa15fde77bddb6e9392b8acb3c5))
+
+
+### Documentation
+
+* **opencode:** 说明schema兼容准入边界 ([1a9ae53](https://github.com/yororoA/Trae2OpenCode/commit/1a9ae53ee11194a74e4a09f7c90b6fb372fdb80e))
+* **release:** 说明自动版本与 changelog 流程 ([c8b85cb](https://github.com/yororoA/Trae2OpenCode/commit/c8b85cb21ede65824cfb33d12f8b9f1f1000bbed))
+
 ## [1.1.0](https://github.com/yororoA/Trae2OpenCode/tree/v1.1.0) (2026-09-26)
 
 ### Added in 1.1.0
