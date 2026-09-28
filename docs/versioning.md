@@ -24,7 +24,9 @@ Trae2OpenCode 从 `1.1.0` 开始显式维护产品版本。此前仓库一直保
 
 `release-please-config.json` 记录发布规则，`.release-please-manifest.json` 记录最新
 已发布版本。首次自动发布从 `1.1.0` 后的 `main` 合并提交开始，避免把历史开发提交
-重复写入下一版 Changelog。
+重复写入下一版 Changelog。由于 `v1.1.0` 指向合并前的分支提交，首次自动发布还使用
+临时的 `last-release-sha` 指向 `main` 上的 `1.1.0` merge commit；`1.2.0` 发布后删除
+该临时配置，后续由 release-please 的发布记录自动确定边界。
 
 `npm run verify:version` 校验 package、lockfile、release-please manifest、网站和
 Changelog 一致。Release PR 由 Actions token 创建时不会自然触发其他 workflow，因此
