@@ -11,16 +11,24 @@ Trae2OpenCode 从 `1.1.0` 开始显式维护产品版本。此前仓库一直保
 - `minor`：新增向后兼容的迁移能力、目标方言或工作流。
 - `patch`：修复缺陷，不改变已承诺的行为。
 
-`1.1.0` 已建立首个正式 tag。当前 `1.2.0` 是开发版本，正式发布前在
-`CHANGELOG.md` 中保持 `Unreleased`。合入 `main` 并完成发布验收后，才创建同名
-`v1.2.0` tag；不为未发布的历史提交补 tag。
+`1.1.0` 已建立首个正式 tag。仓库从下一版本开始由 release-please 管理产品版本：
 
-每次修改产品版本必须同步：
+- 普通功能 PR 不修改 `package.json`、`package-lock.json`、网站产品版本或
+  `CHANGELOG.md`，这些文件在 `main` 上保持最新已发布版本。
+- PR 与合并提交使用 Conventional Commits；`feat` 触发 minor、`fix` 触发 patch，
+  `!` 或 `BREAKING CHANGE` 触发 major。
+- 功能合入 `main` 后，release-please 创建或更新 Release PR。该 PR 一次性更新版本、
+  Changelog、manifest 和网站版本。
+- 合并 Release PR 是明确的发布动作。release-please 随后创建 `v<version>` tag 和
+  GitHub Release，不再手工创建或移动正式 tag。
 
-1. `package.json` 与 `package-lock.json`。
-2. `CHANGELOG.md` 的对应版本条目。
-3. 宣传页的软件结构化数据和可见版本。
-4. `npm run verify:version`、`npm run check` 与 `npm run verify:package`。
+`release-please-config.json` 记录发布规则，`.release-please-manifest.json` 记录最新
+已发布版本。首次自动发布从 `1.1.0` 后的 `main` 合并提交开始，避免把历史开发提交
+重复写入下一版 Changelog。
+
+`npm run verify:version` 校验 package、lockfile、release-please manifest、网站和
+Changelog 一致。Release PR 由 Actions token 创建时不会自然触发其他 workflow，因此
+发布 workflow 会显式 dispatch `quality.yml` 到 Release PR 分支。
 
 ## 格式版本
 
@@ -38,8 +46,9 @@ Trae2OpenCode 从 `1.1.0` 开始显式维护产品版本。此前仓库一直保
 
 ## 发布顺序
 
-1. 更新产品版本和变更记录。
-2. 通过所有本地质量与打包验收。
-3. 合入 `main`，等待跨平台 CI 和网站部署通过。
-4. 在确认发布时为 `main` 的准确提交创建 annotated tag。
-5. 推送 tag；需要对外分发时再基于该 tag 创建 GitHub Release 或发布 npm 包。
+1. 使用 Conventional Commit 标题合入功能 PR。
+2. release-please 自动创建或更新 Release PR，并显式触发跨平台质量检查。
+3. 审阅 Release PR 中的版本号和自动生成的 Changelog。
+4. 合并 Release PR；release-please 自动创建 tag 和 GitHub Release。
+5. 发布 workflow 从新 tag 重新执行质量与 tarball 安装验收。当前仍不执行
+   `npm publish`，后续增加发布凭据时单独接入。
