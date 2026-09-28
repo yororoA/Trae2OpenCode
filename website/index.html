@@ -489,12 +489,12 @@ npm run migrate:local</code></pre>
             </div>
             <div class="compatibility-row" role="row">
               <strong role="cell">OpenCode v2</strong>
-              <span role="cell">2.0.12 / 2.0.16</span>
+              <span role="cell">2.0.0 / 2.0.12 / 2.0.16</span>
               <span role="cell" data-i18n="compatibility.probeV2">其他稳定 2.x 自动检测</span>
             </div>
             <div class="compatibility-row" role="row">
               <strong role="cell">OpenCode v1</strong>
-              <span role="cell">1.17.9 / 1.18.32</span>
+              <span role="cell">1.16.0 / 1.17.0 / 1.17.9 / 1.18.32</span>
               <span role="cell" data-i18n="compatibility.probeV1">其他稳定 1.x 自动检测</span>
             </div>
             <div class="compatibility-row" role="row">
@@ -511,7 +511,7 @@ npm run migrate:local</code></pre>
           <p class="compatibility-note" id="v1-support">
             <i data-lucide="shield-check" aria-hidden="true"></i>
             <span data-i18n="compatibility.note">
-              表中 OpenCode 版本为已验证基线；其他稳定 1.x/2.x 需使用同版本 CLI，通过 schema 兼容分析及隔离往返验证后才能迁移。
+              已验证 legacy profile 覆盖 v2 2.0.0 与 v1 1.16.0 / 1.17.0；其他稳定版本按实际路由、schema 和隔离往返结果准入。
             </span>
           </p>
         </div>
@@ -565,6 +565,6 @@ npm run migrate:local</code></pre>
     </footer>
 
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
-    <script src="./app.js?v=5"></script>
+    <script src="./app.js?v=6"></script>
   </body>
 </html>

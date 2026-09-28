@@ -22,19 +22,23 @@ OpenCode **v1 或 v2 协议**。
 | 组件 | 要求 |
 | --- | --- |
 | TRAE 来源 | TRAE CN **3.3.104**，已登录，并以本机 CDP 端口 `9222` 启动 |
-| OpenCode v2 目标 | 已验证基线：`@opencode/cli` **2.0.12**、**2.0.16**；其他稳定 2.x 自动检测兼容性 |
-| OpenCode v1 目标 | 已验证基线：`opencode-ai` **1.17.9**、**1.18.32**；其他稳定 1.x 自动检测兼容性 |
+| OpenCode v2 目标 | 已验证基线：**2.0.0**（legacy）、**2.0.12**、**2.0.16**；其他稳定 2.x 自动检测兼容性 |
+| OpenCode v1 目标 | 已验证基线：**1.16.0 / 1.17.0**（legacy）、**1.17.9 / 1.18.32**；其他稳定 1.x 自动检测兼容性 |
 | 系统 | macOS、Windows 可直接读取本机 TRAE；Linux 只支持导入已导出的 bundle |
 | Node.js | `>=18.18`，推荐 Node.js 22 |
 
 附件、Skill 与 MCP 资源不在当前迁移范围内。未知的 TRAE 来源版本仍会被拒绝。
-OpenCode 根据实际协议和隔离往返结果决定能否迁移。目标方言由可执行文件版本决定：v2 走 HTTP
-`SessionTransfer`，v1 走 `opencode import` / `opencode export` 子命令。
+OpenCode 根据实际协议 profile 和隔离往返结果决定能否迁移。v2 自动区分旧版与当前
+HTTP `SessionTransfer` 路径；v1 自动区分 legacy 与当前会话 schema，均通过
+`opencode import` / `opencode export` 子命令。
 
 > **未收录的 OpenCode 稳定版本不再仅因版本号被拒绝。**
 > CLI 与目标服务必须为同一版本，必要路由和 schema 必须完全匹配或仅有安全增量，然后在独立临时库中
 > 验证导入、导出、回读、冲突与删除保护。通过后才允许迁移；预发布版本、未知主版本、
 > 破坏性 schema 变化或行为验证失败仍会停止。无需增加跳过校验参数。
+>
+> **旧版本也不是无条件放行。** `opencode-ai@1.15.x` 无法保留安全所有权 metadata，
+> `1.14.x` 的 OpenAPI 不暴露完整会话 schema，因此仍拒绝写入；工具不会直写旧版数据库。
 
 ## 快速开始
 
@@ -71,7 +75,8 @@ npm install -g opencode-ai@1.18.32
 opencode --version
 ```
 
-建议使用上述基线版本；其他稳定 1.x/2.x 会在迁移前自动检测兼容性。
+建议新安装使用上述当前基线；已有 2.0.0 或 1.16/早期 1.17 环境无需为了迁移强制升级，
+工具会选择 legacy profile。其他稳定 1.x/2.x 会在迁移前自动检测兼容性。
 也可运行 `npm run verify:opencode` 单独检查本机 OpenCode，命令复用相同协议规则和
 隔离往返验证，支持 `--binary`、`--output` 与 `--json`；详见[独立验证说明](docs/opencode-compatibility.md#独立验证本机-opencode)。
 `migrate:local` 会读取
@@ -229,7 +234,7 @@ TRAE 本身的历史被删除，源数据始终保持只读。
 | `无法发现 TRAE workbench` | 完全退出后，用上面的终端命令重新启动 TRAE；确认目标项目窗口已打开。 |
 | `所选 workbench 没有可迁移的本地会话` | 选择正确的项目窗口，并在 TRAE 中打开该项目后再运行。 |
 | `无法自动启动 OpenCode` | 确认 `opencode --version` 可运行，再用 `npm run verify:opencode` 检查兼容性；需要重装时可选择上述已验证基线。 |
-| `OpenCode 版本或协议不受支持` | 确认是稳定 1.x/2.x；必要路由和 schema 必须完全匹配或只有可验证的安全增量。 |
+| `OpenCode 版本或协议不受支持` | 确认是稳定 1.x/2.x；目标必须匹配当前或 legacy profile，并保留安全所有权和回读能力。 |
 | `未收录的 OpenCode 版本需要同版本 CLI` | 安装与目标服务相同版本的 CLI，或用 `T2O_OPENCODE_BINARY` 指定。 |
 | `隔离导入、回读或删除验证失败` | 尚未向目标写入会话；使用已验证基线版本，保留错误码用于排查。 |
 | `所选会话包含当前无法无损映射的内容` | 工具尚未写入 OpenCode。保留产物并查看[故障排查](docs/troubleshooting.md)。 |
