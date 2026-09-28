@@ -4,15 +4,20 @@ import { hashCanonicalJson } from "../../../ir/canonical.js";
 import type { JsonValue } from "../../../ir/types.js";
 import { Trae2OpenCodeError } from "../../../shared/errors.js";
 import { isRecord } from "../contract.js";
+import {
+  V1_HEALTH_ROUTE, V1_OPENAPI_ROUTE, V1_SESSION_CHILDREN_ROUTE, V1_SESSION_ROUTE,
+} from "../protocol-rules.js";
+import {
+  analyzeSchemaCompatibility, type SchemaCompatibilityAnalysis,
+} from "../schema-compatibility.js";
 
 /**
  * OpenCode v1 exposes its OpenAPI document at `/doc`, keeps no session import/export
  * HTTP routes, and reports its version at `/global/health`.
  */
-export const V1_OPENAPI_ROUTE = "/doc";
-export const V1_HEALTH_ROUTE = "/global/health";
-export const V1_SESSION_ROUTE = "/session/{sessionID}";
-export const V1_SESSION_CHILDREN_ROUTE = "/session/{sessionID}/children";
+export {
+  V1_HEALTH_ROUTE, V1_OPENAPI_ROUTE, V1_SESSION_CHILDREN_ROUTE, V1_SESSION_ROUTE,
+};
 
 const SCHEMA_REF_PREFIX = "#/components/schemas/";
 const V1_SESSION_ROOTS = ["Session", "Message", "Part"] as const;
@@ -82,10 +87,17 @@ export function extractV1SessionSchema(openapi: unknown): Record<string, unknown
 }
 
 export function assertOpenCodeV1Schema(openapi: unknown): string {
-  const schema = extractV1SessionSchema(openapi);
-  const actual = hashCanonicalJson(schema as JsonValue);
-  if (actual !== V1_SESSION_SCHEMA_HASH) {
+  const analysis = analyzeOpenCodeV1Schema(openapi);
+  if (analysis.status === "incompatible") {
     throw new Trae2OpenCodeError("T2O_OPENCODE_SCHEMA_UNSUPPORTED");
   }
-  return actual;
+  return analysis.actualHash;
+}
+
+export function analyzeOpenCodeV1Schema(openapi: unknown): SchemaCompatibilityAnalysis {
+  const schema = extractV1SessionSchema(openapi);
+  return analyzeSchemaCompatibility(
+    baseline as JsonValue,
+    schema as JsonValue,
+  );
 }

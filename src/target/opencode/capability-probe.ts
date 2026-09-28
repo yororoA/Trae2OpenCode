@@ -3,23 +3,33 @@ import type { JsonValue } from "../../ir/types.js";
 import type { ErrorCode } from "../../shared/error-codes.js";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
 import {
-  assertOpenCodeSchema, EXPORT_ROUTE, IMPORT_ROUTE, isRecord, isVerifiedOpenCodeVersion,
-  openCodeDialectForVersion, parseOpenCodeVersion as parseVersion,
-  supportedVersionsForDialect, TRANSFER_REF, type OpenCodeDialect,
+  analyzeOpenCodeSchema, extractTransferSchema, isRecord, parseOpenCodeVersion as parseVersion,
+  supportedVersionsForDialect, type OpenCodeDialect,
 } from "./contract.js";
+import {
+  protocolRuleForVersion, type OpenCodeOperationRule, type OpenCodeProtocolRule,
+  type OpenCodeProtocolRuleId,
+} from "./protocol-rules.js";
+import {
+  analyzeSchemaCompatibility, type SchemaCompatibility,
+  type SchemaCompatibilityAnalysis,
+} from "./schema-compatibility.js";
 import type { OpenCodeTransport } from "./transport.js";
 import {
-  assertOpenCodeV1Schema, V1_HEALTH_ROUTE, V1_OPENAPI_ROUTE, V1_SESSION_CHILDREN_ROUTE,
-  V1_SESSION_ROUTE,
+  analyzeOpenCodeV1Schema, extractV1SessionSchema,
 } from "./v1/contract.js";
 
 export interface OpenCodeCapabilities {
   dialect: OpenCodeDialect;
+  protocolRule: OpenCodeProtocolRuleId | null;
+  protocolHash: string | null;
   binaryVersion: string | null;
   serverVersion: string | null;
   nativeImport: boolean;
   nativeExport: boolean;
   schemaHash: string | null;
+  schemaCompatibility: SchemaCompatibility | null;
+  schemaChanges: number;
   writable: boolean;
   compatibility: "unsupported" | "protocol-only" | "verified-release" | "isolated-roundtrip";
   reasons: ErrorCode[];
@@ -27,121 +37,137 @@ export interface OpenCodeCapabilities {
 
 export interface OpenCodeCompatibilityEvidence {
   dialect: OpenCodeDialect;
+  protocolRule: OpenCodeProtocolRuleId;
+  protocolHash: string;
   binaryVersion: string;
   serverVersion: string;
   schemaHash: string;
 }
 
-function schemaAt(operation: unknown, response: boolean): unknown {
+function schemaAt(operation: unknown, rule: OpenCodeOperationRule): unknown {
   if (!isRecord(operation)) return undefined;
   const responses = isRecord(operation.responses) ? operation.responses : {};
-  const body = response ? responses["200"] : operation.requestBody;
+  const body = rule.schema?.source === "response"
+    ? responses[rule.schema.status ?? "200"] : operation.requestBody;
   if (!isRecord(body) || !isRecord(body.content)) return undefined;
   const json = body.content["application/json"];
   return isRecord(json) ? json.schema : undefined;
 }
 
-const importBody: JsonValue = {
-  type: "object",
-  properties: {
-    info: { $ref: "#/components/schemas/Session.Info" },
-    messages: { type: "array", items: { $ref: "#/components/schemas/Session.Message.Info" } },
-    location: { anyOf: [{ $ref: "#/components/schemas/Location.PublicRef" }, { type: "null" }] },
-  },
-  required: ["info", "messages"],
-  additionalProperties: false,
-};
-const exportBody: JsonValue = {
-  type: "object",
-  properties: { data: { $ref: TRANSFER_REF } },
-  required: ["data"],
-  additionalProperties: false,
-};
-
-function matches(value: unknown, expected: JsonValue): boolean {
-  return isRecord(value) && hashCanonicalJson(value as JsonValue) === hashCanonicalJson(expected);
-}
-
-function requireOpenApi(api: unknown, status: number, route: string): Record<string, unknown> {
+function requireOpenApi(api: unknown, status: number): Record<string, unknown> {
   if (status !== 200 || !isRecord(api) || !isRecord(api.paths)) {
     throw new Trae2OpenCodeError("T2O_OPENCODE_CAPABILITY_UNAVAILABLE");
   }
-  const paths = api.paths;
-  if (!isRecord(paths[route])) throw new Trae2OpenCodeError("T2O_OPENCODE_CAPABILITY_UNAVAILABLE");
-  return paths;
+  return api.paths;
 }
 
-/** v2 exposes the session transfer over HTTP and documents it at `/openapi.json`. */
-async function probeV2(
-  transport: OpenCodeTransport, report: OpenCodeCapabilities,
-): Promise<void> {
-  // OpenAPI's info.version is the HTTP surface version (0.0.1), not OpenCode's.
-  const info = await transport.request("/api/info");
-  report.serverVersion = info.status === 200 && isRecord(info.body) ? parseVersion(info.body.version) : null;
-  if (openCodeDialectForVersion(report.serverVersion) !== "v2") {
-    throw new Trae2OpenCodeError("T2O_OPENCODE_VERSION_UNSUPPORTED");
-  }
-  const response = await transport.request("/openapi.json");
-  const api = response.body;
-  const paths = requireOpenApi(api, response.status, IMPORT_ROUTE);
-  const importPath = paths[IMPORT_ROUTE];
-  const exportPath = paths[EXPORT_ROUTE];
-  const importOperation = isRecord(importPath) ? importPath.post : undefined;
-  const exportOperation = isRecord(exportPath) ? exportPath.get : undefined;
-  report.nativeImport = isRecord(importOperation);
-  report.nativeExport = isRecord(exportOperation);
-  if (!report.nativeImport || !report.nativeExport) {
-    throw new Trae2OpenCodeError("T2O_OPENCODE_CAPABILITY_UNAVAILABLE");
-  }
-  const validEnvelopes = matches(schemaAt(importOperation, false), importBody) &&
-    matches(schemaAt(exportOperation, true), exportBody);
-  if (!validEnvelopes) throw new Trae2OpenCodeError("T2O_OPENCODE_SCHEMA_UNSUPPORTED");
-  report.schemaHash = assertOpenCodeSchema(api);
+function operationAt(
+  paths: Record<string, unknown>, rule: OpenCodeOperationRule,
+): unknown {
+  const path = paths[rule.route];
+  return isRecord(path) ? path[rule.method] : undefined;
 }
 
-/**
- * v1 has no session transfer route: `import` and `export` are top-level subcommands that
- * write the local session library directly. v1 prints its CLI usage to stderr, which the
- * transport deliberately never reads. Unreviewed releases therefore also require an
- * isolated CLI round trip; HTTP schema alone cannot establish import/export behavior.
- */
-async function probeV1(
-  transport: OpenCodeTransport, report: OpenCodeCapabilities,
+export function extractSchemaForProtocolRule(
+  rule: OpenCodeProtocolRule, openapi: unknown,
+): Record<string, unknown> {
+  return rule.schemaProfile === "v1-session"
+    ? extractV1SessionSchema(openapi) : extractTransferSchema(openapi);
+}
+
+function analyzeSchemaForProtocolRule(
+  rule: OpenCodeProtocolRule, openapi: unknown,
+): SchemaCompatibilityAnalysis {
+  return rule.schemaProfile === "v1-session"
+    ? analyzeOpenCodeV1Schema(openapi) : analyzeOpenCodeSchema(openapi);
+}
+
+function combineSchemaAnalysis(
+  report: OpenCodeCapabilities, analysis: SchemaCompatibilityAnalysis,
+): void {
+  if (analysis.status === "incompatible") {
+    throw new Trae2OpenCodeError("T2O_OPENCODE_SCHEMA_UNSUPPORTED");
+  }
+  if (report.schemaCompatibility !== "compatible") {
+    report.schemaCompatibility = analysis.status;
+  }
+  report.schemaChanges += analysis.changeCount;
+}
+
+async function probeRule(
+  transport: OpenCodeTransport, report: OpenCodeCapabilities, rule: OpenCodeProtocolRule,
 ): Promise<void> {
-  const health = await transport.request(V1_HEALTH_ROUTE);
-  report.serverVersion = health.status === 200 && isRecord(health.body)
-    ? parseVersion(health.body.version) : null;
-  if (openCodeDialectForVersion(report.serverVersion) !== "v1") {
+  const versionResponse = await transport.request(rule.versionProbe.route);
+  const versionValue = versionResponse.status === 200 && isRecord(versionResponse.body)
+    ? versionResponse.body[rule.versionProbe.responseField] : undefined;
+  report.serverVersion = parseVersion(versionValue);
+  if (protocolRuleForVersion(report.serverVersion)?.id !== rule.id) {
     throw new Trae2OpenCodeError("T2O_OPENCODE_VERSION_UNSUPPORTED");
   }
-  const response = await transport.request(V1_OPENAPI_ROUTE);
-  const api = response.body;
-  const paths = requireOpenApi(api, response.status, V1_SESSION_ROUTE);
-  const supportsDelete = isRecord(paths[V1_SESSION_ROUTE]) && isRecord(paths[V1_SESSION_ROUTE].delete);
-  const supportsChildren = isRecord(paths[V1_SESSION_CHILDREN_ROUTE]) &&
-    isRecord(paths[V1_SESSION_CHILDREN_ROUTE].get);
-  if (!supportsDelete || !supportsChildren) {
-    throw new Trae2OpenCodeError("T2O_OPENCODE_CAPABILITY_UNAVAILABLE");
+  const response = await transport.request(rule.openapiRoute);
+  const paths = requireOpenApi(response.body, response.status);
+  const operationEvidence: JsonValue[] = [];
+  for (const operationRule of rule.operations) {
+    const operation = operationAt(paths, operationRule);
+    if (operationRule.capability) report[operationRule.capability] = isRecord(operation);
+    if (!isRecord(operation)) {
+      throw new Trae2OpenCodeError("T2O_OPENCODE_CAPABILITY_UNAVAILABLE");
+    }
   }
-  report.schemaHash = assertOpenCodeV1Schema(api);
-  report.nativeImport = true;
-  report.nativeExport = true;
+  for (const operationRule of rule.operations) {
+    const operation = operationAt(paths, operationRule);
+    if (!operationRule.schema) continue;
+    const operationSchema = schemaAt(operation, operationRule);
+    if (!isRecord(operationSchema)) {
+      throw new Trae2OpenCodeError("T2O_OPENCODE_SCHEMA_UNSUPPORTED");
+    }
+    combineSchemaAnalysis(report, analyzeSchemaCompatibility(
+      operationRule.schema.expected,
+      operationSchema as JsonValue,
+    ));
+    operationEvidence.push({
+      route: operationRule.route,
+      method: operationRule.method,
+      schema: operationSchema as JsonValue,
+    });
+  }
+  for (const operationRule of rule.operations) {
+    if (operationRule.schema) continue;
+    operationEvidence.push({
+      route: operationRule.route,
+      method: operationRule.method,
+      present: true,
+    });
+  }
+  if (rule.transfer === "cli") {
+    report.nativeImport = true;
+    report.nativeExport = true;
+  }
+  const schemaAnalysis = analyzeSchemaForProtocolRule(rule, response.body);
+  combineSchemaAnalysis(report, schemaAnalysis);
+  report.schemaHash = schemaAnalysis.actualHash;
+  report.protocolHash = hashCanonicalJson({
+    rule: rule.id,
+    operations: operationEvidence,
+    schema: extractSchemaForProtocolRule(rule, response.body) as JsonValue,
+  });
 }
 
 /** Only reads version/HTTP evidence; never accesses user sessions. */
 async function probeProtocol(transport: OpenCodeTransport): Promise<OpenCodeCapabilities> {
   const report: OpenCodeCapabilities = {
-    dialect: "v2",
+    dialect: "v2", protocolRule: null, protocolHash: null,
     binaryVersion: null, serverVersion: null, nativeImport: false, nativeExport: false,
-    schemaHash: null, writable: false, compatibility: "unsupported", reasons: [],
+    schemaHash: null, schemaCompatibility: null, schemaChanges: 0,
+    writable: false, compatibility: "unsupported", reasons: [],
   };
   try {
     report.binaryVersion = parseVersion(await transport.run(["--version"]));
-    const dialect = openCodeDialectForVersion(report.binaryVersion);
-    if (dialect === undefined) throw new Trae2OpenCodeError("T2O_OPENCODE_VERSION_UNSUPPORTED");
-    report.dialect = dialect;
-    if (dialect === "v1") await probeV1(transport, report);
-    else await probeV2(transport, report);
+    const rule = protocolRuleForVersion(report.binaryVersion);
+    if (!rule) throw new Trae2OpenCodeError("T2O_OPENCODE_VERSION_UNSUPPORTED");
+    report.dialect = rule.dialect;
+    report.protocolRule = rule.id;
+    await probeRule(transport, report, rule);
     report.compatibility = "protocol-only";
   } catch (error) {
     report.reasons.push(error instanceof Trae2OpenCodeError
@@ -154,8 +180,10 @@ async function probeProtocol(transport: OpenCodeTransport): Promise<OpenCodeCapa
 export async function probeOpenCodeCapabilities(transport: OpenCodeTransport): Promise<OpenCodeCapabilities> {
   const report = await probeProtocol(transport);
   if (report.reasons.length) return report;
-  const reviewed = isVerifiedOpenCodeVersion(report.binaryVersion) &&
-    isVerifiedOpenCodeVersion(report.serverVersion);
+  const rule = protocolRuleForVersion(report.binaryVersion)!;
+  const reviewed = rule.reviewedVersions.includes(report.binaryVersion!) &&
+    rule.reviewedVersions.includes(report.serverVersion!) &&
+    report.schemaCompatibility === "exact";
   if (reviewed) {
     report.compatibility = "verified-release";
     report.writable = true;
@@ -170,7 +198,9 @@ export async function probeOpenCodeCapabilities(transport: OpenCodeTransport): P
       throw new Trae2OpenCodeError("T2O_OPENCODE_COMPATIBILITY_UNVERIFIED");
     }
     const evidence: OpenCodeCompatibilityEvidence = {
-      dialect: report.dialect, binaryVersion: report.binaryVersion!,
+      dialect: report.dialect, protocolRule: report.protocolRule!,
+      protocolHash: report.protocolHash!,
+      binaryVersion: report.binaryVersion!,
       serverVersion: report.serverVersion!, schemaHash: report.schemaHash!,
     };
     await transport.verifyCompatibility(evidence);
@@ -178,6 +208,8 @@ export async function probeOpenCodeCapabilities(transport: OpenCodeTransport): P
     const current = await probeProtocol(transport);
     const unchanged = current.reasons.length === 0 &&
       current.dialect === evidence.dialect &&
+      current.protocolRule === evidence.protocolRule &&
+      current.protocolHash === evidence.protocolHash &&
       current.binaryVersion === evidence.binaryVersion &&
       current.serverVersion === evidence.serverVersion &&
       current.schemaHash === evidence.schemaHash;

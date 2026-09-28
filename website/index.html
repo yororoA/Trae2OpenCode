@@ -30,6 +30,7 @@
     <link rel="preconnect" href="https://unpkg.com">
     <link rel="stylesheet" href="./styles.css?v=14">
     <title>Trae2OpenCode | 可验证的会话迁移</title>
+    <!-- x-release-please-start-version -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -44,6 +45,7 @@
         "license": "https://opensource.org/licenses/ISC"
       }
     </script>
+    <!-- x-release-please-end -->
   </head>
   <body>
     <a class="skip-link" href="#main-content" data-i18n="a11y.skip">跳到主要内容</a>
@@ -316,7 +318,7 @@
               <div class="terminal-panel" aria-live="polite">
                 <div class="terminal-line terminal-line-muted">
                   <span>trae2opencode</span>
-                  <span data-product-version>v1.1.0</span>
+                  <span data-product-version>v1.1.0</span><!-- x-release-please-version -->
                 </div>
                 <div class="terminal-output" data-terminal-output>
                   <p><span class="terminal-prompt">$</span> npm run migrate:local</p>
@@ -509,7 +511,7 @@ npm run migrate:local</code></pre>
           <p class="compatibility-note" id="v1-support">
             <i data-lucide="shield-check" aria-hidden="true"></i>
             <span data-i18n="compatibility.note">
-              表中 OpenCode 版本为已验证基线；其他稳定 1.x/2.x 需使用同版本 CLI，通过协议及隔离往返验证后才能迁移。
+              表中 OpenCode 版本为已验证基线；其他稳定 1.x/2.x 需使用同版本 CLI，通过 schema 兼容分析及隔离往返验证后才能迁移。
             </span>
           </p>
         </div>
@@ -563,6 +565,6 @@ npm run migrate:local</code></pre>
     </footer>
 
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
-    <script src="./app.js?v=4"></script>
+    <script src="./app.js?v=5"></script>
   </body>
 </html>

@@ -2,9 +2,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import {
-  assertOpenCodeSchema, assertOpenCodeTransfer, extractTransferSchema, TRANSFER_SCHEMA_HASH,
+  analyzeOpenCodeSchema, assertOpenCodeSchema, assertOpenCodeTransfer,
+  extractTransferSchema, TRANSFER_SCHEMA_HASH,
   openCodeDialectForVersion, isVerifiedOpenCodeVersion,
 } from "../opencode/contract.js";
+import {
+  OPENCODE_PROTOCOL_RULES, protocolRuleForVersion,
+} from "../opencode/protocol-rules.js";
 
 const schema = JSON.parse(readFileSync(new URL(
   "../../../fixtures/opencode/2.0.12/evidence/transfer.schema.json", import.meta.url,
@@ -32,6 +36,42 @@ describe("OpenCode transfer contract", () => {
     }
   });
 
+  it("selects version probes, operations and schema profiles from declarative rules", () => {
+    assert.deepEqual(OPENCODE_PROTOCOL_RULES.map((rule) => ({
+      id: rule.id,
+      dialect: rule.dialect,
+      versionRoute: rule.versionProbe.route,
+      openapiRoute: rule.openapiRoute,
+      operations: rule.operations.map(({ route, method }) => `${method.toUpperCase()} ${route}`),
+      schemaProfile: rule.schemaProfile,
+      transfer: rule.transfer,
+    })), [
+      {
+        id: "v2-session-transfer", dialect: "v2",
+        versionRoute: "/api/info", openapiRoute: "/openapi.json",
+        operations: [
+          "POST /api/experimental/session/import",
+          "GET /api/experimental/session/{sessionID}/export",
+        ],
+        schemaProfile: "v2-transfer",
+        transfer: "http",
+      },
+      {
+        id: "v1-cli-library", dialect: "v1",
+        versionRoute: "/global/health", openapiRoute: "/doc",
+        operations: [
+          "DELETE /session/{sessionID}",
+          "GET /session/{sessionID}/children",
+        ],
+        schemaProfile: "v1-session",
+        transfer: "cli",
+      },
+    ]);
+    assert.equal(protocolRuleForVersion("2.0.18")?.id, "v2-session-transfer");
+    assert.equal(protocolRuleForVersion("1.18.31")?.id, "v1-cli-library");
+    assert.equal(protocolRuleForVersion("3.0.0"), undefined);
+  });
+
   it("validates the reviewed fixture including all four tool states", () => {
     assert.doesNotThrow(() => assertOpenCodeTransfer(transfer));
     assert.equal(assertOpenCodeSchema(schema), TRANSFER_SCHEMA_HASH);
@@ -51,9 +91,15 @@ describe("OpenCode transfer contract", () => {
     assert.throws(() => assertOpenCodeTransfer(invalidTool), { code: "T2O_OPENCODE_TRANSFER_INVALID" });
   });
 
-  it("rejects schema drift even if only optional fields change", () => {
+  it("admits additive optional fields as canary candidates but rejects breaking drift", () => {
     const changed = structuredClone(schema);
     changed.components.schemas["Session.Message.User"].properties.newField = { type: "string" };
+    const analysis = analyzeOpenCodeSchema(changed);
+    assert.equal(analysis.status, "compatible");
+    assert.equal(assertOpenCodeSchema(changed), analysis.actualHash);
+    assert.notEqual(analysis.actualHash, TRANSFER_SCHEMA_HASH);
+    changed.components.schemas["Session.Message.User"].properties.text.type = "number";
+    assert.equal(analyzeOpenCodeSchema(changed).status, "incompatible");
     assert.throws(() => assertOpenCodeSchema(changed), { code: "T2O_OPENCODE_SCHEMA_UNSUPPORTED" });
   });
 

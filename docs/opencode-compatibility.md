@@ -7,15 +7,32 @@
 
 | 情况 | 处理 |
 | --- | --- |
-| v2 `2.0.12` / `2.0.16` 或 v1 `1.17.9` / `1.18.32` | 检查实际服务路由与 schema，沿用已验证的原生行为 |
-| 其他稳定 1.x / 2.x，CLI 与服务版本一致 | 协议匹配后执行隔离往返验证，通过才获得迁移资格 |
+| v2 `2.0.12` / `2.0.16` 或 v1 `1.17.9` / `1.18.32`，协议完全匹配 | 沿用已验证的原生行为 |
+| 其他稳定 1.x / 2.x，或 schema 存在兼容增量，CLI 与服务版本一致 | 协议分析通过后执行隔离往返验证，通过才获得迁移资格 |
 | 清单外版本且 CLI / 服务版本不同 | 拒绝，要求提供与目标服务同版本的 CLI |
 | 预发布、无法解析或未实现的主版本 | 拒绝，不猜测协议 |
-| 必要路由缺失、schema 不一致或隔离验证失败 | 拒绝写入 |
+| 必要路由缺失、schema 存在破坏性变化或隔离验证失败 | 拒绝写入 |
 
-版本号只用于选择候选 v1/v2 adapter 和记录诊断，不代表协议兼容。schema 仍按规范化 hash
-严格比较；包括可选字段在内的可达 schema 变化都不会自动放行。不相关路由、未引用的 schema
-和对象 key 顺序变化不影响判定。
+版本号只用于选择候选规则和记录诊断，不代表协议兼容。v1/v2 的版本探针、OpenAPI
+位置、必要操作、请求/响应 envelope、schema profile 和 CLI transfer 方式集中声明在
+`protocol-rules.ts`；能力探测不再分别硬编码两套流程。
+
+## Schema 兼容性分析
+
+工具先抽取迁移可达的 schema，再相对基线做有方向的兼容分析：
+
+| 变化 | 结果 |
+| --- | --- |
+| 规范化结构完全相同 | `exact` |
+| 封闭对象新增非必填字段、`enum` / `anyOf` 增加候选、注释或集合顺序变化 | `compatible`，必须继续隔离往返 |
+| 字段删除、类型变化、必填集合变化、枚举收窄、`oneOf` 扩展或未知验证约束 | `incompatible`，拒绝写入 |
+| 不相关路由或不可达 schema 变化 | 不影响判定 |
+
+这里的 `compatible` 只表示当前 mapper 产生的数据仍是安全候选，不表示已经获得写入资格。
+新增字段可能被服务端投影到回读数据，因此必须用同版本 CLI 实际导入和回读；基线版本只要
+不再是 `exact`，也不能绕过这一步。`schemaHash` 记录实际可达数据 schema，
+`protocolHash` 另行绑定规则、必要操作、envelope 和数据 schema，防止验证期间只改变
+接口封装而绕过重验。
 
 ## 隔离验证
 
@@ -33,7 +50,8 @@
 6. v2 长历史 compaction checkpoint 的导入与 HTTP 回读。
 
 这些会话只进入临时库。成功或失败后关闭临时服务并删除临时目录。验证期间实际目标服务
-若改变版本或 schema，结果失效；用户目标不会因为隔离测试通过就跳过再次检查。
+若改变版本、规则、操作 envelope 或 schema，结果失效；用户目标不会因为隔离测试通过就
+跳过再次检查。
 
 成功证据只缓存在当前 transport 实例内。可执行文件路径、文件标识/修改时间或契约变化会
 触发重验；不会跨进程持久化“允许写入”标记。批量迁移的不同 CLI 子进程可能分别验证。
@@ -57,8 +75,8 @@ npm run migrate:local
 
 | 值 | 含义 |
 | --- | --- |
-| `verified-release` | 基线版本且实际协议通过 |
-| `isolated-roundtrip` | 未收录版本的实际协议与隔离行为均通过 |
+| `verified-release` | 基线版本且实际协议与 schema 完全匹配 |
+| `isolated-roundtrip` | 未收录版本或兼容 schema 增量的隔离行为验证通过 |
 | `protocol-only` | 协议匹配，但同版本 CLI 或隔离验证条件未满足；`writable=false` |
 | `unsupported` | 版本格式、协议或 schema 未通过 |
 
@@ -102,7 +120,7 @@ npm run --silent verify:opencode -- --json
 
 | 产物 | 内容 |
 | --- | --- |
-| `report.json` | `reportVersion: 2`、实际 CLI/服务版本、方言、兼容性来源、schema hash 和已通过的检查 |
+| `report.json` | `reportVersion: 3`、实际版本、规则、协议/schema hash、兼容分析和已通过的检查 |
 | `transfer.schema.json`（v2） | 从私有服务抽取的可达 transfer schema |
 | `session.schema.json`（v1） | 从私有服务抽取的 Session/Message/Part schema |
 
@@ -149,3 +167,17 @@ CI 已配置三系统的 v2 `2.0.12` / `2.0.11` 与 v1 `1.18.32` / `1.18.31` 验
 
 CI 新增三系统直接执行上述四个版本的公开命令，并上传报告和 schema。单测辅助工具
 `utree flush` 已尝试，但其全局技能自更新写入被 sandbox 拒绝；此处记录实际测试结果。
+
+### Schema 兼容分析与声明式规则（2026-09-27）
+
+- `protocol-rules.ts` 集中描述两个协议族的版本范围、版本探针、OpenAPI 路径、
+  必要操作、envelope、transfer 方式和 schema profile。
+- `schema-compatibility.ts` 对基线与实际 schema 做有界、失败关闭的结构分析；
+  报告只记录 schema 位置和数量，不包含目标数据。
+- 完全匹配继续使用 `verified-release`；兼容增量即使出现在基线版本上，也只能在
+  同版本 CLI 的隔离往返成功后使用 `isolated-roundtrip`。
+- `protocolHash` 把规则、必要操作、envelope 与数据 schema 绑定到验证证据；
+  验证期间任一部分变化都会触发 `T2O_MIGRATION_TARGET_CHANGED`。
+- 470 项测试、lint、类型检查、版本一致性、构建和 smoke 通过。实际
+  `verify:opencode` 验证 v2 `2.0.18` / `2.0.12` 与 v1 `1.18.31` / `1.18.32`；
+  `verify:versions`、`verify:integration:v1` 和安装包验收通过。

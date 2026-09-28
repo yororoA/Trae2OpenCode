@@ -3,36 +3,41 @@ import Ajv2020 from "ajv/dist/2020.js";
 import { hashCanonicalJson } from "../../ir/canonical.js";
 import type { JsonValue } from "../../ir/types.js";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
+import {
+  EXPORT_ROUTE, IMPORT_ROUTE, OPENCODE_CANDIDATE_VERSION_PATTERN,
+  protocolRuleForVersion, reviewedVersionsForDialect, TRANSFER_REF,
+  type OpenCodeDialect,
+} from "./protocol-rules.js";
+import {
+  analyzeSchemaCompatibility, type SchemaCompatibilityAnalysis,
+} from "./schema-compatibility.js";
 
 export const OPENCODE_VERSION = "2.0.12";
 /** OpenCode v2 (`@opencode/cli`): HTTP session transfer plus a service descriptor. */
-export const OPENCODE_V2_VERSIONS = ["2.0.12", "2.0.16"] as const;
+export const OPENCODE_V2_VERSIONS = reviewedVersionsForDialect("v2");
 /** OpenCode v1 (`opencode-ai`): CLI-only session transfer, no service descriptor. */
-export const OPENCODE_V1_VERSIONS = ["1.17.9", "1.18.32"] as const;
-export const VERIFIED_OPENCODE_VERSIONS = [...OPENCODE_V2_VERSIONS, ...OPENCODE_V1_VERSIONS] as const;
-/** Stable versions of the two implemented dialects may be probed, never blindly trusted. */
-export const OPENCODE_CANDIDATE_VERSION_PATTERN = "^[12]\\.(0|[1-9][0-9]{0,4})\\.(0|[1-9][0-9]{0,4})$";
-export const IMPORT_ROUTE = "/api/experimental/session/import";
-export const EXPORT_ROUTE = "/api/experimental/session/{sessionID}/export";
-export const TRANSFER_REF = "#/components/schemas/SessionTransfer.Data";
-
-export type OpenCodeDialect = "v2" | "v1";
+export const OPENCODE_V1_VERSIONS = reviewedVersionsForDialect("v1");
+export const VERIFIED_OPENCODE_VERSIONS = [...OPENCODE_V2_VERSIONS, ...OPENCODE_V1_VERSIONS];
+export {
+  EXPORT_ROUTE, IMPORT_ROUTE, OPENCODE_CANDIDATE_VERSION_PATTERN, TRANSFER_REF,
+  type OpenCodeDialect,
+};
 
 /**
  * Select a candidate adapter only. Protocol and (for unreviewed releases) isolated
  * behavioral verification must succeed before the candidate can read or write sessions.
  */
 export function openCodeDialectForVersion(value: string | null): OpenCodeDialect | undefined {
-  if (value === null || !new RegExp(OPENCODE_CANDIDATE_VERSION_PATTERN).test(value)) return undefined;
-  return value.startsWith("2.") ? "v2" : "v1";
+  return protocolRuleForVersion(value)?.dialect;
 }
 
 export function supportedVersionsForDialect(dialect: OpenCodeDialect): readonly string[] {
-  return dialect === "v2" ? OPENCODE_V2_VERSIONS : OPENCODE_V1_VERSIONS;
+  return reviewedVersionsForDialect(dialect);
 }
 
 export function isVerifiedOpenCodeVersion(value: string | null): boolean {
-  return value !== null && (VERIFIED_OPENCODE_VERSIONS as readonly string[]).includes(value);
+  const rule = protocolRuleForVersion(value);
+  return rule?.reviewedVersions.includes(value ?? "") ?? false;
 }
 
 /** Every supported release reports the same `--version` / health version shape. */
@@ -95,10 +100,17 @@ export function extractTransferSchema(openapi: unknown): Record<string, unknown>
 }
 
 export function assertOpenCodeSchema(openapi: unknown): string {
-  const schema = extractTransferSchema(openapi);
-  const actual = hashCanonicalJson(schema as JsonValue);
-  if (actual !== TRANSFER_SCHEMA_HASH) {
+  const analysis = analyzeOpenCodeSchema(openapi);
+  if (analysis.status === "incompatible") {
     throw new Trae2OpenCodeError("T2O_OPENCODE_SCHEMA_UNSUPPORTED");
   }
-  return actual;
+  return analysis.actualHash;
+}
+
+export function analyzeOpenCodeSchema(openapi: unknown): SchemaCompatibilityAnalysis {
+  const schema = extractTransferSchema(openapi);
+  return analyzeSchemaCompatibility(
+    baseline as JsonValue,
+    schema as JsonValue,
+  );
 }

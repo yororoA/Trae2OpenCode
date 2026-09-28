@@ -273,7 +273,7 @@ export const ERROR_DEFINITIONS = {
   },
   T2O_OPENCODE_SCHEMA_UNSUPPORTED: {
     exitCode: 5,
-    message: "The OpenCode transfer schema differs from the verified contract.",
+    message: "The OpenCode schema contains a breaking or unsupported change.",
   },
   T2O_OPENCODE_TRANSFER_INVALID: {
     exitCode: 5,

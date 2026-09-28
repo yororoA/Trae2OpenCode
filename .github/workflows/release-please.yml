@@ -1,0 +1,60 @@
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or update release pull request
+        id: release
+        uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - name: Run quality checks for release pull request
+        if: steps.release.outputs.prs_created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_PR: ${{ steps.release.outputs.pr }}
+        run: |
+          branch="$(jq -r '.headBranchName // empty' <<<"$RELEASE_PR")"
+          test -n "$branch"
+          gh workflow run quality.yml --ref "$branch"
+
+      - name: Check out released tag
+        if: steps.release.outputs.release_created == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.release.outputs.tag_name }}
+
+      - name: Set up Node.js
+        if: steps.release.outputs.release_created == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Verify released source and package
+        if: steps.release.outputs.release_created == 'true'
+        env:
+          T2O_RELEASE_TAG: ${{ steps.release.outputs.tag_name }}
+        run: |
+          npm ci
+          npm run check
+          npm run verify:package

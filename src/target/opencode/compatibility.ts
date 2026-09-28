@@ -7,13 +7,15 @@ import { hashCanonicalJson } from "../../ir/canonical.js";
 import type { AssistantEventIR, JsonValue } from "../../ir/types.js";
 import { readBundleFile } from "../../migration/bundle-file.js";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
-import { requireOpenCodeCapabilities, type OpenCodeCompatibilityEvidence } from "./capability-probe.js";
-import { extractTransferSchema } from "./contract.js";
+import {
+  extractSchemaForProtocolRule, requireOpenCodeCapabilities,
+  type OpenCodeCompatibilityEvidence,
+} from "./capability-probe.js";
 import { mapTargetSession, targetReconciliation } from "./dialect.js";
 import { withIsolatedOpenCodeServer, type IsolatedOpenCodeServer } from "./isolated-server.js";
 import { MAX_CONTINUATION_CONTEXT_BYTES } from "./mapping.js";
 import { createNativeOpenCodeAdapter } from "./native-adapter.js";
-import { extractV1SessionSchema, V1_OPENAPI_ROUTE } from "./v1/contract.js";
+import { protocolRuleById } from "./protocol-rules.js";
 
 async function requireFailure(operation: () => Promise<unknown>, code: string): Promise<void> {
   try {
@@ -53,13 +55,15 @@ export async function exerciseOpenCodeRoundtrip(
   };
   const capabilities = await requireOpenCodeCapabilities(transport);
   await transport.verifyCompatibility({
-    dialect: capabilities.dialect, binaryVersion: capabilities.binaryVersion!,
+    dialect: capabilities.dialect, protocolRule: capabilities.protocolRule!,
+    protocolHash: capabilities.protocolHash!,
+    binaryVersion: capabilities.binaryVersion!,
     serverVersion: capabilities.serverVersion!, schemaHash: capabilities.schemaHash!,
   });
-  const api = await transport.request(capabilities.dialect === "v1" ? V1_OPENAPI_ROUTE : "/openapi.json");
+  const rule = protocolRuleById(capabilities.protocolRule!);
+  const api = await transport.request(rule.openapiRoute);
   if (api.status !== 200) throw new Trae2OpenCodeError("T2O_OPENCODE_CAPABILITY_UNAVAILABLE");
-  const schema = capabilities.dialect === "v1"
-    ? extractV1SessionSchema(api.body) : extractTransferSchema(api.body);
+  const schema = extractSchemaForProtocolRule(rule, api.body);
   if (hashCanonicalJson(schema as JsonValue) !== capabilities.schemaHash) {
     throw new Trae2OpenCodeError("T2O_OPENCODE_SCHEMA_UNSUPPORTED");
   }
@@ -140,17 +144,23 @@ export async function exerciseOpenCodeRoundtrip(
   }
   const finalCapabilities = await requireOpenCodeCapabilities(transport);
   await transport.verifyCompatibility({
-    dialect: finalCapabilities.dialect, binaryVersion: finalCapabilities.binaryVersion!,
+    dialect: finalCapabilities.dialect, protocolRule: finalCapabilities.protocolRule!,
+    protocolHash: finalCapabilities.protocolHash!,
+    binaryVersion: finalCapabilities.binaryVersion!,
     serverVersion: finalCapabilities.serverVersion!, schemaHash: finalCapabilities.schemaHash!,
   });
   return {
     schema,
     report: {
-      reportVersion: 2,
+      reportVersion: 3,
       targetVersion: capabilities.binaryVersion!,
       serverVersion: capabilities.serverVersion!,
       dialect: capabilities.dialect,
+      protocolRule: capabilities.protocolRule!,
+      protocolHash: capabilities.protocolHash!,
       compatibility: capabilities.compatibility,
+      schemaCompatibility: capabilities.schemaCompatibility!,
+      schemaChanges: capabilities.schemaChanges,
       checkedAt: new Date().toISOString(),
       status: "verified",
       source: "synthetic-fixture-only",
