@@ -11,10 +11,13 @@ import {
 import { MAX_OPENCODE_TRANSFER_BYTES } from "../../../shared/limits.js";
 import { assertNoCredentials } from "../../../shared/sensitive.js";
 import { isRecord } from "../contract.js";
+import type { OpenCodeSchemaProfile } from "../protocol-rules.js";
 import type { OpenCodeSession } from "../mapping.js";
 import { withTemporaryInput } from "../temporary-input.js";
 import type { OpenCodeTransport } from "../transport.js";
-import { assertOpenCodeV1Session, V1_SESSION_ROUTE, V1_SESSION_CHILDREN_ROUTE } from "./contract.js";
+import {
+  assertOpenCodeV1SessionForProfile, V1_SESSION_ROUTE, V1_SESSION_CHILDREN_ROUTE,
+} from "./contract.js";
 import type { OpenCodeV1Session } from "./mapping.js";
 import { requireOpenCodeV1Reconciliation } from "./reconciliation.js";
 
@@ -24,10 +27,14 @@ const validId = (value: unknown): value is string =>
 export interface OpenCodeV1AdapterOptions {
   transport: OpenCodeTransport;
   temporaryRoot: string;
+  schemaProfile?: Extract<OpenCodeSchemaProfile, "v1-session" | "v1-session-legacy">;
 }
 
-function sessionFrom(value: unknown, expectedId: string): OpenCodeV1Session {
-  assertOpenCodeV1Session(value);
+function sessionFrom(
+  value: unknown, expectedId: string,
+  schemaProfile: Extract<OpenCodeSchemaProfile, "v1-session" | "v1-session-legacy">,
+): OpenCodeV1Session {
+  assertOpenCodeV1SessionForProfile(value, schemaProfile);
   const session = value as OpenCodeV1Session;
   if (session.info.id !== expectedId) throw new Trae2OpenCodeError("T2O_OPENCODE_READBACK_INVALID");
   return session;
@@ -39,6 +46,7 @@ function sessionFrom(value: unknown, expectedId: string): OpenCodeV1Session {
  */
 export function createOpenCodeV1Adapter(options: OpenCodeV1AdapterOptions) {
   const { transport, temporaryRoot } = options;
+  const schemaProfile = options.schemaProfile ?? "v1-session";
   const route = (template: string, id: string) => template.replace("{sessionID}", id);
 
   const exists = async (id: string): Promise<boolean> => {
@@ -61,7 +69,7 @@ export function createOpenCodeV1Adapter(options: OpenCodeV1AdapterOptions) {
     } catch {
       throw new Trae2OpenCodeError("T2O_OPENCODE_READBACK_INVALID");
     }
-    return sessionFrom(value, id);
+    return sessionFrom(value, id, schemaProfile);
   };
 
   const listChildren = async (id: string): Promise<string[]> => {
@@ -89,7 +97,7 @@ export function createOpenCodeV1Adapter(options: OpenCodeV1AdapterOptions) {
       assertNoCredentials(value);
       // Snapshot before the first await so caller mutation cannot alter checked data.
       const session = structuredClone(value) as OpenCodeV1Session;
-      assertOpenCodeV1Session(session);
+      assertOpenCodeV1SessionForProfile(session, schemaProfile);
       const id = session.info.id;
       if (!validId(id)) throw new Trae2OpenCodeError("T2O_OPENCODE_TRANSFER_INVALID");
       // v1 adopts the importing process working directory as the session directory.

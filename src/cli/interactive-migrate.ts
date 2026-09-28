@@ -565,6 +565,26 @@ async function canAccessOpenCodeServerV1(server: string, password?: string): Pro
   }
 }
 
+async function canAccessLegacyV2Server(server: string, password?: string): Promise<boolean> {
+  try {
+    const username = process.env.OPENCODE_SERVER_USERNAME ?? "opencode";
+    const authorization = password === undefined
+      ? undefined
+      : `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
+    const response = await fetch(new URL("/api/health", server), {
+      headers: authorization ? { authorization } : {},
+      redirect: "error",
+      signal: AbortSignal.timeout(3_000),
+    });
+    if (response.status !== 200) return false;
+    const body: unknown = await response.json();
+    return body !== null && typeof body === "object" &&
+      (body as { healthy?: unknown }).healthy === true;
+  } catch {
+    return false;
+  }
+}
+
 /** The executable decides the target dialect; a `serve --service` flag cannot be guessed. */
 async function detectOpenCodeBinaryDialect(binary: string): Promise<OpenCodeDialect> {
   const output = await new Promise<string>((resolve) => {
@@ -684,11 +704,51 @@ async function startManagedV1Server(binary: string): Promise<ManagedOpenCodeServ
   throw new Error("OPENCODE_SERVER_START_FAILED");
 }
 
-async function startManagedOpenCodeServer(
-  binary: string,
-  dialect: OpenCodeDialect,
-): Promise<ManagedOpenCodeServer> {
-  if (dialect === "v1") return startManagedV1Server(binary);
+async function startManagedLegacyV2Server(binary: string): Promise<ManagedOpenCodeServer> {
+  const temporaryParent = path.join(process.cwd(), "tmp");
+  await fs.mkdir(temporaryParent, { recursive: true, mode: 0o700 });
+  const stateDirectory = await fs.mkdtemp(path.join(temporaryParent, "opencode-state-"));
+  const password = randomBytes(32).toString("hex");
+  const env: NodeJS.ProcessEnv = {
+    ...createManagedOpenCodeEnvironment(stateDirectory),
+    OPENCODE_SERVER_PASSWORD: password,
+    NO_COLOR: "1",
+  };
+  const child = spawn(binary, [
+    "serve", "--hostname", "127.0.0.1", "--port", String(MANAGED_OPENCODE_PORT),
+  ], {
+    cwd: process.cwd(), env, stdio: ["ignore", "pipe", "pipe"], windowsHide: true,
+  });
+  let printed = "";
+  let failed = false;
+  child.once("error", () => { failed = true; });
+  child.stdout?.on("data", (chunk: Buffer) => { printed += chunk.toString(); });
+  child.stderr?.on("data", (chunk: Buffer) => { printed += chunk.toString(); });
+  try {
+    for (let attempt = 0; attempt < 100; attempt++) {
+      if (failed || child.exitCode !== null || child.signalCode !== null) break;
+      const url = localServerUrl(printed);
+      if (url && await canAccessLegacyV2Server(url, password)) {
+        return {
+          url,
+          password,
+          async close() {
+            await stopManagedServer(child);
+            await fs.rm(stateDirectory, { recursive: true, force: true });
+          },
+        };
+      }
+      await delay(100);
+    }
+  } catch {
+    // Fall through to the contained startup error.
+  }
+  await stopManagedServer(child);
+  await fs.rm(stateDirectory, { recursive: true, force: true });
+  throw new Error("OPENCODE_SERVER_START_FAILED");
+}
+
+async function startManagedV2Service(binary: string): Promise<ManagedOpenCodeServer> {
   const temporaryParent = path.join(process.cwd(), "tmp");
   await fs.mkdir(temporaryParent, { recursive: true, mode: 0o700 });
   const stateDirectory = await fs.mkdtemp(path.join(temporaryParent, "opencode-state-"));
@@ -732,6 +792,19 @@ async function startManagedOpenCodeServer(
   await stopManagedServer(child);
   await fs.rm(stateDirectory, { recursive: true, force: true });
   throw new Error("OPENCODE_SERVER_START_FAILED");
+}
+
+export async function startManagedOpenCodeServer(
+  binary: string,
+  dialect: OpenCodeDialect,
+): Promise<ManagedOpenCodeServer> {
+  if (dialect === "v1") return startManagedV1Server(binary);
+  try {
+    return await startManagedV2Service(binary);
+  } catch {
+    // v2 2.0.0 predates service descriptors but prints its loopback URL like v1.
+    return startManagedLegacyV2Server(binary);
+  }
 }
 
 async function runCli(
@@ -1145,7 +1218,8 @@ async function main(): Promise<number> {
         serverPassword = discovered.password;
         console.log(`已连接当前 OpenCode ${discovered.version} 本机服务。`);
       } else if (!await canAccessOpenCodeServer(server, serverPassword) &&
-        !await canAccessOpenCodeServerV1(server, serverPassword)) {
+        !await canAccessOpenCodeServerV1(server, serverPassword) &&
+        !await canAccessLegacyV2Server(server, serverPassword)) {
         console.log("默认 OpenCode 服务不可访问，正在临时启动本机服务...");
         let dialect: OpenCodeDialect;
         try {

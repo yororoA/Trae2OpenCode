@@ -5,13 +5,30 @@ import { hashCanonicalJson } from "../../ir/canonical.js";
 import type { JsonValue } from "../../ir/types.js";
 import { probeOpenCodeCapabilities, requireOpenCodeCapabilities } from "../opencode/capability-probe.js";
 import {
-  extractV1SessionSchema, V1_HEALTH_ROUTE, V1_OPENAPI_ROUTE, V1_SESSION_SCHEMA_HASH,
+  extractV1SessionSchema, V1_HEALTH_ROUTE, V1_LEGACY_SESSION_SCHEMA_HASH,
+  V1_OPENAPI_ROUTE, V1_SESSION_SCHEMA_HASH,
 } from "../opencode/v1/contract.js";
 import type { OpenCodeTransport } from "../opencode/transport.js";
 
 function makeV1Api() {
   const fixture = JSON.parse(readFileSync(new URL(
     "../../../fixtures/opencode/1.18.32/evidence/session.schema.json", import.meta.url,
+  ), "utf8"));
+  return {
+    openapi: "3.1.0",
+    info: { title: "opencode", version: "1.0.0" },
+    components: fixture.components,
+    paths: {
+      "/session": { get: {}, post: {} },
+      "/session/{sessionID}": { get: {}, delete: {}, patch: {} },
+      "/session/{sessionID}/children": { get: {} },
+    } as Record<string, unknown>,
+  };
+}
+
+function makeLegacyV1Api() {
+  const fixture = JSON.parse(readFileSync(new URL(
+    "../../../fixtures/opencode/1.16.0/evidence/session.schema.json", import.meta.url,
   ), "utf8"));
   return {
     openapi: "3.1.0",
@@ -76,6 +93,51 @@ describe("probeOpenCodeCapabilities for OpenCode v1", () => {
     assert.equal(report.dialect, "v1");
     assert.equal(report.binaryVersion, "1.17.9");
     assert.equal(report.writable, true);
+  });
+
+  it("selects the legacy profile from its actual schema and admits reviewed legacy releases", async () => {
+    for (const version of ["1.16.0", "1.17.0"]) {
+      const { calls, transport } = connection({
+        binaryVersion: version, serverVersion: version, api: makeLegacyV1Api(),
+      });
+      const report = await requireOpenCodeCapabilities(transport);
+      assert.equal(report.protocolRule, "v1-cli-library-legacy");
+      assert.equal(report.schemaHash, V1_LEGACY_SESSION_SCHEMA_HASH);
+      assert.equal(report.schemaCompatibility, "exact");
+      assert.equal(report.compatibility, "verified-release");
+      assert.equal(report.writable, true);
+      assert.deepEqual(calls, [
+        "version",
+        V1_HEALTH_ROUTE, V1_OPENAPI_ROUTE,
+        V1_HEALTH_ROUTE, V1_OPENAPI_ROUTE,
+      ]);
+    }
+  });
+
+  it("requires isolated evidence for unreviewed releases using the legacy profile", async () => {
+    let canaries = 0;
+    const { transport } = connection({
+      binaryVersion: "1.16.2", serverVersion: "1.16.2", api: makeLegacyV1Api(),
+    });
+    transport.verifyCompatibility = async (evidence) => {
+      canaries++;
+      assert.equal(evidence.protocolRule, "v1-cli-library-legacy");
+      assert.equal(evidence.schemaHash, V1_LEGACY_SESSION_SCHEMA_HASH);
+    };
+    const report = await requireOpenCodeCapabilities(transport);
+    assert.equal(report.compatibility, "isolated-roundtrip");
+    assert.equal(report.writable, true);
+    assert.equal(canaries, 1);
+  });
+
+  it("does not classify a pre-metadata session schema as a safe legacy target", async () => {
+    const api = makeLegacyV1Api();
+    delete api.components.schemas.Session.properties.metadata;
+    const report = await probeOpenCodeCapabilities(connection({
+      binaryVersion: "1.15.0", serverVersion: "1.15.0", api,
+    }).transport);
+    assert.equal(report.writable, false);
+    assert.deepEqual(report.reasons, ["T2O_OPENCODE_SCHEMA_UNSUPPORTED"]);
   });
 
   it("fails closed on an unmatched v1 binary, a v2 server and a mismatched contract", async () => {

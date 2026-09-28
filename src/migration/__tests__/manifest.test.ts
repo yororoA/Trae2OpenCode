@@ -49,6 +49,22 @@ describe("migration manifest persistence", () => {
     assert.deepEqual((await readManifest(filename)).target, manifest.target);
   }));
 
+  it("persists the selected protocol profile and rejects a cross-dialect profile", () => temporary(async (filename) => {
+    const manifest = emptyManifest();
+    manifest.target.binaryVersion = "1.16.0";
+    manifest.target.serverVersion = "1.16.0";
+    manifest.target.protocolRule = "v1-cli-library-legacy";
+    manifest.target.protocolHash = hash;
+    await withManifestStore(filename, async (store) => store.save(manifest));
+    assert.equal((await readManifest(filename)).target.protocolRule, "v1-cli-library-legacy");
+    manifest.target.protocolRule = "v2-session-transfer-legacy";
+    await assert.rejects(withManifestStore(filename, async (store) => store.save(manifest)),
+      { code: "T2O_MIGRATION_CHECKPOINT_FAILED" });
+    delete manifest.target.protocolRule;
+    await assert.rejects(withManifestStore(filename, async (store) => store.save(manifest)),
+      { code: "T2O_MIGRATION_CHECKPOINT_FAILED" });
+  }));
+
   it("persists unreviewed stable versions without discarding the exact target identity", () => temporary(async (filename) => {
     for (const version of ["2.0.11", "2.1.0", "1.18.31"]) {
       const manifest = emptyManifest();

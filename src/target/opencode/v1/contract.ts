@@ -10,6 +10,7 @@ import {
 import {
   analyzeSchemaCompatibility, type SchemaCompatibilityAnalysis,
 } from "../schema-compatibility.js";
+import type { OpenCodeSchemaProfile } from "../protocol-rules.js";
 
 /**
  * OpenCode v1 exposes its OpenAPI document at `/doc`, keeps no session import/export
@@ -26,11 +27,23 @@ const V1_SESSION_ROOTS = ["Session", "Message", "Part"] as const;
 const baseline = JSON.parse(readFileSync(new URL(
   "../../../../fixtures/opencode/1.18.32/evidence/session.schema.json", import.meta.url,
 ), "utf8")) as Record<string, unknown>;
+const legacyBaseline = JSON.parse(readFileSync(new URL(
+  "../../../../fixtures/opencode/1.16.0/evidence/session.schema.json", import.meta.url,
+), "utf8")) as Record<string, unknown>;
 export const V1_SESSION_SCHEMA_HASH = hashCanonicalJson(baseline as JsonValue);
+export const V1_LEGACY_SESSION_SCHEMA_HASH = hashCanonicalJson(legacyBaseline as JsonValue);
 const validate = new Ajv2020({ strict: false, validateFormats: false }).compile(baseline);
+const validateLegacy = new Ajv2020({ strict: false, validateFormats: false }).compile(legacyBaseline);
 
 export function assertOpenCodeV1Session(value: unknown): void {
   if (!validate(value)) throw new Trae2OpenCodeError("T2O_OPENCODE_TRANSFER_INVALID");
+}
+
+export function assertOpenCodeV1SessionForProfile(
+  value: unknown, profile: OpenCodeSchemaProfile,
+): void {
+  const valid = profile === "v1-session-legacy" ? validateLegacy(value) : validate(value);
+  if (!valid) throw new Trae2OpenCodeError("T2O_OPENCODE_TRANSFER_INVALID");
 }
 
 /** Extract only local schemas reachable from the v1 session roots, including cycles. */
@@ -94,10 +107,12 @@ export function assertOpenCodeV1Schema(openapi: unknown): string {
   return analysis.actualHash;
 }
 
-export function analyzeOpenCodeV1Schema(openapi: unknown): SchemaCompatibilityAnalysis {
+export function analyzeOpenCodeV1Schema(
+  openapi: unknown, profile: OpenCodeSchemaProfile = "v1-session",
+): SchemaCompatibilityAnalysis {
   const schema = extractV1SessionSchema(openapi);
   return analyzeSchemaCompatibility(
-    baseline as JsonValue,
+    (profile === "v1-session-legacy" ? legacyBaseline : baseline) as JsonValue,
     schema as JsonValue,
   );
 }

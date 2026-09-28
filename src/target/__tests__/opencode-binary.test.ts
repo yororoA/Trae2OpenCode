@@ -55,6 +55,26 @@ describe("resolveOpenCodeBinary", () => {
     );
   });
 
+  it("resolves the embedded native binary used by older POSIX Node launchers", () => {
+    const directory = path.join("/", "synthetic", "opencode-ai", "bin");
+    const launcher = path.join(directory, "opencode");
+    const linked = path.join("/", "synthetic", "bin", "opencode");
+    const embedded = path.join(directory, ".opencode");
+    const existing = new Set([linked, launcher, embedded]);
+    assert.equal(resolveOpenCodeBinary("opencode", {
+      platform: "darwin",
+      env: { PATH: path.dirname(linked) },
+      isFile: (candidate) => existing.has(candidate),
+      realpath: (candidate) => candidate === linked ? launcher : candidate,
+    }), embedded);
+    assert.equal(resolveOpenCodeBinary(launcher, {
+      platform: "linux",
+      env: {},
+      isFile: (candidate) => existing.has(candidate),
+      realpath: (candidate) => candidate,
+    }), embedded);
+  });
+
   it("resolves the native executable inside an npm cmd shim", () => {
     const files = {
       [npmShim]: [

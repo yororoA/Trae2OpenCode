@@ -61,6 +61,20 @@ describe("migration executor", () => {
     assert.equal(fake.imports.length, 0);
   }));
 
+  it("rejects a plan built for another protocol profile before creating output", () => setup(async ({
+    plan, fake, outputDirectory,
+  }) => {
+    plan.options.protocolRule = "v2-session-transfer";
+    fake.api.describe = async () => ({
+      ...descriptor,
+      protocolRule: "v2-session-transfer-legacy",
+      protocolHash: hash,
+    });
+    await assert.rejects(migrate(plan, fake.api, { outputDirectory }),
+      { code: "T2O_MIGRATION_TARGET_CHANGED" });
+    await assert.rejects(fs.stat(outputDirectory), { code: "ENOENT" });
+  }));
+
   it("persists intent before import, verifies content, and resumes without a second import", () => setup(async (ctx) => {
     const { plan, fake, filename, outputDirectory } = ctx;
     const nativeImport = fake.api.importSession;

@@ -108,6 +108,7 @@ export async function executeReadCommand(command: string, options: CommandOption
       recovery, pathMaps, namespace: options.namespace, fallbackDirectory: options.fallbackDirectory,
       ...(capabilities === undefined ? {} : {
         dialect: capabilities.dialect,
+        protocolRule: capabilities.protocolRule ?? undefined,
         targetVersion: capabilities.binaryVersion ?? OPENCODE_VERSION,
       }),
     });

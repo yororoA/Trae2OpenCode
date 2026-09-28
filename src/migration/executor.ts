@@ -15,7 +15,8 @@ import { summarizeMigrationPlan, type MigrationPlan } from "./plan.js";
 import { isOwnedByRun, jsonHash } from "./ownership.js";
 import { authorizeReplacements, removeReplacements } from "./replacement.js";
 import {
-  descriptorDialect, type MigrationTarget, type MigrationTargetDescriptor,
+  descriptorDialect, migrationTargetDescriptorsMatch,
+  type MigrationTarget, type MigrationTargetDescriptor,
 } from "./target.js";
 
 export { isOwnedByRun } from "./ownership.js";
@@ -51,7 +52,7 @@ function createManifest(plan: MigrationPlan, target: MigrationTargetDescriptor):
 }
 
 function requireTarget(manifest: MigrationManifest, target: MigrationTargetDescriptor): void {
-  if (jsonHash(manifest.target) !== jsonHash(target)) {
+  if (!migrationTargetDescriptorsMatch(manifest.target, target)) {
     throw new Trae2OpenCodeError("T2O_MIGRATION_TARGET_CHANGED");
   }
 }
@@ -65,12 +66,15 @@ function isCompatibleTargetChange(
     previous.serverVersion !== current.serverVersion;
   const previousDialect = openCodeDialectForVersion(previous.binaryVersion);
   const currentDialect = openCodeDialectForVersion(current.binaryVersion);
+  const sameProtocol = previous.protocolRule === undefined ||
+    (previous.protocolRule === current.protocolRule &&
+      previous.protocolHash === current.protocolHash);
   // A dialect change reaches a different data model, so it can never be rebound.
   return endpointOrVersionChanged && previousDialect !== undefined &&
     previousDialect === currentDialect &&
     openCodeDialectForVersion(previous.serverVersion) === previousDialect &&
     openCodeDialectForVersion(current.serverVersion) === currentDialect &&
-    previous.schemaHash === current.schemaHash;
+    previous.schemaHash === current.schemaHash && sameProtocol;
 }
 
 /**
@@ -85,6 +89,11 @@ async function requireOrRebindTarget(
   dialect: OpenCodeDialect,
 ): Promise<void> {
   if (jsonHash(manifest.target) === jsonHash(descriptor)) return;
+  if (migrationTargetDescriptorsMatch(manifest.target, descriptor)) {
+    manifest.target = structuredClone(descriptor);
+    await store.save(manifest);
+    return;
+  }
   if (!isCompatibleTargetChange(manifest.target, descriptor)) {
     throw new Trae2OpenCodeError("T2O_MIGRATION_TARGET_CHANGED");
   }
@@ -226,6 +235,10 @@ export async function migrate(
   const dialect = descriptorDialect(descriptor);
   const plannedDialect = inputPlan.options.dialect ?? "v2";
   if (dialect !== plannedDialect) throw new Trae2OpenCodeError("T2O_MIGRATION_TARGET_CHANGED");
+  if (inputPlan.options.protocolRule !== undefined &&
+      inputPlan.options.protocolRule !== descriptor.protocolRule) {
+    throw new Trae2OpenCodeError("T2O_MIGRATION_TARGET_CHANGED");
+  }
   let filename: string;
   if (options.resumeManifest) filename = path.resolve(options.resumeManifest);
   else {

@@ -20,6 +20,7 @@ import {
   resolveOpenCodeDirectory, type DirectoryResolution, type ProjectPathMap,
 } from "../target/opencode/project-directory.js";
 import type { OpenCodeReconciliation } from "../target/opencode/reconciliation.js";
+import type { OpenCodeProtocolRuleId } from "../target/opencode/protocol-rules.js";
 
 export interface MigrationPlanOptions {
   namespace?: string;
@@ -28,6 +29,7 @@ export interface MigrationPlanOptions {
   fallbackDirectory?: string;
   /** Set from the verified target before planning; defaults to the v2 contract. */
   dialect?: OpenCodeDialect;
+  protocolRule?: OpenCodeProtocolRuleId;
   targetVersion?: string;
 }
 
@@ -108,7 +110,7 @@ export async function buildMigrationPlan(
         mapping = mapTargetSession(bundle, session.sourceId, {
           ...identity,
           directory: process.cwd(),
-          dialect,
+          dialect, protocolRule: options.protocolRule,
           targetVersion,
         });
       } catch (error) {

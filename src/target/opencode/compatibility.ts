@@ -84,7 +84,8 @@ export async function exerciseOpenCodeRoundtrip(
   const reconciliation = targetReconciliation(capabilities.dialect);
   const map = (suffix: string, parentId?: string) => mapTargetSession(
     bundle, parentId ? "session-synthetic-child" : "session-synthetic", {
-      dialect: capabilities.dialect, targetVersion: capabilities.binaryVersion!,
+      dialect: capabilities.dialect, protocolRule: capabilities.protocolRule!,
+      targetVersion: capabilities.binaryVersion!,
       sessionId: `ses_compat_${nonce}_${suffix}`, parentId, directory: server.directory,
       messageIds: new Map([
         ["user-synthetic", `msg_compat_${nonce}_${suffix}_0001`],

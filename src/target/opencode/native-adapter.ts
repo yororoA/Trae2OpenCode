@@ -11,8 +11,14 @@ import {
 import { MAX_OPENCODE_TRANSFER_BYTES } from "../../shared/limits.js";
 import { assertNoCredentials } from "../../shared/sensitive.js";
 import { requireOpenCodeCapabilities } from "./capability-probe.js";
-import { assertOpenCodeTransfer, EXPORT_ROUTE, isRecord } from "./contract.js";
+import {
+  assertOpenCodeTransferForProfile, EXPORT_ROUTE, isRecord,
+} from "./contract.js";
 import type { OpenCodeSession, OpenCodeTransfer } from "./mapping.js";
+import {
+  LEGACY_EXPORT_ROUTE, protocolRuleById,
+  type OpenCodeProtocolRuleId, type OpenCodeSchemaProfile,
+} from "./protocol-rules.js";
 import { requireOpenCodeReconciliation } from "./reconciliation.js";
 import { createOpenCodeDeletionAdapter } from "./deletion.js";
 import { withTemporaryInput } from "./temporary-input.js";
@@ -36,8 +42,11 @@ function assertId(id: string): void {
   }
 }
 
-function transferFrom(value: unknown, expectedId: string): OpenCodeTransfer {
-  assertOpenCodeTransfer(value);
+function transferFrom(
+  value: unknown, expectedId: string,
+  schemaProfile: Extract<OpenCodeSchemaProfile, "v2-transfer" | "v2-transfer-legacy">,
+): OpenCodeTransfer {
+  assertOpenCodeTransferForProfile(value, schemaProfile);
   const transfer = value as OpenCodeTransfer;
   if (transfer.info.id !== expectedId) throw new Trae2OpenCodeError("T2O_OPENCODE_READBACK_INVALID");
   return transfer;
@@ -58,24 +67,66 @@ export function createNativeOpenCodeAdapter(options: NativeOpenCodeAdapterOption
   const serverUrl = new URL(options.serverUrl).origin;
   const temporaryRoot = path.resolve(options.temporaryRoot ?? os.tmpdir());
 
-  const readV2 = async (id: string): Promise<OpenCodeTransfer | null> => {
-    assertId(id);
-    const result = await transport.request(EXPORT_ROUTE.replace("{sessionID}", id));
-    if (result.status === 404) return null;
-    if (result.status !== 200 || !isRecord(result.body)) {
-      throw new Trae2OpenCodeError("T2O_OPENCODE_READBACK_INVALID");
+  const v2ByRule = new Map<OpenCodeProtocolRuleId, {
+    read(id: string): Promise<OpenCodeTransfer | null>;
+    listChildren(id: string): Promise<string[]>;
+    deleteSession(id: string, expectedHash: string, exclusiveTarget: boolean): Promise<void>;
+    schemaProfile: Extract<OpenCodeSchemaProfile, "v2-transfer" | "v2-transfer-legacy">;
+  }>();
+  const v2For = (protocolRule: OpenCodeProtocolRuleId | null) => {
+    if (protocolRule === null) throw new Trae2OpenCodeError("T2O_OPENCODE_CAPABILITY_UNAVAILABLE");
+    const cached = v2ByRule.get(protocolRule);
+    if (cached) return cached;
+    const rule = protocolRuleById(protocolRule);
+    if (rule.adapterProfile !== "v2-session-transfer" &&
+        rule.adapterProfile !== "v2-session-transfer-legacy") {
+      throw new Trae2OpenCodeError("T2O_OPENCODE_CAPABILITY_UNAVAILABLE");
     }
-    return transferFrom(result.body.data, id);
+    const exportRoute = rule.adapterProfile === "v2-session-transfer-legacy"
+      ? LEGACY_EXPORT_ROUTE : EXPORT_ROUTE;
+    const schemaProfile = rule.schemaProfile as Extract<
+      OpenCodeSchemaProfile, "v2-transfer" | "v2-transfer-legacy"
+    >;
+    const read = async (id: string): Promise<OpenCodeTransfer | null> => {
+      assertId(id);
+      const result = await transport.request(exportRoute.replace("{sessionID}", id));
+      if (result.status === 404) return null;
+      if (result.status !== 200 || !isRecord(result.body)) {
+        throw new Trae2OpenCodeError("T2O_OPENCODE_READBACK_INVALID");
+      }
+      return transferFrom(result.body.data, id, schemaProfile);
+    };
+    const adapter = {
+      read, schemaProfile,
+      ...createOpenCodeDeletionAdapter(
+        transport, options.serverUrl, read,
+        rule.deletionProfile === "v2-legacy" ? "v2-legacy" : "v2-current",
+      ),
+    };
+    v2ByRule.set(protocolRule, adapter);
+    return adapter;
   };
-  const v2 = {
-    read: readV2,
-    ...createOpenCodeDeletionAdapter(transport, options.serverUrl, readV2),
+  const v1 = {
+    current: createOpenCodeV1Adapter({ transport, temporaryRoot }),
+    legacy: createOpenCodeV1Adapter({
+      transport, temporaryRoot, schemaProfile: "v1-session-legacy",
+    }),
   };
-  const v1 = createOpenCodeV1Adapter({ transport, temporaryRoot });
+  const v1For = (protocolRule: OpenCodeProtocolRuleId | null) => {
+    if (protocolRule === null) throw new Trae2OpenCodeError("T2O_OPENCODE_CAPABILITY_UNAVAILABLE");
+    const rule = protocolRuleById(protocolRule);
+    if (rule.adapterProfile !== "v1-cli-library") {
+      throw new Trae2OpenCodeError("T2O_OPENCODE_CAPABILITY_UNAVAILABLE");
+    }
+    return rule.schemaProfile === "v1-session-legacy" ? v1.legacy : v1.current;
+  };
 
-  const importV2 = async (value: OpenCodeSession): Promise<OpenCodeTransfer> => {
+  const importV2 = async (
+    value: OpenCodeSession, protocolRule: OpenCodeProtocolRuleId,
+  ): Promise<OpenCodeTransfer> => {
+    const v2 = v2For(protocolRule);
     assertNoCredentials(value);
-    assertOpenCodeTransfer(value);
+    assertOpenCodeTransferForProfile(value, v2.schemaProfile);
     const transfer = value as OpenCodeTransfer;
     const id = transfer.info.id;
     assertId(id);
@@ -99,9 +150,9 @@ export function createNativeOpenCodeAdapter(options: NativeOpenCodeAdapterOption
     } catch {
       throw new Trae2OpenCodeError("T2O_OPENCODE_DIRECTORY_INVALID");
     }
-    if (await readV2(id)) throw new Trae2OpenCodeError("T2O_OPENCODE_SESSION_CONFLICT");
+    if (await v2.read(id)) throw new Trae2OpenCodeError("T2O_OPENCODE_SESSION_CONFLICT");
     const parentId = transfer.info.parentID;
-    if (typeof parentId === "string" && !await readV2(parentId)) {
+    if (typeof parentId === "string" && !await v2.read(parentId)) {
       throw new Trae2OpenCodeError("T2O_OPENCODE_PARENT_MISSING");
     }
     await withTemporaryInput(
@@ -117,7 +168,7 @@ export function createNativeOpenCodeAdapter(options: NativeOpenCodeAdapterOption
       (filename) =>
         transport.run(["session", "import", filename, "--server", serverUrl, "--directory", directory]),
     );
-    const actual = await readV2(id);
+    const actual = await v2.read(id);
     if (!actual) throw new Trae2OpenCodeError("T2O_OPENCODE_READBACK_INVALID");
     requireOpenCodeReconciliation(transfer, actual);
     return actual;
@@ -127,13 +178,15 @@ export function createNativeOpenCodeAdapter(options: NativeOpenCodeAdapterOption
     async readSession(id: string): Promise<OpenCodeSession | null> {
       assertId(id);
       const capabilities = await requireOpenCodeCapabilities(transport);
-      return capabilities.dialect === "v1" ? v1.read(id) : readV2(id);
+      return capabilities.dialect === "v1"
+        ? v1For(capabilities.protocolRule).read(id)
+        : v2For(capabilities.protocolRule).read(id);
     },
     async exportSession(id: string): Promise<OpenCodeSession> {
       assertId(id);
       const capabilities = await requireOpenCodeCapabilities(transport);
       if (capabilities.dialect === "v1") {
-        const session = await v1.read(id);
+        const session = await v1For(capabilities.protocolRule).read(id);
         if (!session) throw new Trae2OpenCodeError("T2O_OPENCODE_READBACK_INVALID");
         return session;
       }
@@ -141,26 +194,32 @@ export function createNativeOpenCodeAdapter(options: NativeOpenCodeAdapterOption
       let value: unknown;
       try { value = JSON.parse(output); }
       catch { throw new Trae2OpenCodeError("T2O_OPENCODE_READBACK_INVALID"); }
-      return transferFrom(value, id);
+      return transferFrom(
+        value, id, v2For(capabilities.protocolRule).schemaProfile,
+      );
     },
     async importSession(value: OpenCodeSession): Promise<OpenCodeSession> {
       assertNoCredentials(value);
       // Snapshot before the first await so caller mutation cannot alter checked data.
       const transfer = structuredClone(value);
       const capabilities = await requireOpenCodeCapabilities(transport);
-      return capabilities.dialect === "v1" ? v1.importSession(transfer) : importV2(transfer);
+      return capabilities.dialect === "v1"
+        ? v1For(capabilities.protocolRule).importSession(transfer)
+        : importV2(transfer, capabilities.protocolRule!);
     },
     async listChildren(id: string): Promise<string[]> {
       assertId(id);
       const capabilities = await requireOpenCodeCapabilities(transport);
-      return capabilities.dialect === "v1" ? v1.listChildren(id) : v2.listChildren(id);
+      return capabilities.dialect === "v1"
+        ? v1For(capabilities.protocolRule).listChildren(id)
+        : v2For(capabilities.protocolRule).listChildren(id);
     },
     async deleteSession(id: string, expectedHash: string, exclusiveTarget: boolean): Promise<void> {
       assertId(id);
       const capabilities = await requireOpenCodeCapabilities(transport);
       return capabilities.dialect === "v1"
-        ? v1.deleteSession(id, expectedHash, exclusiveTarget)
-        : v2.deleteSession(id, expectedHash, exclusiveTarget);
+        ? v1For(capabilities.protocolRule).deleteSession(id, expectedHash, exclusiveTarget)
+        : v2For(capabilities.protocolRule).deleteSession(id, expectedHash, exclusiveTarget);
     },
   };
 }

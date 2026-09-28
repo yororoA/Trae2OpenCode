@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import * as path from "node:path";
 
 export interface ResolveBinaryOptions {
@@ -7,6 +7,7 @@ export interface ResolveBinaryOptions {
   env?: NodeJS.ProcessEnv;
   isFile?: (candidate: string) => boolean;
   readText?: (candidate: string) => string | undefined;
+  realpath?: (candidate: string) => string;
 }
 
 /** npm's Windows shims for a native CLI; each one points at the real executable. */
@@ -93,8 +94,29 @@ export function resolveOpenCodeBinary(
   options: ResolveBinaryOptions = {},
 ): string {
   const platform = options.platform ?? process.platform;
-  if (platform !== "win32" || binary.length === 0) return binary;
+  if (binary.length === 0) return binary;
   const isFile = options.isFile ?? defaultIsFile;
+  if (platform !== "win32") {
+    const env = options.env ?? process.env;
+    const directories = (env.PATH ?? "").split(path.delimiter).filter(Boolean);
+    const candidates = /[/\\]/.test(binary)
+      ? [path.resolve(binary)]
+      : directories.map((directory) => path.resolve(directory, binary));
+    const resolveRealpath = options.realpath ?? realpathSync;
+    for (const candidate of candidates) {
+      if (!isFile(candidate)) continue;
+      let launcher: string;
+      try {
+        launcher = resolveRealpath(candidate);
+      } catch {
+        launcher = candidate;
+      }
+      const embedded = path.join(path.dirname(launcher), ".opencode");
+      if (isFile(embedded)) return embedded;
+      return binary;
+    }
+    return binary;
+  }
   if (isFile(binary)) return binary;
   // An explicit `.exe` path is reported exactly as configured when it does not exist.
   if (path.win32.extname(binary).toLowerCase() === ".exe") return binary;

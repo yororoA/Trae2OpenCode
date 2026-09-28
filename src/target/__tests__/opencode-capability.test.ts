@@ -6,7 +6,13 @@ import type { JsonValue } from "../../ir/types.js";
 import {
   probeOpenCodeCapabilities, requireOpenCodeCapabilities, type OpenCodeCompatibilityEvidence,
 } from "../opencode/capability-probe.js";
-import { EXPORT_ROUTE, IMPORT_ROUTE, TRANSFER_REF, TRANSFER_SCHEMA_HASH } from "../opencode/contract.js";
+import {
+  EXPORT_ROUTE, IMPORT_ROUTE, LEGACY_TRANSFER_SCHEMA_HASH, TRANSFER_REF,
+  TRANSFER_SCHEMA_HASH,
+} from "../opencode/contract.js";
+import {
+  LEGACY_EXPORT_ROUTE, LEGACY_IMPORT_ROUTE,
+} from "../opencode/protocol-rules.js";
 import type { OpenCodeTransport } from "../opencode/transport.js";
 
 function makeApi() {
@@ -38,6 +44,35 @@ function makeApi() {
   };
 }
 
+function makeLegacyApi() {
+  const schema = JSON.parse(readFileSync(new URL(
+    "../../../fixtures/opencode/2.0.0/evidence/transfer.schema.json", import.meta.url,
+  ), "utf8"));
+  return {
+    info: { version: "0.0.1" },
+    components: schema.components,
+    paths: {
+      [LEGACY_IMPORT_ROUTE]: { post: {
+        requestBody: { content: { "application/json": { schema: {
+          type: "object",
+          properties: {
+            info: { $ref: "#/components/schemas/Session.Info" },
+            messages: { type: "array", items: { $ref: "#/components/schemas/Session.Message.Info" } },
+            location: { anyOf: [{ $ref: "#/components/schemas/Location.Ref" }, { type: "null" }] },
+          },
+          required: ["info", "messages"], additionalProperties: false,
+        } } } },
+      } },
+      [LEGACY_EXPORT_ROUTE]: { get: {
+        responses: { "200": { content: { "application/json": { schema: {
+          type: "object", properties: { data: { $ref: TRANSFER_REF } },
+          required: ["data"], additionalProperties: false,
+        } } } } },
+      } },
+    } as Record<string, unknown>,
+  };
+}
+
 function importRequestSchema(api: ReturnType<typeof makeApi>) {
   const route = api.paths[IMPORT_ROUTE] as {
     post: {
@@ -51,6 +86,7 @@ function importRequestSchema(api: ReturnType<typeof makeApi>) {
 
 function connection(options: {
   binaryVersion?: string; serverVersion?: string; status?: number; api?: unknown;
+  infoStatus?: number; healthStatus?: number;
   verify?: (evidence: OpenCodeCompatibilityEvidence) => Promise<void>;
 } = {}) {
   const calls: string[] = [];
@@ -64,7 +100,12 @@ function connection(options: {
     async request(route) {
       calls.push(route);
       if (route === "/api/info") return {
-        status: 200, body: { version: options.serverVersion ?? "2.0.12", paths: { private: "secret-path" } },
+        status: options.infoStatus ?? 200,
+        body: { version: options.serverVersion ?? "2.0.12", paths: { private: "secret-path" } },
+      };
+      if (route === "/api/health") return {
+        status: options.healthStatus ?? 200,
+        body: { version: options.serverVersion ?? "2.0.0" },
       };
       assert.equal(route, "/openapi.json");
       return { status: options.status ?? 200, body: options.api ?? makeApi() };
@@ -102,6 +143,43 @@ describe("probeOpenCodeCapabilities", () => {
         assert.equal(report.writable, true);
       }
     }
+  });
+
+  it("selects and verifies the legacy v2 profile from its routes and schema", async () => {
+    const { calls, transport } = connection({
+      binaryVersion: "2.0.0", serverVersion: "2.0.0",
+      infoStatus: 404, api: makeLegacyApi(),
+    });
+    const report = await requireOpenCodeCapabilities(transport);
+    assert.equal(report.protocolRule, "v2-session-transfer-legacy");
+    assert.equal(report.schemaHash, LEGACY_TRANSFER_SCHEMA_HASH);
+    assert.equal(report.schemaCompatibility, "exact");
+    assert.equal(report.compatibility, "verified-release");
+    assert.equal(report.writable, true);
+    assert.deepEqual(calls, [
+      "version", "/api/info",
+      "/api/health", "/openapi.json",
+    ]);
+  });
+
+  it("requires isolated evidence for unreviewed releases using the legacy v2 profile", async () => {
+    const verified: OpenCodeCompatibilityEvidence[] = [];
+    const report = await requireOpenCodeCapabilities(connection({
+      binaryVersion: "2.0.2", serverVersion: "2.0.2",
+      infoStatus: 404, api: makeLegacyApi(),
+      verify: async (evidence) => { verified.push(evidence); },
+    }).transport);
+    assert.equal(report.protocolRule, "v2-session-transfer-legacy");
+    assert.equal(report.compatibility, "isolated-roundtrip");
+    assert.equal(report.writable, true);
+    assert.deepEqual(verified, [{
+      dialect: "v2",
+      protocolRule: "v2-session-transfer-legacy",
+      protocolHash: report.protocolHash!,
+      binaryVersion: "2.0.2",
+      serverVersion: "2.0.2",
+      schemaHash: LEGACY_TRANSFER_SCHEMA_HASH,
+    }]);
   });
 
   it("refuses unknown majors, prereleases and malformed versions before network access", async () => {
