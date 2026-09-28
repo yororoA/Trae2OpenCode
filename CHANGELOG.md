@@ -3,22 +3,10 @@
 This project follows [Semantic Versioning](https://semver.org/). Product versions are
 independent of IR, manifest, mapping, and verification-report format versions.
 
-## [1.2.0] - Unreleased
+Released entries are generated from Conventional Commits by release-please. Feature
+pull requests do not add an `Unreleased` section or edit the product version manually.
 
-### Added in 1.2.0
-
-- Declarative OpenCode protocol rules for version probes, required operations,
-  endpoint envelopes, transfer mode, and schema profiles.
-- Directional schema compatibility analysis for safe additive protocol changes.
-
-### Changed in 1.2.0
-
-- Compatible schema additions now require isolated behavioral verification instead
-  of being rejected solely because their canonical hash differs.
-- OpenCode verification reports now use `reportVersion: 3` and include the selected
-  protocol rule, protocol hash, schema compatibility, and change count.
-
-## [1.1.0] - 2026-09-26
+## [1.1.0](https://github.com/yororoA/Trae2OpenCode/tree/v1.1.0) (2026-09-26)
 
 ### Added in 1.1.0
 

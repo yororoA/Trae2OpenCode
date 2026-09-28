@@ -1,0 +1,73 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "8ce40101e0b1e2a320b1b66e3c6d5766cf495c8d",
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "changelog-path": "CHANGELOG.md",
+      "include-component-in-tag": false,
+      "include-v-in-tag": true,
+      "include-v-in-release-name": true,
+      "pull-request-title-pattern": "chore(release): 发布 ${version}",
+      "pull-request-header": "此 PR 由 release-please 自动维护。合并后将创建对应 tag 与 GitHub Release。",
+      "pull-request-footer": "版本号、Changelog 和网站版本由 release-please 统一更新，请勿手工修改。",
+      "changelog-sections": [
+        {
+          "type": "feat",
+          "section": "Added"
+        },
+        {
+          "type": "fix",
+          "section": "Fixed"
+        },
+        {
+          "type": "perf",
+          "section": "Changed"
+        },
+        {
+          "type": "refactor",
+          "section": "Changed"
+        },
+        {
+          "type": "docs",
+          "section": "Documentation"
+        },
+        {
+          "type": "revert",
+          "section": "Reverted"
+        },
+        {
+          "type": "chore",
+          "section": "Miscellaneous",
+          "hidden": true
+        },
+        {
+          "type": "ci",
+          "section": "Miscellaneous",
+          "hidden": true
+        },
+        {
+          "type": "test",
+          "section": "Miscellaneous",
+          "hidden": true
+        },
+        {
+          "type": "build",
+          "section": "Miscellaneous",
+          "hidden": true
+        },
+        {
+          "type": "style",
+          "section": "Miscellaneous",
+          "hidden": true
+        }
+      ],
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "website/index.html"
+        }
+      ]
+    }
+  }
+}

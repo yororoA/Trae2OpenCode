@@ -3,6 +3,7 @@ name: Quality
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -33,6 +34,8 @@ jobs:
 
       - name: Run quality gates
         run: npm run check
+        env:
+          T2O_RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
 
       - name: Install and verify packed CLI
         run: npm run verify:package
