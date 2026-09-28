@@ -35,7 +35,7 @@ jobs:
         run: |
           branch="$(jq -r '.headBranchName // empty' <<<"$RELEASE_PR")"
           test -n "$branch"
-          gh workflow run quality.yml --ref "$branch"
+          gh workflow run quality.yml --repo "$GITHUB_REPOSITORY" --ref "$branch"
 
       - name: Check out released tag
         if: steps.release.outputs.release_created == 'true'

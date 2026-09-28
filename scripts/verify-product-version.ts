@@ -9,6 +9,7 @@ interface PackageMetadata {
 
 interface ReleasePleaseConfig {
   "bootstrap-sha"?: unknown;
+  "last-release-sha"?: unknown;
   packages?: Record<string, {
     "release-type"?: unknown;
     "include-component-in-tag"?: unknown;
@@ -58,8 +59,11 @@ assert.ok(rootRelease?.["extra-files"]?.some(
   (file) => file.type === "generic" && file.path === "website/index.html",
 ));
 assert.match(String(releaseConfig["bootstrap-sha"]), /^[a-f0-9]{40}$/);
+assert.equal(releaseConfig["last-release-sha"], releaseConfig["bootstrap-sha"]);
 assert.match(releaseWorkflow,
   /googleapis\/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071/);
+assert.match(releaseWorkflow,
+  /gh workflow run quality\.yml --repo "\$GITHUB_REPOSITORY" --ref "\$branch"/);
 
 const releaseTag = process.env.T2O_RELEASE_TAG?.trim();
 if (releaseTag) assert.equal(releaseTag, `v${version}`, "Release tag differs from package version");
