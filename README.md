@@ -1,21 +1,85 @@
-# Trae2OpenCode
+<!-- markdownlint-disable MD013 MD033 MD041 -->
 
-把可恢复的 TRAE 会话迁移到 OpenCode，并在写入后逐项回读核对。日常使用只需要：
+<p align="center">
+  <a href="https://trae2opencode.yororoice.top/">
+    <img src="./website/assets/trae2opencode-app-icon.png" width="112" alt="Trae2OpenCode">
+  </a>
+</p>
 
-1. 打开要迁移会话所在的 TRAE 项目窗口。
-2. 在本仓库根目录运行 `npm run migrate:local`。
-3. 按编号选择窗口和一个或多个会话，等待批量迁移完成。
+<h1 align="center">Trae2OpenCode</h1>
 
-工具会自动导出、脱敏、检查兼容性、导入、回读核验，并在中断后安全续跑。不会要求输入
-workbench ID 或 session ID。
+<p align="center">
+  <strong>简体中文</strong>
+  ·
+  <a href="./README.en.md">English</a>
+  ·
+  <a href="./README.ja.md">日本語</a>
+  ·
+  <a href="./README.de.md">Deutsch</a>
+  ·
+  <a href="./README.ru.md">Русский</a>
+  ·
+  <a href="./README.zh-Hant.md">繁體中文</a>
+</p>
 
-支持在 **macOS 与 Windows** 上直接读取本机 TRAE 会话，并按目标版本自动选择
-OpenCode **v1 或 v2 协议**。
+<p align="center">
+  <strong>把 TRAE 会话完整带到 OpenCode。</strong>
+  <br>
+  自动导出、脱敏、映射与导入，并在写入后逐项回读核验。
+</p>
 
-项目网站：[Trae2OpenCode](https://trae2opencode.yororoice.top/)
+<p align="center">
+  <a href="https://github.com/yororoA/Trae2OpenCode/actions/workflows/quality.yml"><img src="https://github.com/yororoA/Trae2OpenCode/actions/workflows/quality.yml/badge.svg" alt="Quality"></a>
+  <a href="https://github.com/yororoA/Trae2OpenCode/releases"><img src="https://img.shields.io/github/v/release/yororoA/Trae2OpenCode?style=flat&label=release&color=00843d" alt="GitHub Release"></a>
+  <img src="https://img.shields.io/badge/Node.js-%3E%3D18.18-339933?style=flat&logo=nodedotjs&logoColor=white" alt="Node.js >= 18.18">
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-18191c?style=flat" alt="macOS and Windows">
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-ISC-606970?style=flat" alt="ISC License"></a>
+</p>
 
-> **首次使用请按 [操作手册](docs/operation-manual.md) 完成准备。**
-> 特别是 macOS 必须从终端以调试参数启动 TRAE，否则工具无法读取完整消息正文。
+<p align="center">
+  <a href="https://trae2opencode.yororoice.top/">项目网站</a>
+  ·
+  <a href="#快速开始">快速开始</a>
+  ·
+  <a href="./docs/operation-manual.md">操作手册</a>
+  ·
+  <a href="./docs/opencode-compatibility.md">兼容性</a>
+  ·
+  <a href="./docs/troubleshooting.md">故障排查</a>
+  ·
+  <a href="./CHANGELOG.md">更新记录</a>
+</p>
+
+<!-- markdownlint-enable MD033 MD041 -->
+
+---
+
+> [!IMPORTANT]
+> 首次使用请先阅读[操作手册](docs/operation-manual.md)。macOS 必须从终端以调试参数启动
+> TRAE，否则工具无法读取完整消息正文。
+
+## 一条命令，完成可信迁移
+
+打开目标会话所在的 TRAE 项目窗口，然后在仓库根目录运行：
+
+```sh
+npm run migrate:local
+```
+
+按编号选择窗口和一个或多个会话即可。工具不会要求手动输入 workbench ID 或 session ID，
+中断后也可以基于已生成的迁移记录安全续跑。
+
+| 交互式选择 | 安全处理 | 双协议适配 | 写入后验证 |
+| :---: | :---: | :---: | :---: |
+| 自动发现项目窗口与会话 | 凭据识别、脱敏与覆盖保护 | OpenCode v1 / v2 自动识别 | 消息、推理、工具记录与 Hash 对账 |
+
+```mermaid
+flowchart LR
+    A["TRAE 会话<br>只读提取"] --> B["导出与脱敏<br>Migration Bundle"]
+    B --> C["协议映射<br>OpenCode v1 / v2"]
+    C --> D["原生导入"]
+    D --> E["回读核验<br>内容与 Hash 对账"]
+```
 
 ## 适用范围
 
@@ -32,13 +96,17 @@ OpenCode 根据实际协议 profile 和隔离往返结果决定能否迁移。v2
 HTTP `SessionTransfer` 路径；v1 自动区分 legacy 与当前会话 schema，均通过
 `opencode import` / `opencode export` 子命令。
 
-> **未收录的 OpenCode 稳定版本不再仅因版本号被拒绝。**
-> CLI 与目标服务必须为同一版本，必要路由和 schema 必须完全匹配或仅有安全增量，然后在独立临时库中
-> 验证导入、导出、回读、冲突与删除保护。通过后才允许迁移；预发布版本、未知主版本、
-> 破坏性 schema 变化或行为验证失败仍会停止。无需增加跳过校验参数。
->
-> **旧版本也不是无条件放行。** `opencode-ai@1.15.x` 无法保留安全所有权 metadata，
-> `1.14.x` 的 OpenAPI 不暴露完整会话 schema，因此仍拒绝写入；工具不会直写旧版数据库。
+> [!NOTE]
+> 未收录的 OpenCode 稳定版本不会仅因版本号被拒绝。CLI 与目标服务必须为同一版本，
+> 必要路由和 schema 必须完全匹配或仅有安全增量；工具还会在独立临时库中验证导入、
+> 导出、回读、冲突与删除保护，通过后才允许迁移。
+
+<!-- Separate adjacent GitHub alerts for Markdown renderers. -->
+
+> [!WARNING]
+> 预发布版本、未知主版本、破坏性 schema 变化或行为验证失败仍会停止。
+> `opencode-ai@1.15.x` 无法保留安全所有权 metadata，`1.14.x` 的 OpenAPI 不暴露完整会话
+> schema，因此同样拒绝写入；工具不会直写旧版数据库。
 
 ## 快速开始
 
@@ -223,7 +291,9 @@ TRAE 本身的历史被删除，源数据始终保持只读。
 | `trae-export/` | 最新 bundle，用于重新映射和续跑 | 是 |
 | `migration-run/` | manifest、回读证据和迁移状态 | 否 |
 
-这两个目录均为本地私人数据，已经在 `.gitignore` 中忽略，**不要提交、共享或上传**。
+> [!CAUTION]
+> 这两个目录均为本地私人数据，已经在 `.gitignore` 中忽略。不要提交、共享或上传。
+
 工具只自动清理由当前 verified 版本替代的旧终态目录；失败、进行中或无法确认安全性的记录
 会保留，供续跑或排查使用。
 
@@ -241,16 +311,16 @@ TRAE 本身的历史被删除，源数据始终保持只读。
 | `目标会话已存在，但缺少可验证的旧 manifest` | 目标归属无法证明，因此不会覆盖；恢复对应 manifest 或在 OpenCode 中人工确认处理。 |
 | `迁移 bundle 超过 1 GiB` | 选择更小的会话；不要修改 bundle 来绕过限制。 |
 
-## 高级操作与文档
+## 文档索引
 
-- [操作手册：从准备到验证、续跑与回滚](docs/operation-manual.md)
-- [OpenCode 协议兼容性检测](docs/opencode-compatibility.md)
-- [产品与数据格式版本管理](docs/versioning.md)、[变更记录](CHANGELOG.md)
-- [故障排查与错误码](docs/troubleshooting.md)
-- [离线 CLI、dry-run、导入与回读](docs/m5-1-readonly-cli.md)、[迁移记录与续跑](docs/m5-3-manifest-resume.md)
-- [凭据处理边界](docs/m5-6-sensitive-content.md)、[回滚与恢复](docs/m5-5-rollback.md)
-- [实现规划与验收矩阵](docs/implementation-plan.md)、[真实来源验收报告](docs/m5-7-live-runtime-e2e.md)
-- [开发环境故障排查](docs/development-troubleshooting.md)
+| 主题 | 文档 |
+| --- | --- |
+| 开始使用 | [操作手册：准备、迁移、验证、续跑与回滚](docs/operation-manual.md) |
+| 兼容性 | [OpenCode 协议兼容性检测](docs/opencode-compatibility.md) · [产品与数据格式版本管理](docs/versioning.md) · [变更记录](CHANGELOG.md) |
+| 故障处理 | [常见故障与错误码](docs/troubleshooting.md) · [开发环境故障排查](docs/development-troubleshooting.md) |
+| 迁移机制 | [离线 CLI、dry-run、导入与回读](docs/m5-1-readonly-cli.md) · [迁移记录与续跑](docs/m5-3-manifest-resume.md) |
+| 安全与恢复 | [凭据处理边界](docs/m5-6-sensitive-content.md) · [回滚与恢复](docs/m5-5-rollback.md) |
+| 设计与验收 | [实现规划与验收矩阵](docs/implementation-plan.md) · [真实来源验收报告](docs/m5-7-live-runtime-e2e.md) |
 
 ## 许可证
 
