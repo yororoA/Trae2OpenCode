@@ -5,8 +5,8 @@ import type { JsonValue } from "../../ir/types.js";
 import { Trae2OpenCodeError } from "../../shared/errors.js";
 import {
   EXPORT_ROUTE, IMPORT_ROUTE, OPENCODE_CANDIDATE_VERSION_PATTERN,
-  protocolRuleForVersion, reviewedVersionsForDialect, TRANSFER_REF,
-  type OpenCodeDialect,
+  protocolRuleForVersion, protocolRulesForVersion, reviewedVersionsForDialect, TRANSFER_REF,
+  type OpenCodeDialect, type OpenCodeSchemaProfile,
 } from "./protocol-rules.js";
 import {
   analyzeSchemaCompatibility, type SchemaCompatibilityAnalysis,
@@ -36,8 +36,8 @@ export function supportedVersionsForDialect(dialect: OpenCodeDialect): readonly 
 }
 
 export function isVerifiedOpenCodeVersion(value: string | null): boolean {
-  const rule = protocolRuleForVersion(value);
-  return rule?.reviewedVersions.includes(value ?? "") ?? false;
+  return protocolRulesForVersion(value)
+    .some((rule) => rule.reviewedVersions.includes(value ?? ""));
 }
 
 /** Every supported release reports the same `--version` / health version shape. */
@@ -55,11 +55,24 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 const baseline = JSON.parse(readFileSync(new URL(
   "../../../fixtures/opencode/2.0.12/evidence/transfer.schema.json", import.meta.url,
 ), "utf8")) as Record<string, unknown>;
+const legacyBaseline = JSON.parse(readFileSync(new URL(
+  "../../../fixtures/opencode/2.0.0/evidence/transfer.schema.json", import.meta.url,
+), "utf8")) as Record<string, unknown>;
 export const TRANSFER_SCHEMA_HASH = hashCanonicalJson(baseline as JsonValue);
+export const LEGACY_TRANSFER_SCHEMA_HASH = hashCanonicalJson(legacyBaseline as JsonValue);
 const validate = new Ajv2020({ strict: false, validateFormats: false }).compile(baseline);
+const validateLegacy = new Ajv2020({ strict: false, validateFormats: false }).compile(legacyBaseline);
 
 export function assertOpenCodeTransfer(value: unknown): void {
   if (!validate(value)) throw new Trae2OpenCodeError("T2O_OPENCODE_TRANSFER_INVALID");
+}
+
+export function assertOpenCodeTransferForProfile(
+  value: unknown,
+  profile: Extract<OpenCodeSchemaProfile, "v2-transfer" | "v2-transfer-legacy">,
+): void {
+  const valid = profile === "v2-transfer-legacy" ? validateLegacy(value) : validate(value);
+  if (!valid) throw new Trae2OpenCodeError("T2O_OPENCODE_TRANSFER_INVALID");
 }
 
 /** Extract only local schemas reachable from the transfer root, including cycles. */
@@ -107,10 +120,12 @@ export function assertOpenCodeSchema(openapi: unknown): string {
   return analysis.actualHash;
 }
 
-export function analyzeOpenCodeSchema(openapi: unknown): SchemaCompatibilityAnalysis {
+export function analyzeOpenCodeSchema(
+  openapi: unknown, profile: OpenCodeSchemaProfile = "v2-transfer",
+): SchemaCompatibilityAnalysis {
   const schema = extractTransferSchema(openapi);
   return analyzeSchemaCompatibility(
-    baseline as JsonValue,
+    (profile === "v2-transfer-legacy" ? legacyBaseline : baseline) as JsonValue,
     schema as JsonValue,
   );
 }

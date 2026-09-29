@@ -105,6 +105,18 @@ describe("migration plan", () => {
     assert.deepEqual(assistant.info.path, { cwd: process.cwd(), root: process.cwd() });
   });
 
+  it("builds the legacy v1 payload through the selected protocol profile", async () => {
+    const plan = await buildMigrationPlan(await fixture(), {
+      dialect: "v1",
+      protocolRule: "v1-cli-library-legacy",
+      targetVersion: "1.16.0",
+      fallbackDirectory: process.cwd(),
+    });
+    assert.equal(plan.options.protocolRule, "v1-cli-library-legacy");
+    assert.equal(plan.sessions[0].status, "ready");
+    assert.equal(plan.sessions[0].transfer?.info.version, "1.16.0");
+  });
+
   it("snapshots caller inputs before asynchronous directory checks", async () => {
     const bundle = await fixture();
     const mutableOptions = { ...options };

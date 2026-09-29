@@ -7,7 +7,8 @@ import {
   supportedVersionsForDialect, type OpenCodeDialect,
 } from "./contract.js";
 import {
-  protocolRuleForVersion, type OpenCodeOperationRule, type OpenCodeProtocolRule,
+  protocolRuleById, protocolRulesForVersion,
+  type OpenCodeOperationRule, type OpenCodeProtocolRule,
   type OpenCodeProtocolRuleId,
 } from "./protocol-rules.js";
 import {
@@ -71,7 +72,7 @@ function operationAt(
 export function extractSchemaForProtocolRule(
   rule: OpenCodeProtocolRule, openapi: unknown,
 ): Record<string, unknown> {
-  return rule.schemaProfile === "v1-session"
+  return rule.schemaProfile === "v1-session" || rule.schemaProfile === "v1-session-legacy"
     ? extractV1SessionSchema(openapi) : extractTransferSchema(openapi);
 }
 
@@ -79,7 +80,10 @@ function analyzeSchemaForProtocolRule(
   rule: OpenCodeProtocolRule, openapi: unknown,
 ): SchemaCompatibilityAnalysis {
   return rule.schemaProfile === "v1-session"
-    ? analyzeOpenCodeV1Schema(openapi) : analyzeOpenCodeSchema(openapi);
+    ? analyzeOpenCodeV1Schema(openapi)
+    : rule.schemaProfile === "v1-session-legacy"
+      ? analyzeOpenCodeV1Schema(openapi, rule.schemaProfile)
+      : analyzeOpenCodeSchema(openapi, rule.schemaProfile);
 }
 
 function combineSchemaAnalysis(
@@ -101,7 +105,7 @@ async function probeRule(
   const versionValue = versionResponse.status === 200 && isRecord(versionResponse.body)
     ? versionResponse.body[rule.versionProbe.responseField] : undefined;
   report.serverVersion = parseVersion(versionValue);
-  if (protocolRuleForVersion(report.serverVersion)?.id !== rule.id) {
+  if (!protocolRulesForVersion(report.serverVersion).some((candidate) => candidate.id === rule.id)) {
     throw new Trae2OpenCodeError("T2O_OPENCODE_VERSION_UNSUPPORTED");
   }
   const response = await transport.request(rule.openapiRoute);
@@ -155,20 +159,36 @@ async function probeRule(
 
 /** Only reads version/HTTP evidence; never accesses user sessions. */
 async function probeProtocol(transport: OpenCodeTransport): Promise<OpenCodeCapabilities> {
-  const report: OpenCodeCapabilities = {
+  const emptyReport = (): OpenCodeCapabilities => ({
     dialect: "v2", protocolRule: null, protocolHash: null,
     binaryVersion: null, serverVersion: null, nativeImport: false, nativeExport: false,
     schemaHash: null, schemaCompatibility: null, schemaChanges: 0,
     writable: false, compatibility: "unsupported", reasons: [],
-  };
+  });
+  const report = emptyReport();
   try {
     report.binaryVersion = parseVersion(await transport.run(["--version"]));
-    const rule = protocolRuleForVersion(report.binaryVersion);
-    if (!rule) throw new Trae2OpenCodeError("T2O_OPENCODE_VERSION_UNSUPPORTED");
-    report.dialect = rule.dialect;
-    report.protocolRule = rule.id;
-    await probeRule(transport, report, rule);
-    report.compatibility = "protocol-only";
+    const rules = protocolRulesForVersion(report.binaryVersion);
+    if (rules.length === 0) throw new Trae2OpenCodeError("T2O_OPENCODE_VERSION_UNSUPPORTED");
+    let firstFailure: OpenCodeCapabilities | undefined;
+    for (const rule of rules) {
+      const candidate = {
+        ...emptyReport(),
+        dialect: rule.dialect,
+        protocolRule: rule.id,
+        binaryVersion: report.binaryVersion,
+      };
+      try {
+        await probeRule(transport, candidate, rule);
+        candidate.compatibility = "protocol-only";
+        return candidate;
+      } catch (error) {
+        candidate.reasons.push(error instanceof Trae2OpenCodeError
+          ? error.code : "T2O_OPENCODE_CAPABILITY_UNAVAILABLE");
+        firstFailure ??= candidate;
+      }
+    }
+    return firstFailure!;
   } catch (error) {
     report.reasons.push(error instanceof Trae2OpenCodeError
       ? error.code : "T2O_OPENCODE_CAPABILITY_UNAVAILABLE");
@@ -180,7 +200,7 @@ async function probeProtocol(transport: OpenCodeTransport): Promise<OpenCodeCapa
 export async function probeOpenCodeCapabilities(transport: OpenCodeTransport): Promise<OpenCodeCapabilities> {
   const report = await probeProtocol(transport);
   if (report.reasons.length) return report;
-  const rule = protocolRuleForVersion(report.binaryVersion)!;
+  const rule = protocolRuleById(report.protocolRule!);
   const reviewed = rule.reviewedVersions.includes(report.binaryVersion!) &&
     rule.reviewedVersions.includes(report.serverVersion!) &&
     report.schemaCompatibility === "exact";

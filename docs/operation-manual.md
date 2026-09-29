@@ -69,8 +69,12 @@ opencode --version
 上述清单是已验证基线。其他稳定 1.x/2.x 会自动校验必要接口并分析完整 schema，再使用
 同版本 CLI 在独立临时库完成导入、导出、回读及删除保护验证。通过后允许迁移；
 清单外版本的 CLI 与服务版本不同、预发布版本、未知主版本或验证失败仍拒绝。
-目标方言由可执行文件版本决定，不接受手动指定：v2 使用 HTTP `SessionTransfer`，v1 使用 `opencode import` /
-`opencode export` 子命令。
+已有旧环境还支持实测 legacy 基线：v2 `2.0.0`，v1 `1.16.0` / `1.17.0`。
+目标 profile 由版本候选、实际路由和 schema 共同决定，不接受手动指定：v2 使用对应版本的
+HTTP `SessionTransfer` 路径，v1 使用 `opencode import` / `opencode export` 子命令。
+
+v1 `1.15.x` 缺少会话 metadata，无法保留安全所有权；`1.14.x` 不暴露完整会话 schema。
+这两类及更早版本不会写入，请升级 OpenCode 或只保留离线 bundle。
 
 不必先启动 OpenCode server。迁移程序会读取当前 OpenCode service descriptor
 发现动态端口，并检查 `127.0.0.1:4096`。都不可用时会临时启动仅本机可访问的

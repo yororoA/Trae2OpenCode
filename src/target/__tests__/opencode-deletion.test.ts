@@ -10,6 +10,9 @@ import type { OpenCodeTransport } from "../opencode/transport.js";
 const contract = JSON.parse(readFileSync(new URL(
   "../../../fixtures/opencode/2.0.12/evidence/deletion.contract.json", import.meta.url,
 ), "utf8"));
+const legacyContract = JSON.parse(readFileSync(new URL(
+  "../../../fixtures/opencode/2.0.0/evidence/deletion.contract.json", import.meta.url,
+), "utf8"));
 const schema = JSON.parse(readFileSync(new URL(
   "../../../fixtures/opencode/2.0.12/evidence/transfer.schema.json", import.meta.url,
 ), "utf8"));
@@ -51,6 +54,9 @@ function setup() {
 describe("OpenCode guarded native deletion", () => {
   it("accepts the captured contract and refuses list/delete/schema drift", () => {
     assert.doesNotThrow(() => assertDeletionContract(contract));
+    assert.doesNotThrow(() => assertDeletionContract(legacyContract, "v2-legacy"));
+    assert.throws(() => assertDeletionContract(legacyContract),
+      { code: "T2O_OPENCODE_DELETE_UNSUPPORTED" });
     for (const operation of ["delete", "list", "schema"]) {
       const changed = structuredClone(contract);
       if (operation === "delete") delete changed.paths["/api/session/{sessionID}"].delete;

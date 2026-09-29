@@ -1,7 +1,11 @@
 import type { Diagnostic, MigrationBundle } from "../../ir/types.js";
+import { Trae2OpenCodeError } from "../../shared/errors.js";
 import type { OpenCodeDialect } from "./contract.js";
 import type { OpenCodeMappingOptions, OpenCodeSession } from "./mapping.js";
 import { mapOpenCodeSession } from "./mapping.js";
+import {
+  protocolRuleById, protocolRuleForVersion, type OpenCodeProtocolRuleId,
+} from "./protocol-rules.js";
 import {
   reconcileOpenCodeTransfer, type OpenCodeReconciliation,
 } from "./reconciliation.js";
@@ -10,6 +14,7 @@ import { reconcileOpenCodeV1Session } from "./v1/reconciliation.js";
 
 export interface TargetMappingOptions extends OpenCodeMappingOptions {
   dialect: OpenCodeDialect;
+  protocolRule?: OpenCodeProtocolRuleId;
   /** The verified executable version; only the v1 payload persists it. */
   targetVersion: string;
 }
@@ -22,7 +27,13 @@ export interface TargetMapping {
 export function mapTargetSession(
   value: MigrationBundle, sourceSessionId: string, options: TargetMappingOptions,
 ): TargetMapping {
-  return options.dialect === "v1"
+  const rule = options.protocolRule === undefined
+    ? protocolRuleForVersion(options.targetVersion)
+    : protocolRuleById(options.protocolRule);
+  if (!rule || rule.dialect !== options.dialect) {
+    throw new Trae2OpenCodeError("T2O_OPENCODE_VERSION_UNSUPPORTED");
+  }
+  return rule.mappingProfile === "v1-session"
     ? mapOpenCodeV1Session(value, sourceSessionId, options)
     : mapOpenCodeSession(value, sourceSessionId, options);
 }

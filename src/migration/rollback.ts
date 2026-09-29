@@ -2,7 +2,9 @@ import { normalizeError, Trae2OpenCodeError } from "../shared/errors.js";
 import { targetReconciliation } from "../target/opencode/dialect.js";
 import { withManifestStore, type ManifestSession, type MigrationManifest } from "./manifest.js";
 import { isOwnedByRun, jsonHash } from "./ownership.js";
-import { descriptorDialect, type MigrationTarget } from "./target.js";
+import {
+  descriptorDialect, migrationTargetDescriptorsMatch, type MigrationTarget,
+} from "./target.js";
 
 type RollbackAction = "delete" | "absent" | "already-rolled-back" | "skip" | "protected";
 interface RollbackEntry {
@@ -67,7 +69,7 @@ export async function rollbackMigration(
   return withManifestStore(filename, async (store) => {
     const manifest = await store.read();
     if (confirmed && options.confirm !== manifest.runId) throw new Trae2OpenCodeError("T2O_MIGRATION_CONFIRMATION_REQUIRED");
-    if (jsonHash(manifest.target) !== jsonHash(await target.describe())) {
+    if (!migrationTargetDescriptorsMatch(manifest.target, await target.describe())) {
       throw new Trae2OpenCodeError("T2O_MIGRATION_TARGET_CHANGED");
     }
     const entries: RollbackEntry[] = [];

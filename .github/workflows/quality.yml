@@ -12,7 +12,7 @@ jobs:
   check:
     name: ${{ matrix.os }} / Node ${{ matrix.node }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -65,6 +65,10 @@ jobs:
         if: matrix.node == '22'
         run: npm install --prefix tmp/opencode-unreviewed --no-package-lock --no-save @opencode/cli@2.0.18
 
+      - name: Install legacy OpenCode v2
+        if: matrix.node == '22'
+        run: npm install --prefix tmp/opencode-v2-legacy --no-package-lock --no-save @opencode/cli@2.0.0
+
       - name: Run public roundtrip command with baseline v2
         if: matrix.node == '22'
         run: npm run verify:opencode -- --binary tmp/opencode/node_modules/@opencode/cli/bin/opencode.exe --output tmp/roundtrip-v2-baseline
@@ -73,17 +77,29 @@ jobs:
         if: matrix.node == '22'
         run: npm run verify:opencode -- --binary tmp/opencode-unreviewed/node_modules/@opencode/cli/bin/opencode.exe --output tmp/roundtrip-v2-unreviewed
 
+      - name: Run public roundtrip command with legacy v2
+        if: matrix.node == '22'
+        run: npm run verify:opencode -- --binary tmp/opencode-v2-legacy/node_modules/@opencode/cli/bin/opencode.exe --output tmp/roundtrip-v2-legacy
+
+      - name: Verify legacy v2 managed-server fallback
+        if: matrix.node == '22'
+        run: npm run verify:legacy-startup
+        env:
+          T2O_TEST_V2_LEGACY_BINARY: tmp/opencode-v2-legacy/node_modules/@opencode/cli/bin/opencode.exe
+
       - name: Verify current and adjacent version contracts
         if: matrix.node == '22'
         run: npm run verify:versions
         env:
           T2O_TEST_OPENCODE_BINARY: tmp/opencode/node_modules/@opencode/cli/bin/opencode.exe
+          T2O_TEST_V2_LEGACY_BINARY: tmp/opencode-v2-legacy/node_modules/@opencode/cli/bin/opencode.exe
 
-      - name: Install baseline and unreviewed OpenCode v1
+      - name: Install baseline, unreviewed and legacy OpenCode v1
         if: matrix.node == '22'
         run: |
           npm install --prefix tmp/opencode-v1-current --no-package-lock --no-save opencode-ai@1.18.32
           npm install --prefix tmp/opencode-v1-unreviewed --no-package-lock --no-save opencode-ai@1.18.31
+          npm install --prefix tmp/opencode-v1-legacy --no-package-lock --no-save opencode-ai@1.16.0
 
       - name: Verify v1 protocol compatibility and recovery
         if: matrix.node == '22'
@@ -91,6 +107,7 @@ jobs:
         env:
           T2O_TEST_OPENCODE_BINARY: tmp/opencode-v1-current/node_modules/opencode-ai/bin/opencode.exe
           T2O_TEST_V1_ADJACENT_BINARY: tmp/opencode-v1-unreviewed/node_modules/opencode-ai/bin/opencode.exe
+          T2O_TEST_V1_LEGACY_BINARY: tmp/opencode-v1-legacy/node_modules/opencode-ai/bin/opencode.exe
 
       - name: Run public roundtrip command with baseline v1
         if: matrix.node == '22'
@@ -99,6 +116,10 @@ jobs:
       - name: Run public roundtrip command with unreviewed v1
         if: matrix.node == '22'
         run: npm run verify:opencode -- --binary tmp/opencode-v1-unreviewed/node_modules/opencode-ai/bin/opencode.exe --output tmp/roundtrip-v1-unreviewed
+
+      - name: Run public roundtrip command with legacy v1
+        if: matrix.node == '22'
+        run: npm run verify:opencode -- --binary tmp/opencode-v1-legacy/node_modules/opencode-ai/bin/opencode.exe --output tmp/roundtrip-v1-legacy
 
       - name: Verify bounded heap and process interruption recovery
         if: matrix.node == '22'
@@ -114,6 +135,7 @@ jobs:
           path: |
             tmp/m7-1-platform-report.json
             tmp/m7-2-version-report.json
+            tmp/m7-2-legacy-startup-report.json
             tmp/m7-3-resilience-report.json
             tmp/roundtrip-v*/report.json
             tmp/roundtrip-v*/*.schema.json

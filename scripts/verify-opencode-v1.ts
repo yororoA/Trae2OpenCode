@@ -13,7 +13,7 @@ import { resolveOpenCodeBinary } from "../src/target/opencode/binary.js";
 import { withIsolatedOpenCodeServer } from "../src/target/opencode/isolated-server.js";
 
 /**
- * Baseline and unreviewed compatible OpenCode 1.x releases use their real native binary:
+ * Current, legacy and unreviewed OpenCode 1.x releases use their real native binary:
  * version, health, `/doc` routes, the reviewed schema hash, a real import/export round
  * trip with readback reconciliation, conflict detection and rollback.
  */
@@ -21,12 +21,18 @@ import { withIsolatedOpenCodeServer } from "../src/target/opencode/isolated-serv
 // T2O_TEST_OPENCODE_BINARY overrides it; adjacent native release from
 // tmp/opencode-v1-adjacent unless T2O_TEST_V1_ADJACENT_BINARY overrides it.
 const adjacentDefault = path.resolve("tmp/opencode-v1-adjacent/node_modules/opencode-ai/bin/opencode.exe");
+const legacyDefault = path.resolve("tmp/opencode-v1-legacy/node_modules/opencode-ai/bin/opencode.exe");
 const configured = [
   { label: "current", value: process.env.T2O_TEST_OPENCODE_BINARY ?? "opencode" },
   {
     label: "adjacent",
     value: process.env.T2O_TEST_V1_ADJACENT_BINARY ??
       (existsSync(adjacentDefault) ? adjacentDefault : undefined),
+  },
+  {
+    label: "legacy",
+    value: process.env.T2O_TEST_V1_LEGACY_BINARY ??
+      (existsSync(legacyDefault) ? legacyDefault : undefined),
   },
 ].filter((entry): entry is { label: string; value: string } => typeof entry.value === "string");
 
@@ -42,6 +48,8 @@ async function verifyVersion(label: string, binary: string) {
     assert.equal(capabilities.writable, true,
       `${label}: expected a writable target (${capabilities.reasons.join(", ") || "no reason reported"})`);
     assert.equal(capabilities.dialect, "v1", `${label}: expected the v1 dialect`);
+    assert.equal(capabilities.protocolRule, label === "legacy"
+      ? "v1-cli-library-legacy" : "v1-cli-library");
     assert.equal(capabilities.binaryVersion, capabilities.serverVersion);
     assert.ok(capabilities.schemaHash, `${label}: missing schema hash`);
     assert.equal(capabilities.compatibility, isVerifiedOpenCodeVersion(capabilities.binaryVersion)
@@ -49,6 +57,7 @@ async function verifyVersion(label: string, binary: string) {
 
     const plan = await buildMigrationPlan(structuredClone(bundle) as MigrationBundle, {
       dialect: capabilities.dialect,
+      protocolRule: capabilities.protocolRule!,
       targetVersion: capabilities.binaryVersion!,
       fallbackDirectory: server.directory,
     });
@@ -83,6 +92,7 @@ async function verifyVersion(label: string, binary: string) {
 
     results.push({
       label, binary: resolved, version: capabilities.binaryVersion,
+      protocolRule: capabilities.protocolRule,
       compatibility: capabilities.compatibility, resume: true,
       schemaHash: capabilities.schemaHash, messages: readback.messages.length,
       parts: parts.length, status: "verified",

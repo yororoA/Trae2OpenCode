@@ -4,36 +4,44 @@ import { Trae2OpenCodeError } from "../../shared/errors.js";
 import { requireOpenCodeCapabilities } from "./capability-probe.js";
 import { isRecord } from "./contract.js";
 import type { OpenCodeSession } from "./mapping.js";
+import type { OpenCodeDeletionProfile } from "./protocol-rules.js";
 import type { OpenCodeTransport } from "./transport.js";
 
 // Captured from an isolated OpenCode 2.0.12 server on 2026-09-24.
 const REMOVE_HASH = "sha256:bf2c3d9d2dcb643e2d31f1e4aeca0db9591d51c9444a7d0eee36263193802f14";
 const LIST_HASH = "sha256:28b438923094c8b480126933ddb5e5a83d1aa5e5d474d722b4e2629b0c8de333";
+const LEGACY_REMOVE_HASH = "sha256:8f5432962c4564206ca1b8e559cba4437049026d9e7d78e78c82f75fc3365107";
+const LEGACY_LIST_HASH = "sha256:fca8b8b345ff2a8122aadab39c2ff1d46f6fbd9ea3222ada185fc1d9dadcd889";
 const RESPONSE_HASH = "sha256:2db1f7104094ac63c9b1903c639c7754e1632228b78eb37d42aae73f1c22d1e3";
 const validId = (id: unknown): id is string => typeof id === "string" && /^ses_[a-zA-Z0-9_-]+$/.test(id);
 const matches = (value: unknown, hash: string) =>
   isRecord(value) && hashCanonicalJson(value as JsonValue) === hash;
 
-export function assertDeletionContract(api: unknown): void {
+export function assertDeletionContract(
+  api: unknown, profile: Extract<OpenCodeDeletionProfile, "v2-current" | "v2-legacy"> = "v2-current",
+): void {
   const paths = isRecord(api) && isRecord(api.paths) ? api.paths : {};
   const session = paths["/api/session/{sessionID}"];
   const list = paths["/api/session"];
   const schemas = isRecord(api) && isRecord(api.components) && isRecord(api.components.schemas)
     ? api.components.schemas : {};
-  const supported = isRecord(session) && matches(session.delete, REMOVE_HASH) &&
-    isRecord(list) && matches(list.get, LIST_HASH) && matches(schemas.SessionsResponse, RESPONSE_HASH);
+  const removeHash = profile === "v2-legacy" ? LEGACY_REMOVE_HASH : REMOVE_HASH;
+  const listHash = profile === "v2-legacy" ? LEGACY_LIST_HASH : LIST_HASH;
+  const supported = isRecord(session) && matches(session.delete, removeHash) &&
+    isRecord(list) && matches(list.get, listHash) && matches(schemas.SessionsResponse, RESPONSE_HASH);
   if (!supported) throw new Trae2OpenCodeError("T2O_OPENCODE_DELETE_UNSUPPORTED");
 }
 
 export function createOpenCodeDeletionAdapter(
   transport: OpenCodeTransport, serverUrl: string,
   read: (id: string) => Promise<OpenCodeSession | null>,
+  profile: Extract<OpenCodeDeletionProfile, "v2-current" | "v2-legacy"> = "v2-current",
 ) {
   const requireContract = async () => {
     await requireOpenCodeCapabilities(transport);
     const response = await transport.request("/openapi.json");
     if (response.status !== 200) throw new Trae2OpenCodeError("T2O_OPENCODE_DELETE_UNSUPPORTED");
-    assertDeletionContract(response.body);
+    assertDeletionContract(response.body, profile);
   };
   const listChildren = async (id: string): Promise<string[]> => {
     if (!validId(id)) throw new Trae2OpenCodeError("T2O_OPENCODE_TRANSFER_INVALID");

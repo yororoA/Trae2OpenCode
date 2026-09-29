@@ -7,7 +7,7 @@
 
 | 情况 | 处理 |
 | --- | --- |
-| v2 `2.0.12` / `2.0.16` 或 v1 `1.17.9` / `1.18.32`，协议完全匹配 | 沿用已验证的原生行为 |
+| v2 `2.0.0` / `2.0.12` / `2.0.16` 或 v1 `1.16.0` / `1.17.0` / `1.17.9` / `1.18.32`，对应 profile 完全匹配 | 沿用已验证的原生行为 |
 | 其他稳定 1.x / 2.x，或 schema 存在兼容增量，CLI 与服务版本一致 | 协议分析通过后执行隔离往返验证，通过才获得迁移资格 |
 | 清单外版本且 CLI / 服务版本不同 | 拒绝，要求提供与目标服务同版本的 CLI |
 | 预发布、无法解析或未实现的主版本 | 拒绝，不猜测协议 |
@@ -16,6 +16,31 @@
 版本号只用于选择候选规则和记录诊断，不代表协议兼容。v1/v2 的版本探针、OpenAPI
 位置、必要操作、请求/响应 envelope、schema profile 和 CLI transfer 方式集中声明在
 `protocol-rules.ts`；能力探测不再分别硬编码两套流程。
+
+## 当前与 Legacy Profile
+
+能力探测会尝试同一主版本的候选 profile，并以实际端点和 schema 选择唯一匹配项。
+版本号只限制候选范围，不直接决定最终适配器。
+
+| Profile | 实测基线 | 原生接口 | 映射与回读 |
+| --- | --- | --- | --- |
+| `v2-session-transfer` | 2.0.12 / 2.0.16 | `/api/info`、`/api/experimental/session/*` | 当前 v2 mapping / adapter |
+| `v2-session-transfer-legacy` | 2.0.0 | `/api/health`、`/api/session/import`、`.../export` | v2 映射；legacy 路由、schema 与删除契约 |
+| `v1-cli-library` | 1.17.9 / 1.18.32 | `/global/health`、`/doc`、CLI import/export | 当前 v1 schema |
+| `v1-cli-library-legacy` | 1.16.0 / 1.17.0 | 同一组 v1 CLI/HTTP 能力 | legacy v1 schema；复用经验证的 v1 映射语义 |
+
+legacy profile 不是关闭校验。每个 profile 都有独立的实际 schema hash、`protocolHash`
+和删除契约；迁移计划及 manifest 记录所选规则，执行时不允许换成同方言的另一个 profile。
+未收录版本若匹配 legacy profile，仍要求同版本 CLI 完成隔离往返。例如 v2 2.0.2 已通过
+这条自动准入路径。
+
+### 旧版拒绝边界
+
+- `opencode-ai@1.15.x` 的 Session schema 没有 `metadata`，无法保存
+  `trae2opencode` 所有权、来源 hash 和覆盖/回滚证据，因此拒绝。
+- `opencode-ai@1.14.x` 的 `/doc` 不暴露完整 Session / Message / Part schema，
+  无法验证 CLI import 的数据契约，因此拒绝。
+- 更早的 v1 和 0.x 不具备本项目已验证的安全导入链路，不会通过数据库直写绕过。
 
 ## Schema 兼容性分析
 
@@ -76,7 +101,7 @@ npm run migrate:local
 | 值 | 含义 |
 | --- | --- |
 | `verified-release` | 基线版本且实际协议与 schema 完全匹配 |
-| `isolated-roundtrip` | 未收录版本或兼容 schema 增量的隔离行为验证通过 |
+| `isolated-roundtrip` | 未收录版本、legacy profile 或兼容 schema 增量的隔离行为验证通过 |
 | `protocol-only` | 协议匹配，但同版本 CLI 或隔离验证条件未满足；`writable=false` |
 | `unsupported` | 版本格式、协议或 schema 未通过 |
 
@@ -181,3 +206,16 @@ CI 新增三系统直接执行上述四个版本的公开命令，并上传报�
 - 470 项测试、lint、类型检查、版本一致性、构建和 smoke 通过。实际
   `verify:opencode` 验证 v2 `2.0.18` / `2.0.12` 与 v1 `1.18.31` / `1.18.32`；
   `verify:versions`、`verify:integration:v1` 和安装包验收通过。
+
+### 旧协议向后兼容（2026-09-28）
+
+- 新增 `v2-session-transfer-legacy` 与 `v1-cli-library-legacy`，按实际路由和 schema
+  选择，不把整个 1.x/2.x 粗略归到同一个 profile。
+- v2 2.0.0 / 2.0.2 和 v1 1.16.0 / 1.17.0 使用 npm 官方二进制实测；
+  import、export、逐项回读、重复冲突、父子关系、删除保护均通过。
+- 2.0.0、1.16.0、1.17.0 进一步完成 migrate、verify、resume 与 rollback。
+- 1.15.0 因无法保留 Session metadata 拒绝；1.14.17 因不暴露完整会话 schema 拒绝。
+- POSIX 上旧版 Node launcher 现在会解析到内嵌原生 `.opencode`，确保隔离服务可被直接
+  终止和清理；Windows 继续解析 npm shim 到对应原生 executable。
+- 480 项测试、lint、类型检查、版本一致性、构建、smoke 与安装包验收通过。
+  CI 在三系统 Node 22 增加 v2 2.0.0 与 v1 1.16.0 的真实回归。

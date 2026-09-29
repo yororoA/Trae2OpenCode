@@ -1,13 +1,15 @@
 # M4-1：OpenCode 版本与原生导入契约探测
 
 初始契约日期：2026-09-24；2026-09-26 增加清单外稳定版本的自动兼容性检测；
-2026-09-27 增加 schema 兼容分析和声明式协议规则。
+2026-09-27 增加 schema 兼容分析和声明式协议规则；2026-09-28 增加旧协议 profile。
 
 ## 探测契约
 
 `probeOpenCodeCapabilities` 对用户目标只读取版本及 OpenAPI，不创建目标会话。
-v2 读取 `/api/info` 和 `/openapi.json`，v1 读取 `/global/health` 和 `/doc`。
-基线 v2 `2.0.12` / `2.0.16`、v1 `1.17.9` / `1.18.32` 使用已有行为证据。
+v2 current 读取 `/api/info`，legacy 读取 `/api/health`，两者 OpenAPI 均位于
+`/openapi.json`；v1 读取 `/global/health` 和 `/doc`。
+基线 v2 `2.0.0` / `2.0.12` / `2.0.16`、v1 `1.16.0` / `1.17.0` /
+`1.17.9` / `1.18.32` 使用已有行为证据。
 其他稳定 1.x/2.x 要求同版本 CLI，在独立临时库完成导入、导出、回读和删除保护验证，
 并在测试结束后重新核对实际目标的版本与 schema。
 OpenAPI 的 `info.version` 为 HTTP 接口版本 `0.0.1`，不能用作产品版本门禁。
@@ -29,8 +31,8 @@ schema 对象 key 顺序不影响比较，不相关 API/schema 变化不阻断�
 实际数据 schema 使用 `schemaHash` 标识；规则、必要操作、envelope 和数据 schema 的组合
 使用 `protocolHash` 标识。任一证据在隔离验证期间变化都会让本次结果失效。
 
-固定 schema hash：
-`sha256:8379854ab529739a39826bbabcb0103847c66368280803e4b5559f09415a3d32`。
+current 与 legacy profile 分别固定自己的 schema hash；完整列表见
+[版本契约](m7-2-version-contract.md)。
 
 `writable` 表示目标契约门禁通过；源 profile、完成时间、映射和逐会话对账
 仍由后续写入流程校验，不能据此宣称真实迁移完成。

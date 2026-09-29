@@ -9,6 +9,9 @@ import type { JsonValue } from "../ir/types.js";
 import { Trae2OpenCodeError } from "../shared/errors.js";
 import { assertNoCredentials } from "../shared/sensitive.js";
 import { OPENCODE_CANDIDATE_VERSION_PATTERN, openCodeDialectForVersion } from "../target/opencode/contract.js";
+import {
+  OPENCODE_PROTOCOL_RULES, protocolRuleById,
+} from "../target/opencode/protocol-rules.js";
 import type { OpenCodeReconciliation } from "../target/opencode/reconciliation.js";
 import type { MigrationTargetDescriptor } from "./target.js";
 
@@ -75,6 +78,8 @@ const validate = new Ajv().compile({
       required: ["endpointHash", "binaryVersion", "serverVersion", "schemaHash", "fingerprint"],
       properties: {
         endpointHash: hash, schemaHash: hash, fingerprint: hash,
+        protocolHash: hash,
+        protocolRule: { enum: OPENCODE_PROTOCOL_RULES.map((rule) => rule.id) },
         binaryVersion: { type: "string", pattern: OPENCODE_CANDIDATE_VERSION_PATTERN },
         serverVersion: { type: "string", pattern: OPENCODE_CANDIDATE_VERSION_PATTERN },
       },
@@ -116,6 +121,15 @@ export function assertManifest(value: unknown): asserts value is MigrationManife
   const manifest = value as MigrationManifest;
   if (openCodeDialectForVersion(manifest.target.binaryVersion) !==
     openCodeDialectForVersion(manifest.target.serverVersion)) {
+    throw new Trae2OpenCodeError("T2O_MIGRATION_MANIFEST_INVALID");
+  }
+  if ((manifest.target.protocolRule === undefined) !==
+      (manifest.target.protocolHash === undefined)) {
+    throw new Trae2OpenCodeError("T2O_MIGRATION_MANIFEST_INVALID");
+  }
+  if (manifest.target.protocolRule !== undefined &&
+      protocolRuleById(manifest.target.protocolRule).dialect !==
+        openCodeDialectForVersion(manifest.target.binaryVersion)) {
     throw new Trae2OpenCodeError("T2O_MIGRATION_MANIFEST_INVALID");
   }
   const seen = new Set<string>();

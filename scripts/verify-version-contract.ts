@@ -1,4 +1,4 @@
-/** Reviewed releases and an unreviewed native binary must satisfy the actual protocol. */
+/** Current, legacy and unreviewed native binaries must satisfy their actual protocols. */
 import assert from "node:assert/strict";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -9,7 +9,9 @@ import { migrate, verifyMigration } from "../src/migration/executor.js";
 import { rollbackMigration } from "../src/migration/rollback.js";
 import { createMigrationTarget } from "../src/migration/target.js";
 import { requireOpenCodeCapabilities, probeOpenCodeCapabilities } from "../src/target/opencode/capability-probe.js";
-import { assertOpenCodeTransfer, TRANSFER_SCHEMA_HASH } from "../src/target/opencode/contract.js";
+import {
+  assertOpenCodeTransfer, LEGACY_TRANSFER_SCHEMA_HASH, TRANSFER_SCHEMA_HASH,
+} from "../src/target/opencode/contract.js";
 import { withIsolatedOpenCodeServer } from "../src/target/opencode/isolated-server.js";
 import {
   mapOpenCodeSession,
@@ -39,6 +41,7 @@ const adjacent = path.resolve(process.env.T2O_TEST_ADJACENT_BINARY ??
   "tmp/opencode-adjacent/node_modules/@opencode/cli/bin/opencode.exe");
 const current = process.env.T2O_TEST_OPENCODE_BINARY;
 const compatible = process.env.T2O_TEST_COMPATIBLE_BINARY;
+const legacy = process.env.T2O_TEST_V2_LEGACY_BINARY;
 let baselineReport: Record<string, unknown> | undefined;
 await withIsolatedOpenCodeServer({
   temporaryRoot: "tmp", ...(current ? { binary: path.resolve(current) } : {}),
@@ -93,7 +96,8 @@ await withIsolatedOpenCodeServer({ binary: adjacent, temporaryRoot: "tmp" }, asy
   assert.equal(capabilities.serverVersion, "2.0.11");
   assert.equal(capabilities.compatibility, "isolated-roundtrip");
   const plan = await buildMigrationPlan(await readBundleFile("fixtures/ir/v1/valid-trae-assembled.json"), {
-    dialect: capabilities.dialect, targetVersion: capabilities.binaryVersion!,
+    dialect: capabilities.dialect, protocolRule: capabilities.protocolRule!,
+    targetVersion: capabilities.binaryVersion!,
     fallbackDirectory: server.directory,
   });
   const target = createMigrationTarget({
@@ -178,10 +182,54 @@ if (compatible) {
   });
 }
 
+let legacyReport: Record<string, unknown> | undefined;
+if (legacy) {
+  await withIsolatedOpenCodeServer({
+    temporaryRoot: "tmp",
+    binary: path.resolve(legacy),
+  }, async (server) => {
+    const capabilities = await requireOpenCodeCapabilities(server.transport);
+    assert.equal(capabilities.binaryVersion, "2.0.0");
+    assert.equal(capabilities.serverVersion, "2.0.0");
+    assert.equal(capabilities.protocolRule, "v2-session-transfer-legacy");
+    assert.equal(capabilities.schemaHash, LEGACY_TRANSFER_SCHEMA_HASH);
+
+    const plan = await buildMigrationPlan(
+      await readBundleFile("fixtures/ir/v1/valid-trae-assembled.json"),
+      {
+        dialect: capabilities.dialect,
+        protocolRule: capabilities.protocolRule,
+        targetVersion: capabilities.binaryVersion!,
+        fallbackDirectory: server.directory,
+      },
+    );
+    const target = createMigrationTarget({
+      serverUrl: server.serverUrl, transport: server.transport, temporaryRoot: server.directory,
+    });
+    const outputDirectory = path.join(server.directory, "legacy-migration");
+    const first = await migrate(plan, target, { outputDirectory });
+    assert.equal(first.verified, 1);
+    assert.equal(first.hasFailures, false);
+    const manifest = path.join(outputDirectory, first.manifest);
+    assert.equal((await verifyMigration(manifest, target)).hasFailures, false);
+    assert.equal((await migrate(plan, target, { resumeManifest: manifest })).hasFailures, false);
+    assert.equal((await rollbackMigration(manifest, target, {
+      confirm: first.runId, exclusiveTarget: true,
+    })).hasFailures, false);
+    assert.equal(await target.readSession(plan.sessions[0].targetId), null);
+    legacyReport = {
+      version: capabilities.binaryVersion,
+      protocolRule: capabilities.protocolRule,
+      migration: true, verify: true, resume: true, rollback: true,
+    };
+  });
+}
+
 const report = {
   ...baselineReport,
   unreviewed: unreviewedReport,
   ...(compatibleReport ? { compatible: compatibleReport } : {}),
+  ...(legacyReport ? { legacy: legacyReport } : {}),
 };
 await fs.writeFile("tmp/m7-2-version-report.json", JSON.stringify(report, null, 2) + "\n");
 console.log(JSON.stringify(report));

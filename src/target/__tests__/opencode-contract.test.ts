@@ -7,7 +7,7 @@ import {
   openCodeDialectForVersion, isVerifiedOpenCodeVersion,
 } from "../opencode/contract.js";
 import {
-  OPENCODE_PROTOCOL_RULES, protocolRuleForVersion,
+  OPENCODE_PROTOCOL_RULES, protocolRuleForVersion, protocolRulesForVersion,
 } from "../opencode/protocol-rules.js";
 
 const schema = JSON.parse(readFileSync(new URL(
@@ -27,7 +27,10 @@ describe("OpenCode transfer contract", () => {
       assert.equal(openCodeDialectForVersion(version), "v1");
       assert.equal(isVerifiedOpenCodeVersion(version), false);
     }
-    for (const version of ["1.17.9", "1.18.32", "2.0.12", "2.0.16"]) {
+    for (const version of [
+      "1.16.0", "1.17.0", "1.17.9", "1.18.32",
+      "2.0.0", "2.0.12", "2.0.16",
+    ]) {
       assert.equal(isVerifiedOpenCodeVersion(version), true);
     }
     for (const version of [null, "", "3.0.0", "2.1.0-beta", "v2.0.12", "2.00.12", "2.0.12\n"]) {
@@ -44,6 +47,9 @@ describe("OpenCode transfer contract", () => {
       openapiRoute: rule.openapiRoute,
       operations: rule.operations.map(({ route, method }) => `${method.toUpperCase()} ${route}`),
       schemaProfile: rule.schemaProfile,
+      mappingProfile: rule.mappingProfile,
+      adapterProfile: rule.adapterProfile,
+      deletionProfile: rule.deletionProfile,
       transfer: rule.transfer,
     })), [
       {
@@ -54,6 +60,22 @@ describe("OpenCode transfer contract", () => {
           "GET /api/experimental/session/{sessionID}/export",
         ],
         schemaProfile: "v2-transfer",
+        mappingProfile: "v2-session-transfer",
+        adapterProfile: "v2-session-transfer",
+        deletionProfile: "v2-current",
+        transfer: "http",
+      },
+      {
+        id: "v2-session-transfer-legacy", dialect: "v2",
+        versionRoute: "/api/health", openapiRoute: "/openapi.json",
+        operations: [
+          "POST /api/session/import",
+          "GET /api/session/{sessionID}/export",
+        ],
+        schemaProfile: "v2-transfer-legacy",
+        mappingProfile: "v2-session-transfer",
+        adapterProfile: "v2-session-transfer-legacy",
+        deletionProfile: "v2-legacy",
         transfer: "http",
       },
       {
@@ -64,11 +86,35 @@ describe("OpenCode transfer contract", () => {
           "GET /session/{sessionID}/children",
         ],
         schemaProfile: "v1-session",
+        mappingProfile: "v1-session",
+        adapterProfile: "v1-cli-library",
+        deletionProfile: "v1",
+        transfer: "cli",
+      },
+      {
+        id: "v1-cli-library-legacy", dialect: "v1",
+        versionRoute: "/global/health", openapiRoute: "/doc",
+        operations: [
+          "DELETE /session/{sessionID}",
+          "GET /session/{sessionID}/children",
+        ],
+        schemaProfile: "v1-session-legacy",
+        mappingProfile: "v1-session",
+        adapterProfile: "v1-cli-library",
+        deletionProfile: "v1",
         transfer: "cli",
       },
     ]);
     assert.equal(protocolRuleForVersion("2.0.18")?.id, "v2-session-transfer");
     assert.equal(protocolRuleForVersion("1.18.31")?.id, "v1-cli-library");
+    assert.deepEqual(protocolRulesForVersion("2.0.0").map((rule) => rule.id), [
+      "v2-session-transfer",
+      "v2-session-transfer-legacy",
+    ]);
+    assert.deepEqual(protocolRulesForVersion("1.16.0").map((rule) => rule.id), [
+      "v1-cli-library",
+      "v1-cli-library-legacy",
+    ]);
     assert.equal(protocolRuleForVersion("3.0.0"), undefined);
   });
 

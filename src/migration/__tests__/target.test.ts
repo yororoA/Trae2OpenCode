@@ -1,8 +1,33 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createMigrationTarget } from "../target.js";
+import {
+  createMigrationTarget, migrationTargetDescriptorsMatch, type MigrationTargetDescriptor,
+} from "../target.js";
 
 describe("migration target", () => {
+  it("matches pre-profile descriptors only when their core target evidence is unchanged", () => {
+    const core = {
+      endpointHash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      binaryVersion: "2.0.12",
+      serverVersion: "2.0.12",
+      schemaHash: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      fingerprint: "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    } satisfies MigrationTargetDescriptor;
+    const current = {
+      ...core,
+      protocolRule: "v2-session-transfer" as const,
+      protocolHash: "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      fingerprint: "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    };
+    assert.equal(migrationTargetDescriptorsMatch(core, current), true);
+    assert.equal(migrationTargetDescriptorsMatch(
+      core, { ...current, schemaHash: current.protocolHash },
+    ), false);
+    assert.equal(migrationTargetDescriptorsMatch(
+      current, { ...current, protocolRule: "v2-session-transfer-legacy" },
+    ), false);
+  });
+
   it("rejects remote or credential-bearing URLs even with an injected transport", () => {
     const transport = {
       async run() { assert.fail("No process before endpoint validation"); },

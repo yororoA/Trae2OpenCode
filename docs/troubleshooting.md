@@ -59,7 +59,7 @@ macOS 的 `open -a "Trae CN" --args ...` 经 3.3.104 实机确认可能丢弃调
 | `T2O_OPENCODE_VERSION_UNSUPPORTED` | 版本格式、预发布或未知主版本不受支持；只探测稳定的 1.x/2.x |
 | `T2O_OPENCODE_COMPATIBILITY_BINARY_REQUIRED` | 未收录版本需要与目标服务完全同版本的 CLI；设置 `T2O_OPENCODE_BINARY` 或 `--binary` |
 | `T2O_OPENCODE_COMPATIBILITY_UNVERIFIED` | 协议一致但隔离导入、回读或删除验证未通过；尚未写入用户目标，使用已验证基线或报告版本与错误码 |
-| `T2O_OPENCODE_SCHEMA_UNSUPPORTED` | 实际 schema 与固定契约不同；保留 IR，等待经验证的 adapter |
+| `T2O_OPENCODE_SCHEMA_UNSUPPORTED` | 实际 schema 不匹配 current/legacy profile；保留 IR，升级目标或等待经验证的 adapter |
 | `T2O_OPENCODE_REQUEST_FAILED` | 检查 server 进程、端口和认证环境变量；server URL 不含凭据 |
 | `T2O_OPENCODE_MAPPING_REJECTED` | 源会话缺少完成时间/映射证据或包含不支持内容；不会补造字段 |
 | `T2O_OPENCODE_V1_UNSUPPORTED_STATE` | 源会话含 v1 无法在不编造数据的前提下保存的状态（如无法解析的回复对象）；改用 v2 目标或放弃该会话 |
@@ -72,6 +72,8 @@ macOS 的 `open -a "Trae CN" --args ...` 经 3.3.104 实机确认可能丢弃调
 
 未收录的稳定版本不再因版本号直接拒绝，但仍需通过 schema 兼容分析和隔离往返验证。
 类型、必填字段或现有枚举收窄等破坏性变化仍会拒绝。
+当前明确拒绝 v1 1.15.x（缺少所有权 metadata）及 1.14.x/更早版本（缺少完整可验证
+导入契约）；不要通过数据库直写绕过。
 `doctor` / `dry-run` 不会修改用户目标，会按需在独立临时库测试合成会话。
 详见[OpenCode 协议兼容性检测](opencode-compatibility.md)。
 
