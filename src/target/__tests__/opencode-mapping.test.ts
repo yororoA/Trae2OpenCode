@@ -10,6 +10,7 @@ import {
   MISSING_ASSISTANT_TEXT,
   MISSING_TOOL_ERROR_TEXT,
   MISSING_TOOL_OUTPUT_TEXT,
+  OPENCODE_MAPPING_VERSION,
 } from "../opencode/mapping.js";
 
 const fixture = JSON.parse(readFileSync(new URL(
@@ -59,7 +60,7 @@ describe("OpenCode IR mapping", () => {
     assert.equal(meta.status, "completed");
     assert.equal(
       ((transfer.info.metadata as JsonObject).trae2opencode as JsonObject).mappingVersion,
-      8,
+      OPENCODE_MAPPING_VERSION,
     );
     assert.deepEqual((meta.content as JsonObject[]).slice(0, 2),
       [{ completedAt: 1700000002000 }, { createdAt: 1700000001001 }]);
@@ -114,7 +115,10 @@ describe("OpenCode IR mapping", () => {
     assert.match(String(boundary.recent), /^\[Assistant\]: x+$/);
     assert.equal(Buffer.byteLength(String(boundary.recent), "utf8") <= 16 * 1024, true);
     assert.doesNotMatch(String(boundary.summary), /\[User\]|\[Assistant\]/);
-    assert.equal(((boundary.metadata as JsonObject).trae2opencode as JsonObject).mappingVersion, 8);
+    assert.equal(
+      ((boundary.metadata as JsonObject).trae2opencode as JsonObject).mappingVersion,
+      OPENCODE_MAPPING_VERSION,
+    );
     assert.ok(diagnostics.some((item) =>
       item.code === "T2O_OPENCODE_CONTINUATION_BOUNDARY"));
   });
@@ -389,6 +393,35 @@ describe("OpenCode IR mapping", () => {
     bundle.diagnostics[0].severity = "error";
     bundle.diagnostics[0].subject = { type: "bundle" };
     assert.throws(() => map(bundle), expectedRejection);
+  });
+
+  it("projects contradictory source completion time for partial sessions and preserves evidence", () => {
+    const bundle = structuredClone(fixture);
+    const event = assistant(bundle);
+    assert.ok(event.createdAt !== undefined);
+    const createdAt = event.createdAt;
+    event.completedAt = createdAt - 1_000;
+    assert.throws(() => map(bundle), expectedRejection);
+
+    bundle.sessions[0].recovery = "partial";
+    const projected = map(bundle);
+    const message = projected.transfer.messages[1];
+    assert.deepEqual(message.time, {
+      created: createdAt,
+      completed: createdAt,
+    });
+    const metadata = (message.metadata as JsonObject).trae2opencode as JsonObject;
+    assert.deepEqual(metadata.timeProjection, {
+      reason: "source-completion-precedes-creation",
+      source: { created: createdAt, completed: createdAt - 1_000 },
+      target: { created: createdAt, completed: createdAt },
+    });
+    assert.ok(projected.diagnostics.some(
+      (item) => item.code === "T2O_OPENCODE_EVENT_TIME_PROJECTED",
+    ));
+    const marker =
+      (projected.transfer.info.metadata as JsonObject).trae2opencode as JsonObject;
+    assert.deepEqual(marker.projectedSourceCodes, ["T2O_IR_EVENT_TIME_INVALID"]);
   });
 
   it("rejects duplicate message ids and projects broken replies only for partial sessions", () => {

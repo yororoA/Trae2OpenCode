@@ -3,12 +3,13 @@ import type { Diagnostic, JsonObject, JsonValue, MigrationBundle } from "../../.
 import { Trae2OpenCodeError } from "../../../shared/errors.js";
 import { isRecord } from "../contract.js";
 import {
-  mapOpenCodeSession, type OpenCodeMapping, type OpenCodeMappingOptions, type OpenCodeSession,
+  mapOpenCodeSession, OPENCODE_MAPPING_VERSION, type OpenCodeMapping,
+  type OpenCodeMappingOptions, type OpenCodeSession,
 } from "../mapping.js";
 import { assertOpenCodeV1Session } from "./contract.js";
 
 /** v1 uses role-based messages with native `parts`, so message metadata has no home there. */
-export const V1_MAPPING_VERSION = 8;
+export const V1_MAPPING_VERSION = OPENCODE_MAPPING_VERSION;
 
 export interface OpenCodeV1Session extends OpenCodeSession {
   info: JsonObject & {
@@ -262,6 +263,9 @@ export function mapOpenCodeV1Session(
       replyToSourceId: text(sourceMarker.replyToSourceId) ?? null,
       replyReferenceStatus: text(sourceMarker.replyReferenceStatus) ?? null,
       status: text(sourceMarker.status) ?? null,
+      ...(isRecord(sourceMarker.timeProjection)
+        ? { timeProjection: sourceMarker.timeProjection as JsonObject }
+        : {}),
       ...(Array.isArray(sourceMarker.content) ? { content: sourceMarker.content } : {}),
     });
     if (text(message.type) === "user") {

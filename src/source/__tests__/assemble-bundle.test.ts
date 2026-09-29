@@ -112,6 +112,50 @@ describe("assembleTraeMigrationBundle", () => {
     );
   });
 
+  it("keeps subagent turns recoverable with null empty tool placeholders and source time evidence", () => {
+    const options = input();
+    const assistant = messages(options)[0];
+    assistant.agent_type = "solo_agent";
+    assistant.created_at = 1_700_000_010;
+    assistant.chat_start_time = 1_700_000_001_000;
+    assistant.chat_end_time = 1_700_000_004_000;
+    assistant.content = {
+      messages: [
+        {
+          type: "plan_item",
+          plan_item: {
+            id: "plan-subagent",
+            agent_run_id: "run-subagent",
+            sub_agent_call_description: "Synthetic subagent task.",
+            thought: "Synthetic persisted progress.",
+            tool_call_info: {
+              id: "placeholder-subagent",
+              name: "",
+              params: null,
+              result: {},
+              already_emitted_generating_event: false,
+              already_emitted_run_event: false,
+            },
+          },
+        },
+      ],
+    };
+
+    const bundle = assembleTraeMigrationBundle(options);
+    const session = bundle.sessions[0];
+    assert.equal(session.recovery, "partial");
+    const event = session.events[1];
+    assert.equal(event.type, "assistant");
+    if (event.type !== "assistant") throw new Error("fixture shape changed");
+    assert.equal(event.content.some((block) => block.type === "tool"), false);
+    assert.ok(bundle.diagnostics.some(
+      (diagnostic) => diagnostic.code === "T2O_IR_EVENT_TIME_INVALID",
+    ));
+    assert.equal(bundle.diagnostics.some(
+      (diagnostic) => diagnostic.code === "T2O_TRAE_TOOL_CALL_INVALID",
+    ), false);
+  });
+
   it("deduplicates identical runtime observations without changing the IR", () => {
     const options = input();
     const expected = assembleTraeMigrationBundle(options);
