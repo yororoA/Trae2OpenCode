@@ -327,9 +327,14 @@ npm install -g @opencode/cli@2.0.16
 或出现无法安全脱敏的字段。保留本地产物，阅读[故障排查](troubleshooting.md)中对应的
 `T2O_*` 错误码；不要通过编辑 JSON 补造字段。
 
-当前 mapping v9 能识别 subagent 历史中的空工具占位符；TRAE 若为这类历史保留了
-早于消息创建时间的实际执行窗口，迁移会显式归一目标时间，并将原始时间和投影原因
-保存在 metadata 中。其他缺失时间、无效身份或无法验证的工具数据仍会安全停止。
+当前 mapping v10 会根据同一 assistant 消息中一致的 `agent_run_id`、
+`parent_agent_run_ids`、agent、任务描述和完成状态，将可验证的直接 subagent 调用
+重建为 OpenCode 原生子会话。父消息同时生成 `subagent` 工具卡并通过
+`metadata.sessionID` 指向子会话；选择根会话时，这些派生子会话会自动加入迁移计划。
+
+空工具占位符不会被误判为工具调用。TRAE 若保留了早于消息创建时间的实际执行窗口，
+迁移仍会显式归一目标时间，并将原始时间和投影原因保存在 metadata 中。跨多个 assistant
+消息重复出现、嵌套关系尚未验证、身份冲突或没有完成证据的 run 不会被强行拆分。
 
 ### 看到“已自动将疑似凭据替换为脱敏占位符”
 
@@ -347,7 +352,7 @@ bundle 内容来缩小文件。
 
 这是旧 mapping v6 生成的无序消息 ID 或无界历史上下文造成的兼容问题。更新本仓库后
 重新运行 `npm run migrate:local`，选择同一会话并按提示输入 `OVERWRITE`，让工具以
-当前 mapping v9 重新导入。v9 延续 v8 的 checkpoint 设计，并将角色化上下文放入不直接展示的 `recent`
+当前 mapping v10 重新导入。v10 延续 v9 的 checkpoint 设计，并将角色化上下文放入不直接展示的 `recent`
 字段，避免 `[User]`、`[Assistant]` 摘录在时间线中重复显示。
 
 如果该目标会话已在 OpenCode 中继续过对话，受保护覆盖会拒绝删除它。先保留或导出新增

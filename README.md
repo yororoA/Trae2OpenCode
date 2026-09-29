@@ -6,8 +6,9 @@
 2. 在本仓库根目录运行 `npm run migrate:local`。
 3. 按编号选择窗口和一个或多个会话，等待批量迁移完成。
 
-工具会自动导出、脱敏、检查兼容性、导入、回读核验，并在中断后安全续跑。不会要求输入
-workbench ID 或 session ID。
+工具会自动导出、脱敏、检查兼容性、导入、回读核验，并在中断后安全续跑。可验证的
+TRAE subagent 调用会重建为 OpenCode 原生父子会话，并在父时间线中显示 Agent 工具卡。
+不会要求输入 workbench ID 或 session ID。
 
 支持在 **macOS 与 Windows** 上直接读取本机 TRAE 会话，并按目标版本自动选择
 OpenCode **v1 或 v2 协议**。
@@ -153,7 +154,8 @@ npm run migrate:local -n  # 自动跳过需要 OVERWRITE 的会话
 1. 为每个所选会话创建独立 bundle 和 manifest。
 2. 自动剥离正文、标题和工具 payload 中已识别的凭据。
 3. 在真正写入前检查迁移完整性和 OpenCode 兼容性。
-4. 逐个导入到 OpenCode，并回读消息、reasoning、工具记录和 hash；单个失败不阻止后续会话。
+4. 逐个导入到 OpenCode，并回读消息、reasoning、工具记录、subagent 父子关系和 hash；
+   单个失败不阻止后续会话。
 5. 成功后保留最新迁移记录，清理同一会话已被替代的旧终态记录。
 
 如果目标中已存在同一来源会话，并且本地保留着本工具上次成功迁移的 manifest，程序会

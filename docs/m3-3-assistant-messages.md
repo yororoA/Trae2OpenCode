@@ -52,11 +52,13 @@ provider 支持与 M3-2 相同的数组、`messages`、`items`、`data.messages`
 | `message_type = general` | `content.content` |
 | task proposal | `content.messages[].proposal.content.thought`，保持块顺序 |
 | task chat / solo agent 进度 | 所有非空 `plan_item.thought`，保持块顺序 |
-| task chat / solo agent 最终回复 | 最后一个 `Finish` / `response_to_user` 的 `params.summary` |
+| task chat / solo agent 最终回复 | 按工具调用身份去重后的 `Finish` / `response_to_user` `params.summary` |
 
 `content` 可为 JSON 字符串或等价对象。每个正文块保留字段 locator 和内容
 SHA-256。进度 thought 与最终 summary 均保留；两者文本完全相同时只保留
-summary，避免重复显示同一段最终输出。
+summary，避免重复显示同一段最终输出。mapping v10 会在后续 assembly 中按
+`agent_run_id` 将已验证 subagent 的正文块移入派生子会话，主会话只保留原生
+subagent 工具引用。
 
 `reasoning_content` 不进入 M3-3 正文。`agent_type` 既不是 `chat` 也不是
 `solo_agent` 的 task，其普通 `plan_item.thought` 仍不映射；它们由 M3-4 按

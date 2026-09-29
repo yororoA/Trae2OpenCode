@@ -18,6 +18,11 @@ order 会生成不同 ID，防止把改变顺序的消息误认成原目标。
 `T2O_OPENCODE_IDENTITY_INVALID` 拒绝。父会话是否已成功写入由 import adapter
 再次检查。
 
+mapping v10 使用来源 session ID 与 `agent_run_id` 的哈希作为派生 subagent
+`SessionIR.sourceId`，因此相同 run 重跑会得到稳定的 OpenCode 子会话 ID。父消息中的
+原生 `subagent` 工具块引用完整身份映射中的目标子会话 ID；映射缺失或父子关系不一致时
+拒绝父会话写入。
+
 2026-09-24 验证：新增 6 项单测首轮通过，覆盖更新稳定性、namespace 与 tuple
 隔离、父排序、缺失/环/重复、12,000 层深链及空集合。深链无递归栈溢出。
 累计 226 项测试；完整质量门禁通过。
