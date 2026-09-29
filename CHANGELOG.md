@@ -6,6 +6,15 @@ independent of IR, manifest, mapping, and verification-report format versions.
 Released entries are generated from Conventional Commits by release-please. Feature
 pull requests do not add an `Unreleased` section or edit the product version manually.
 
+## [1.3.1](https://github.com/yororoA/Trae2OpenCode/compare/v1.3.0...v1.3.1) (2026-09-29)
+
+
+### Documentation
+
+* **readme:** 优化文档视觉层级 ([4ba1af8](https://github.com/yororoA/Trae2OpenCode/commit/4ba1af8807a068707ede93d60d444c715e13adb9))
+* **readme:** 优化样式并添加多语言版本 ([#32](https://github.com/yororoA/Trae2OpenCode/issues/32)) ([304b7c2](https://github.com/yororoA/Trae2OpenCode/commit/304b7c27f0675b9aa002635d3884d9cbf8fbad4d))
+* **readme:** 添加多语言文档 ([4b2d724](https://github.com/yororoA/Trae2OpenCode/commit/4b2d72488b3f0812e97f8bfc70679b7618d36449))
+
 ## [1.3.0](https://github.com/yororoA/Trae2OpenCode/compare/v1.2.0...v1.3.0) (2026-09-29)
 
 
