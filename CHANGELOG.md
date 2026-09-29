@@ -6,6 +6,24 @@ independent of IR, manifest, mapping, and verification-report format versions.
 Released entries are generated from Conventional Commits by release-please. Feature
 pull requests do not add an `Unreleased` section or edit the product version manually.
 
+## [1.3.0](https://github.com/yororoA/Trae2OpenCode/compare/v1.2.0...v1.3.0) (2026-09-29)
+
+
+### Added
+
+* **opencode:** 支持旧版协议profile迁移 ([be5d537](https://github.com/yororoA/Trae2OpenCode/commit/be5d537db29f6acc135f2e60fc860449657e0cd2))
+* **opencode:** 支持旧版协议向后兼容 ([#29](https://github.com/yororoA/Trae2OpenCode/issues/29)) ([4da31d0](https://github.com/yororoA/Trae2OpenCode/commit/4da31d084165f89e62b6142d4d5467c5cfc9779c))
+
+
+### Fixed
+
+* **opencode:** 使用目标平台规则解析POSIX启动器 ([357582a](https://github.com/yororoA/Trae2OpenCode/commit/357582ad22e4c596d1fa0fffd5b70f4fc31dc46d))
+
+
+### Documentation
+
+* **opencode:** 说明旧协议支持与拒绝边界 ([ff8c8ca](https://github.com/yororoA/Trae2OpenCode/commit/ff8c8ca116ada4ca6dff6ad84009b202aada27ae))
+
 ## [1.2.0](https://github.com/yororoA/Trae2OpenCode/compare/v1.1.0...v1.2.0) (2026-09-28)
 
 
