@@ -207,6 +207,7 @@ interface SessionIR {
   title?: string
   projectPath?: string
   parentSourceId?: string
+  derivedFromSourceSessionId?: string
   createdAt?: number
   updatedAt?: number
   recovery: "complete" | "partial" | "metadata-only" | "unrecoverable"
@@ -216,9 +217,10 @@ interface SessionIR {
 }
 
 type AssistantContentIR =
-  | { type: "text"; text: string }
+  | { type: "text"; text: string; presentation?: "progress" | "response" }
   | { type: "reasoning"; text: string; createdAt?: number; completedAt?: number }
   | { type: "tool"; callId: string; name: string; input: unknown; output?: unknown;
+      childSessionSourceId?: string;
       status: "running" | "completed" | "error"; createdAt?: number;
       completedAt?: number }
 ```

@@ -35,6 +35,7 @@
 | tool error | `result.error_message/error_variant` | error tool result | diagnostic；待非空错误 payload fixture |
 | assistant completion time | runtime `chat_end_time` | assistant `completedAt` | map；缺失时仍 reject-import |
 | message timestamps | runtime `created_at`、`chat_start_time`、`chat_end_time` | event/content timestamps | map |
+| direct subagent run | `agent_run_id`、`parent_agent_run_ids`、agent、任务描述、状态与 timing | 派生 `SessionIR`、`parentSourceId`、父消息 subagent tool | map；仅唯一、一致、已完成且不跨消息的直接子调用 |
 | attachments/long text | `paste-files/`、`long-text/` 候选路径 | `resources` / content refs | deferred；归属和内容关联未验证 |
 
 `map` 表示证据允许实现字段转换，不表示转换器已经交付。生产 reader 必须使用
@@ -52,6 +53,7 @@ schema 字段名和 renderer 日志都不能替代该读取路径。
 | completed tool | `state.status = "completed"`、`input`、`content[]` | call ID、名称、输入、输出、终态完整 | 仅有退出码时 diagnostic |
 | failed tool | `state.status = "error"`、`input`、`error` | 错误 payload 与调用关联完整 | 不根据非零退出码编造错误正文 |
 | active tool | `running` / `streaming` | 源状态真实，且所属 assistant 有真实完成时间 | 不修改状态；assistant 未完成则拒绝导入 |
+| subagent tool | `name = "subagent"`、`state.metadata.sessionID` | 子会话目标 ID 已在完整身份映射中确定 | 缺失或不匹配时拒绝父会话映射 |
 | parent session | `info.parentID` | 父会话已成功导入并完成 ID 映射 | 父会话不存在时拒绝子会话 |
 | project metadata | target `projectID`、`subpath` | 由 import 目录投影 | manifest 记录源值和目标差异 |
 | updated time/model variant | target 重算字段 | 仅用于 readback 对账 | 不覆盖源 metadata |

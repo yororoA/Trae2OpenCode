@@ -30,6 +30,7 @@ export interface OpenCodeTransfer extends OpenCodeSession {
 export interface OpenCodeMappingOptions {
   sessionId: string;
   messageIds: ReadonlyMap<string, string>;
+  sessionIds?: ReadonlyMap<string, string>;
   parentId?: string;
   directory: string;
 }
@@ -47,8 +48,10 @@ export const MISSING_ASSISTANT_TEXT =
   "[TRAE assistant response ended before final text was persisted]";
 export const MAX_CONTINUATION_CONTEXT_BYTES = 192 * 1024;
 export const MAX_CONTINUATION_RECENT_BYTES = 16 * 1024;
+export const OPENCODE_MAPPING_VERSION = 10;
 
 const PARTIAL_PROJECTION_CODES = new Set([
+  "T2O_IR_EVENT_TIME_INVALID",
   "T2O_IR_REPLY_REFERENCE_INVALID",
   "T2O_TRAE_TOOL_CALL_INVALID",
   "T2O_TRAE_TOOL_ERROR_UNVERIFIED",
@@ -95,8 +98,44 @@ function concernsSession(issue: Diagnostic, session: SessionIR): boolean {
 }
 
 function concernsEvent(issue: Diagnostic, event: EventIR): boolean {
+  const eventRefs = new Set(event.sourceRefs.map((ref) =>
+    hashCanonicalJson(ref as unknown as JsonValue)));
   return (issue.subject?.type === "event" && issue.subject.sourceId === event.sourceId) ||
-    issue.context?.sourceMessageId === event.sourceId;
+    issue.context?.sourceMessageId === event.sourceId ||
+    issue.sourceRefs.some((ref) => eventRefs.has(hashCanonicalJson(ref as unknown as JsonValue)));
+}
+
+interface EventTimeProjection {
+  created: number;
+  completed: number;
+  sourceCompleted: number;
+}
+
+function projectedAssistantTime(
+  session: SessionIR,
+  event: Extract<EventIR, { type: "assistant" }>,
+  issues: Diagnostic[],
+  field: string,
+  diagnostics: Diagnostic[],
+): EventTimeProjection | undefined {
+  const createdAt = event.createdAt;
+  if (createdAt === undefined) reject(session, `${field}.createdAt`);
+  if (event.completedAt === undefined || event.completedAt >= createdAt) return undefined;
+  const hasInvalidSourceTime = session.recovery === "partial" &&
+    issues.some((issue) =>
+      issue.code === "T2O_IR_EVENT_TIME_INVALID" && concernsEvent(issue, event));
+  if (!hasInvalidSourceTime) reject(session, `${field}.time`);
+  diagnostics.push(diagnostic(
+    session,
+    "T2O_OPENCODE_EVENT_TIME_PROJECTED",
+    "A source completion time preceded its creation time; the target completion was clamped while the source values remain in metadata.",
+    `${field}.time`,
+  ));
+  return {
+    created: createdAt,
+    completed: createdAt,
+    sourceCompleted: event.completedAt,
+  };
 }
 
 function hasErrorPayload(value: JsonValue | undefined): boolean {
@@ -181,18 +220,23 @@ function projectToolPresentation(block: Extract<AssistantContentIR, { type: "too
 }
 
 function isTaskProgressText(block: AssistantContentIR): boolean {
-  return block.type === "text" && block.sourceRefs.some((ref) =>
+  if (block.type !== "text") return false;
+  if (block.presentation) return block.presentation === "progress";
+  return block.sourceRefs.some((ref) =>
     ref.locator.type === "runtime-field" &&
     ref.locator.value.endsWith(".plan_item.thought"));
 }
 
 function mapContent(
   block: AssistantContentIR,
+  bundle: MigrationBundle,
   session: SessionIR,
+  options: OpenCodeMappingOptions,
   field: string,
   diagnostics: Diagnostic[],
 ): JsonObject | undefined {
-  if (!hasVerifiedRuntimeRefs(block.sourceRefs, session.sourceId)) reject(session, `${field}.sourceRefs`);
+  const evidenceSourceId = session.derivedFromSourceSessionId ?? session.sourceId;
+  if (!hasVerifiedRuntimeRefs(block.sourceRefs, evidenceSourceId)) reject(session, `${field}.sourceRefs`);
   const time = block.createdAt === undefined ? undefined : {
     created: block.createdAt,
     ...(block.completedAt === undefined ? {} : { completed: block.completedAt }),
@@ -224,6 +268,15 @@ function mapContent(
   }
   if (!isRecord(block.input)) reject(session, `${field}.input`);
   const presentation = projectToolPresentation(block);
+  let linkedSessionId: string | undefined;
+  if (block.childSessionSourceId) {
+    const child = bundle.sessions.find((candidate) =>
+      candidate.sourceId === block.childSessionSourceId);
+    linkedSessionId = options.sessionIds?.get(block.childSessionSourceId);
+    if (block.name !== "subagent" || block.status !== "completed" ||
+      child?.parentSourceId !== session.sourceId ||
+      !linkedSessionId) reject(session, `${field}.childSessionSourceId`);
+  }
   if (block.status === "running" || block.status === "unknown") {
     const hasPreservedPayload = block.output !== undefined || hasErrorPayload(block.error);
     const outputProjectedToShell = presentation.name === "shell" &&
@@ -320,12 +373,18 @@ function mapContent(
     state: {
       status: "completed", input: presentation.input,
       content: [{ type: "text", text: output.text }],
-      metadata: { trae2opencode: {
-        ...presentation.metadata,
-        outputEncoding: output.encoding,
-        outputSha256: output.sha256,
-        ...(sourceOutputMissing ? { sourceOutputMissing: true } : {}),
-      } },
+      metadata: {
+        ...(linkedSessionId ? { sessionID: linkedSessionId, status: "completed" } : {}),
+        trae2opencode: {
+          ...presentation.metadata,
+          outputEncoding: output.encoding,
+          outputSha256: output.sha256,
+          ...(sourceOutputMissing ? { sourceOutputMissing: true } : {}),
+          ...(block.childSessionSourceId
+            ? { childSessionSourceId: block.childSessionSourceId }
+            : {}),
+        },
+      },
     },
   };
 }
@@ -336,7 +395,11 @@ function hasValidReply(session: SessionIR, event: EventIR): boolean {
   return reply?.type === "user" && reply.order < event.order;
 }
 
-function eventMetadata(event: EventIR, validReply: boolean): JsonObject {
+function eventMetadata(
+  event: EventIR,
+  validReply: boolean,
+  timeProjection?: EventTimeProjection,
+): JsonObject {
   const deferredContent = event.type === "assistant"
     ? event.content.flatMap((block, sourceIndex) =>
       block.type === "tool" && block.createdAt === undefined
@@ -354,6 +417,13 @@ function eventMetadata(event: EventIR, validReply: boolean): JsonObject {
     ...(event.type === "assistant" ? {
       status: event.status,
       unknownSourceFields: ["agent", "model"],
+      ...(timeProjection ? {
+        timeProjection: {
+          reason: "source-completion-precedes-creation",
+          source: { created: timeProjection.created, completed: timeProjection.sourceCompleted },
+          target: { created: timeProjection.created, completed: timeProjection.completed },
+        },
+      } : {}),
       // Text has no native time field; the parallel metadata preserves every block's time.
       content: event.content.map((block) => ({
         ...(block.createdAt === undefined ? {} : { createdAt: block.createdAt }),
@@ -479,7 +549,7 @@ function addContinuationBoundaries(
       summary: "",
       recent: retainedContext,
       metadata: { trae2opencode: {
-        mappingVersion: 8,
+        mappingVersion: OPENCODE_MAPPING_VERSION,
         kind: "continuation-boundary",
         activeContextBytes: activeBytes,
       } },
@@ -551,7 +621,8 @@ export function mapOpenCodeSession(
   }
   const sourceMessages = session.events.map((event, index): JsonObject => {
     const field = `events[${index}]`;
-    if (!hasVerifiedRuntimeRefs(event.sourceRefs, session.sourceId)) reject(session, `${field}.sourceRefs`);
+    const evidenceSourceId = session.derivedFromSourceSessionId ?? session.sourceId;
+    if (!hasVerifiedRuntimeRefs(event.sourceRefs, evidenceSourceId)) reject(session, `${field}.sourceRefs`);
     if (event.createdAt === undefined) reject(session, `${field}.createdAt`);
     const validReply = hasValidReply(session, event);
     if (event.type === "assistant" && !validReply) {
@@ -562,9 +633,12 @@ export function mapOpenCodeSession(
         `${field}.replyToSourceId`,
       ));
     }
+    const timeProjection = event.type === "assistant"
+      ? projectedAssistantTime(session, event, issues, field, diagnostics)
+      : undefined;
     const common = {
       id: targetIds[index]!,
-      metadata: { trae2opencode: eventMetadata(event, validReply) },
+      metadata: { trae2opencode: eventMetadata(event, validReply, timeProjection) },
     };
     if (event.type === "user") {
       return { ...common, type: "user", time: { created: event.createdAt }, text: event.text };
@@ -583,7 +657,7 @@ export function mapOpenCodeSession(
     }
     const content: JsonObject[] = [];
     event.content.forEach((block, i) => {
-      const mapped = mapContent(block, session, `${field}.content[${i}]`, diagnostics);
+      const mapped = mapContent(block, bundle, session, options, `${field}.content[${i}]`, diagnostics);
       if (!mapped) return;
       content.push(mapped);
     });
@@ -602,7 +676,10 @@ export function mapOpenCodeSession(
     }
     return {
       ...common, type: "assistant",
-      time: { created: event.createdAt, completed: event.completedAt },
+      time: {
+        created: timeProjection?.created ?? event.createdAt,
+        completed: timeProjection?.completed ?? event.completedAt,
+      },
       agent: "trae-import-unknown",
       model: { id: "unknown", providerID: "trae-import-unknown" },
       ...(event.status === "error" || projectsUnknownState
@@ -621,11 +698,14 @@ export function mapOpenCodeSession(
       time: { created: session.createdAt, updated: session.updatedAt },
       location: { directory: options.directory },
       metadata: { trae2opencode: {
-        mappingVersion: 8, sourceSessionId: session.sourceId,
+        mappingVersion: OPENCODE_MAPPING_VERSION, sourceSessionId: session.sourceId,
         sourceSessionSha256: hashCanonicalJson(session as unknown as JsonValue),
         unknownSourceFields: ["cost", "tokens", "agent", "model"],
         resourceCount: session.resources.length,
         sourceRecovery: session.recovery,
+        ...(session.derivedFromSourceSessionId
+          ? { derivedFromSourceSessionId: session.derivedFromSourceSessionId }
+          : {}),
         sourceDiagnosticCodes: [...new Set(issues.map((issue) => issue.code))].sort(),
         ...(projectedSourceCodes.length > 0 ? { projectedSourceCodes } : {}),
       } },

@@ -35,7 +35,21 @@ export function validateMigrationBundleIntegrity(value: unknown): Diagnostic[] {
     if (session.parentSourceId && !sessions.has(session.parentSourceId)) {
       report("T2O_IR_PARENT_REFERENCE_MISSING", "An IR session refers to an absent parent.");
     }
+    if (session.derivedFromSourceSessionId && !sessions.has(session.derivedFromSourceSessionId)) {
+      report("T2O_IR_DERIVED_SOURCE_MISSING", "An IR session refers to an absent evidence source session.");
+    }
     if (parentCycles.has(session.sourceId)) report("T2O_IR_PARENT_CYCLE", "IR parent relationships contain a cycle.");
+    const ancestors = new Set<string>();
+    let ancestor = session.parentSourceId;
+    while (ancestor !== undefined && !ancestors.has(ancestor)) {
+      ancestors.add(ancestor);
+      ancestor = sessions.get(ancestor)?.parentSourceId;
+    }
+    if (session.derivedFromSourceSessionId &&
+      !ancestors.has(session.derivedFromSourceSessionId)) {
+      report("T2O_IR_DERIVED_SOURCE_INVALID", "An IR evidence source session is not an ancestor.");
+    }
+    const evidenceSourceId = session.derivedFromSourceSessionId ?? session.sourceId;
     const invalidSessionTime = session.createdAt !== undefined && session.updatedAt !== undefined &&
       session.updatedAt < session.createdAt;
     if (invalidSessionTime) report("T2O_IR_SESSION_TIME_INVALID", "IR session timestamps are inconsistent.");
@@ -52,7 +66,7 @@ export function validateMigrationBundleIntegrity(value: unknown): Diagnostic[] {
       }
       previousOrder = event.order;
       const hasForeignSource = event.sourceRefs.some((ref) =>
-        ref.sourceSessionId !== null && ref.sourceSessionId !== session.sourceId);
+        ref.sourceSessionId !== null && ref.sourceSessionId !== evidenceSourceId);
       if (hasForeignSource) eventIssue("T2O_IR_EVENT_SOURCE_MISMATCH", "An IR event source belongs to another session.");
       if (event.type !== "assistant") continue;
       const reply = event.replyToSourceId ? events.get(event.replyToSourceId) : undefined;
@@ -67,7 +81,8 @@ export function validateMigrationBundleIntegrity(value: unknown): Diagnostic[] {
         const invalidTime = block.createdAt !== undefined && block.completedAt !== undefined &&
           block.completedAt < block.createdAt;
         if (invalidTime) eventIssue("T2O_IR_CONTENT_TIME_INVALID", "IR content timestamps are inconsistent.");
-        if (block.sourceRefs.some((ref) => ref.sourceSessionId !== null && ref.sourceSessionId !== session.sourceId)) {
+        if (block.sourceRefs.some((ref) =>
+          ref.sourceSessionId !== null && ref.sourceSessionId !== evidenceSourceId)) {
           eventIssue("T2O_IR_CONTENT_SOURCE_MISMATCH", "An IR content source belongs to another session.");
         }
       }

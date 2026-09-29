@@ -25,7 +25,8 @@ describe("TRAE parser profile definitions", () => {
     assert.equal(workspace.sourceKind, "workspace");
     assert.equal(runtime.verification, "verified");
     assert.deepStrictEqual(runtime.capabilities, [
-      "runtime-metadata", "user-messages", "assistant-messages", "reasoning-plan", "tool-calls",
+      "runtime-metadata", "user-messages", "assistant-messages", "reasoning-plan",
+      "subagent-runs", "tool-calls",
     ]);
     assert.deepStrictEqual(workspace.capabilities, ["session-metadata", "query-cache", "resources"]);
   });

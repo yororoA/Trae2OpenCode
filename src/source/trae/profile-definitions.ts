@@ -14,6 +14,7 @@ export type TraeParserCapability =
   | "user-messages"
   | "assistant-messages"
   | "reasoning-plan"
+  | "subagent-runs"
   | "tool-calls";
 
 export interface TraeParserProfile extends Readonly<ParserProfileRef> {
@@ -44,7 +45,8 @@ const PROFILES: readonly TraeParserProfile[] = Object.freeze([
     sourceKind: "runtime" as const,
     verification: "verified" as const,
     capabilities: Object.freeze([
-      "runtime-metadata", "user-messages", "assistant-messages", "reasoning-plan", "tool-calls",
+      "runtime-metadata", "user-messages", "assistant-messages", "reasoning-plan",
+      "subagent-runs", "tool-calls",
     ] as const),
   }),
   ...["trae-cn-memento-v1", "trae-cn-hybrid"].map((id): TraeParserProfile => Object.freeze({

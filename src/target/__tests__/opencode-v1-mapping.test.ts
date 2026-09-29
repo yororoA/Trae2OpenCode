@@ -78,6 +78,32 @@ describe("OpenCode v1 IR mapping", () => {
     assert.deepEqual((parts[3].state as JsonObject).time, { start: 1700000002000, end: 1700000003000 });
   });
 
+  it("keeps source time evidence when normalizing a contradictory partial turn", () => {
+    const bundle = structuredClone(fixture);
+    bundle.sessions[0].recovery = "partial";
+    const event = bundle.sessions[0].events[1];
+    if (event?.type !== "assistant") throw new Error("fixture shape changed");
+    assert.ok(event.createdAt !== undefined);
+    const createdAt = event.createdAt;
+    event.completedAt = createdAt - 1_000;
+
+    const { transfer, diagnostics } = map(bundle);
+    const assistant = infoOf(transfer.messages[1]);
+    assert.deepEqual(assistant.time, {
+      created: createdAt,
+      completed: createdAt,
+    });
+    const sourceEvent = (markerOf(transfer.info).events as JsonObject[])[1];
+    assert.deepEqual(sourceEvent.timeProjection, {
+      reason: "source-completion-precedes-creation",
+      source: { created: createdAt, completed: createdAt - 1_000 },
+      target: { created: createdAt, completed: createdAt },
+    });
+    assert.ok(diagnostics.some(
+      (item) => item.code === "T2O_OPENCODE_EVENT_TIME_PROJECTED",
+    ));
+  });
+
   it("carries per-event provenance on the session because v1 messages have no metadata", () => {
     const { transfer } = map();
     const marker = markerOf(transfer.info);

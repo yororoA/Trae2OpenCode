@@ -128,6 +128,13 @@ export {
   type TraeReasoningPlanReport,
 } from "./reasoning-plan.js";
 export {
+  parseTraeSubagentRuns,
+  type TraeSubagentRun,
+  type TraeSubagentRunIssue,
+  type TraeSubagentRunIssueCode,
+  type TraeSubagentRunReport,
+} from "./subagent-runs.js";
+export {
   parseTraeToolCalls,
   type TraeToolCall,
   type TraeToolIssue,

@@ -162,7 +162,20 @@ export function bundleMatchesSession(
   bundle: MigrationBundle,
   sourceSessionId: string,
 ): boolean {
-  return bundle.sessions.length === 1 && bundle.sessions[0].sourceId === sourceSessionId;
+  const byId = new Map(bundle.sessions.map((session) => [session.sourceId, session]));
+  if (byId.size !== bundle.sessions.length || !byId.has(sourceSessionId)) return false;
+  return bundle.sessions.every((session) => {
+    if (session.sourceId === sourceSessionId) return true;
+    if (session.derivedFromSourceSessionId !== sourceSessionId) return false;
+    const visited = new Set<string>();
+    let parentId = session.parentSourceId;
+    while (parentId !== undefined && !visited.has(parentId)) {
+      if (parentId === sourceSessionId) return true;
+      visited.add(parentId);
+      parentId = byId.get(parentId)?.parentSourceId;
+    }
+    return false;
+  });
 }
 
 /** Release only an empty leaf so the exporter can claim it exclusively. */
@@ -216,22 +229,42 @@ export function isTerminalManifestForSession(
   sourceSessionId: string,
 ): boolean {
   const terminalStates = new Set(["verified", "skipped", "excluded", "blocked", "rolled-back"]);
-  return manifest.sessions.length > 0 &&
-    manifest.sessions.every((item) =>
-      item.sourceId === sourceSessionId && terminalStates.has(item.state));
+  return manifestMatchesSessionGraph(manifest, sourceSessionId) &&
+    manifest.sessions.every((item) => terminalStates.has(item.state));
 }
 
 export function isReplacementManifestForSession(
   manifest: MigrationManifest,
   sourceSessionId: string,
 ): boolean {
-  const session = manifest.sessions[0];
   return manifest.rollbackState === undefined &&
-    manifest.sessions.length === 1 &&
-    session.sourceId === sourceSessionId &&
-    session.state === "verified" &&
-    session.created &&
-    session.deletionHash !== undefined;
+    manifestMatchesSessionGraph(manifest, sourceSessionId) &&
+    manifest.sessions.every((session) =>
+      session.state === "verified" &&
+      session.created &&
+      session.deletionHash !== undefined);
+}
+
+function manifestMatchesSessionGraph(
+  manifest: MigrationManifest,
+  sourceSessionId: string,
+): boolean {
+  const byTarget = new Map(manifest.sessions.map((session) => [session.targetId, session]));
+  if (byTarget.size !== manifest.sessions.length) return false;
+  const roots = manifest.sessions.filter((session) => session.sourceId === sourceSessionId);
+  if (roots.length !== 1) return false;
+  const rootTargetId = roots[0].targetId;
+  return manifest.sessions.every((session) => {
+    if (session.targetId === rootTargetId) return true;
+    const visited = new Set<string>();
+    let parentId = session.parentId;
+    while (parentId !== undefined && !visited.has(parentId)) {
+      if (parentId === rootTargetId) return true;
+      visited.add(parentId);
+      parentId = byTarget.get(parentId)?.parentId;
+    }
+    return false;
+  });
 }
 
 export function replacementResumeNeedsExclusiveAccess(
@@ -362,7 +395,7 @@ export async function replacementTargetExists(
   readSession: (targetId: string) => Promise<unknown | null>,
 ): Promise<boolean> {
   const manifest = await readManifest(manifestFilename);
-  const targetId = manifest.sessions[0]?.targetId;
+  const targetId = manifest.sessions.find((session) => session.parentId === undefined)?.targetId;
   return typeof targetId === "string" && await readSession(targetId) !== null;
 }
 
@@ -1027,6 +1060,7 @@ async function migrateSelectedSession(options: {
   const { session, directories } = job;
   const { exportDirectory, runDirectory } = directories;
   const inputFile = path.join(exportDirectory, "migration-bundle.json");
+  let expectedSessionCount: number;
   console.log(`\n[${position}/${total}] 正在处理：${session.title}`);
 
   const existingBundle = await fs.stat(inputFile).catch(() => undefined);
@@ -1041,6 +1075,7 @@ async function migrateSelectedSession(options: {
         console.error("已有迁移 bundle 与本次选择的会话不一致，已跳过该会话。");
         return false;
       }
+      expectedSessionCount = bundle.sessions.length;
     } catch {
       console.error("已有迁移 bundle 无法校验，已跳过该会话。");
       return false;
@@ -1059,6 +1094,17 @@ async function migrateSelectedSession(options: {
       "--redact-credentials", "--json",
     ], cliPath, server);
     if (!exported.ok) return false;
+    try {
+      const bundle = await readBundleFile(inputFile);
+      if (!bundleMatchesSession(bundle, session.id)) {
+        console.error("迁移工具导出的 bundle 与所选会话不一致，已跳过该会话。");
+        return false;
+      }
+      expectedSessionCount = bundle.sessions.length;
+    } catch {
+      console.error("迁移工具导出的 bundle 无法校验，已跳过该会话。");
+      return false;
+    }
     if (exported.outputText.includes("T2O_SENSITIVE_CONTENT_REDACTED")) {
       console.log("已自动将疑似凭据替换为脱敏占位符，该会话按部分恢复迁移。");
     }
@@ -1077,8 +1123,8 @@ async function migrateSelectedSession(options: {
   ], cliPath, server, password);
   if (!preview.ok) return false;
   const previewResult = cliJsonResult(preview.outputText);
-  if (previewResult?.ready !== 1 || previewResult.blocked !== 0 ||
-    previewResult.excluded !== 0) {
+  if (previewResult?.ready !== expectedSessionCount || previewResult?.blocked !== 0 ||
+    previewResult?.excluded !== 0) {
     console.error("所选会话包含当前无法无损映射的内容，未写入 OpenCode。");
     return false;
   }
@@ -1110,12 +1156,13 @@ async function migrateSelectedSession(options: {
   ], cliPath, server, password);
   if (!migrated.ok) return false;
   const migrationResult = cliJsonResult(migrated.outputText);
-  if (migrationResult?.skipped === 1 && migrationResult.created === 0 &&
-    migrationResult.replaced === 0) {
+  if (migrationResult?.skipped === expectedSessionCount && migrationResult?.created === 0 &&
+    migrationResult?.replaced === 0) {
     console.error("目标会话已存在，但缺少可验证的旧 manifest，未执行覆盖。");
     return false;
   }
-  if (migrationResult?.hasFailures !== false || migrationResult.verified !== 1) {
+  if (migrationResult?.hasFailures !== false ||
+    migrationResult.verified !== expectedSessionCount) {
     console.error("迁移结果未通过完整回读校验。");
     return false;
   }

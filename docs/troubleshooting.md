@@ -81,14 +81,32 @@ macOS 的 `open -a "Trae CN" --args ...` 经 3.3.104 实机确认可能丢弃调
 
 mapping v6 的哈希消息 ID 不满足 OpenCode Desktop 2.0.16 对时间顺序的字符串比较，
 实时 Revert 后可能暂时清空当前窗口；超大历史也可能在首次自动 compaction 时被 provider
-拒绝。mapping v8 使用稳定递增 ID，并为超大历史加入原生 completed-compaction 边界；
+拒绝。当前 mapping v10 使用稳定递增 ID，并为超大历史加入原生 completed-compaction 边界；
 角色化摘录写入只供后续模型读取的 `recent`，可见 `summary` 保持为空，因此不会把
 `[User]`、`[Assistant]` 重复显示为普通正文。原始时间线仍完整保留。
 
 更新代码后重新执行 `npm run migrate:local` 并按提示安全覆盖。目标会话若已在 OpenCode
 中新增内容，覆盖保护会停止；先保留新增内容，再人工删除旧目标会话并重新迁移。
 
-### 迁移到 OpenCode 1.x（mapping v8）
+### subagent 没有显示为 OpenCode 子会话
+
+mapping v10 要同时写入两类原生关系：子会话的 `info.parentID`，以及父 assistant 消息中
+`name = "subagent"` 且 `state.metadata.sessionID` 指向该子会话的工具块。只存在其中一个
+时，OpenCode 不会完整显示 Agent 工具卡和子会话导航。
+
+TRAE 来源还必须为每个直接子调用提供唯一且一致的 `agent_run_id`、
+`parent_agent_run_ids`、agent、任务描述、时间和完成状态。满足条件时，选择根会话会自动
+包含派生子会话。以下记录会保守保持内联，并生成固定诊断：
+
+- 同一 run 跨多个 assistant 消息，无法证明唯一归属。
+- run 身份、父链、agent 或任务描述冲突。
+- 缺少完成状态或可验证时间。
+- 嵌套 subagent；当前只重建已经过真实回读验证的直接子调用。
+
+如果目标是此前由 mapping v9 创建的扁平会话，更新代码后重新执行
+`npm run migrate:local`，选择相同会话并按提示执行安全 `OVERWRITE`。
+
+### 迁移到 OpenCode 1.x（mapping v10）
 
 v1 没有 `SessionTransfer` 路由，也没有 carry-summary 的 compaction 消息，因此：
 
@@ -103,6 +121,9 @@ v1 没有 `SessionTransfer` 路由，也没有 carry-summary 的 compaction 消�
   （sourceId、order、replyToSourceId）改存于会话级 `metadata.trae2opencode.events`。
 - `T2O_OPENCODE_V1_TOOL_STATUS_PROJECTED`：被中断的流式工具在 v1 中只能表示为
   `pending` + 原始片段，不臆造结果。
+- `T2O_OPENCODE_EVENT_TIME_PROJECTED`：TRAE 合并 subagent 历史后可能保留早于
+  `created_at` 的实际执行窗口。目标时间会归一为不倒退，原始创建/完成时间与投影原因
+  保存在迁移 metadata 中，不伪装成精确的目标时间。
 - 源会话若缺少 assistant 完成时间或可解析的回复对象，v1 无法无损表示；这些会话会被
   `T2O_OPENCODE_V1_UNSUPPORTED_STATE` 阻止，而不是写入不完整数据。
 

@@ -11,6 +11,9 @@ pending/canceled/interrupted 等无已验证目标映射的状态保留 unknown 
 完成时间来自真实 `timing.tool_call_finished_at_ms`；缺失时不补造。
 没有 result 时标记 orphan warning；success 的 undefined data 可合法保留，
 对应 M0 中已观察到的无输出工具。非零 exit code 不决定工具状态。
+`name = ""`、`params = null` 且 result 为空的 subagent 边界记录是 TRAE 的结构
+占位符，不生成普通工具，也不产生非法工具诊断；其 run 拓扑由独立 subagent parser
+根据 agent、父链、任务描述、状态和 timing 处理。
 
 同 call ID 的有效终态优先于活动记录，与输入顺序无关。名称、输入、终态
 payload 或时间冲突时，整个 call ID fail closed；不混合两次不同调用的结果。

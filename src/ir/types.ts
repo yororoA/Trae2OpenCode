@@ -80,6 +80,7 @@ export interface ContentBaseIR {
 export interface TextContentIR extends ContentBaseIR {
   type: "text";
   text: string;
+  presentation?: "progress" | "response";
 }
 
 export interface ReasoningContentIR extends ContentBaseIR {
@@ -98,6 +99,7 @@ export interface ToolContentIR extends ContentBaseIR {
   type: "tool";
   callId: string;
   name: string;
+  childSessionSourceId?: string;
   input: JsonValue;
   output?: JsonValue;
   error?: JsonValue;
@@ -135,6 +137,7 @@ export interface SessionIR {
   projectSourceId?: string;
   projectPath?: string;
   parentSourceId?: string;
+  derivedFromSourceSessionId?: string;
   createdAt?: number;
   updatedAt?: number;
   recovery: RecoveryGrade;

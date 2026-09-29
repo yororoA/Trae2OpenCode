@@ -62,6 +62,7 @@ canonical 证据位于
 | assistant | `getMessages#message` | `message_id`、`chat_session_id`、`turn_id`、`reply_to_message_id`、`role`、`content`、`status`、消息类型、顺序与起止时间 |
 | reasoning | `assistant.messages[].plan_item` | `id`、`thought`、`reasoning_content`、`timing` |
 | tool | `plan_item.tool_call_info` | `id`、`name`、`params`、`result.status`、`result.data`、`result.error_message`、generated/start/finish timing |
+| subagent | `assistant.messages[].plan_item` | `agent_run_id`、`parent_agent_run_ids`、`agent_id`、`agent_display_name`、`sub_agent_call_description`、`agent_status`、`timing` |
 
 物理数据库只保留为环境诊断信息：
 

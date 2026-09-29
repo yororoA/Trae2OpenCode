@@ -126,7 +126,7 @@ export function parseTraeToolCalls(
       Object.keys(raw.result).length === 0;
     const isEmptyPlaceholder = isRuntimeObject(raw) &&
       raw.name === "" &&
-      raw.params === undefined &&
+      (raw.params === undefined || raw.params === null) &&
       (raw.result === undefined || raw.result === null || isEmptyResult);
     if (isEmptyPlaceholder) continue;
     const hasValidCall =

@@ -112,6 +112,113 @@ describe("assembleTraeMigrationBundle", () => {
     );
   });
 
+  it("reconstructs inline subagent history as a native child session", () => {
+    const options = input();
+    const assistant = messages(options)[0];
+    assistant.agent_type = "solo_agent";
+    assistant.created_at = 1_700_000_010;
+    assistant.chat_start_time = 1_700_000_001_000;
+    assistant.chat_end_time = 1_700_000_004_000;
+    assistant.content = {
+      messages: [
+        {
+          type: "plan_item",
+          plan_item: {
+            id: "plan-parent",
+            agent_run_id: "run-parent",
+            agent_id: "solo_agent",
+            agent_display_name: "SOLO",
+            thought: "Delegating the review.",
+          },
+        },
+        {
+          type: "plan_item",
+          plan_item: {
+            id: "plan-subagent",
+            agent_run_id: "run-subagent",
+            parent_agent_run_ids: ["run-parent"],
+            agent_id: "reviewer",
+            agent_display_name: "Reviewer",
+            agent_status: { status: "running", run_mode: "foreground" },
+            sub_agent_call_description: "Synthetic subagent task.",
+            thought: "Inspecting the change.",
+            timing: {
+              generated_at_ms: 1_700_000_002_000,
+              tool_call_started_at_ms: 1_700_000_002_100,
+              tool_call_finished_at_ms: 1_700_000_002_500,
+            },
+            tool_call_info: {
+              id: "call-subagent-read",
+              name: "read_file",
+              params: { path: "example.txt" },
+              result: { status: "success", data: "source" },
+            },
+          },
+        },
+        {
+          type: "plan_item",
+          plan_item: {
+            id: "plan-subagent-complete",
+            agent_run_id: "run-subagent",
+            parent_agent_run_ids: ["run-parent"],
+            agent_id: "reviewer",
+            agent_display_name: "Reviewer",
+            agent_status: { status: "completed", run_mode: "foreground" },
+            thought: "The review is complete.",
+            timing: { generated_at_ms: 1_700_000_003_000 },
+            tool_call_info: {
+              id: "placeholder-subagent",
+              name: "",
+              params: null,
+              result: {},
+              already_emitted_generating_event: false,
+              already_emitted_run_event: false,
+            },
+          },
+        },
+      ],
+    };
+
+    const bundle = assembleTraeMigrationBundle(options);
+    assert.equal(bundle.sessions.length, 2);
+    const [session, child] = bundle.sessions;
+    assert.equal(session.recovery, "partial");
+    const event = session.events[1];
+    assert.equal(event.type, "assistant");
+    if (event.type !== "assistant") throw new Error("fixture shape changed");
+    const subagent = event.content.find((block) =>
+      block.type === "tool" && block.name === "subagent");
+    assert.ok(subagent?.type === "tool");
+    assert.equal(subagent.childSessionSourceId, child.sourceId);
+    assert.deepEqual(subagent.input, {
+      agent: "Reviewer",
+      description: "Synthetic subagent task.",
+      prompt: "Synthetic subagent task.",
+    });
+    assert.equal(child.parentSourceId, session.sourceId);
+    assert.equal(child.derivedFromSourceSessionId, session.sourceId);
+    assert.equal(child.title, "Synthetic subagent task.");
+    assert.deepEqual(child.events.map((item) => item.type), ["user", "assistant"]);
+    const childAssistant = child.events[1];
+    assert.equal(childAssistant.type, "assistant");
+    if (childAssistant.type !== "assistant") throw new Error("fixture shape changed");
+    assert.equal(childAssistant.content.some((block) =>
+      block.type === "tool" && block.name === "read_file"), true);
+    assert.equal(childAssistant.content.some((block) =>
+      block.type === "text" && block.presentation === "response"), true);
+    assert.ok(bundle.diagnostics.some(
+      (diagnostic) => diagnostic.code === "T2O_IR_EVENT_TIME_INVALID",
+    ));
+    assert.equal(bundle.diagnostics.some(
+      (diagnostic) => diagnostic.code === "T2O_TRAE_TOOL_CALL_INVALID",
+    ), false);
+    const selected = selectBundle(bundle, { session: session.sourceId });
+    assert.deepEqual(selected.sessions.map((item) => item.sourceId), [
+      session.sourceId,
+      child.sourceId,
+    ]);
+  });
+
   it("deduplicates identical runtime observations without changing the IR", () => {
     const options = input();
     const expected = assembleTraeMigrationBundle(options);

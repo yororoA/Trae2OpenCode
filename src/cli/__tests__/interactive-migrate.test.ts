@@ -292,11 +292,22 @@ describe("interactive migration helpers", () => {
     );
   });
 
-  it("accepts only a single bundle for the selected session", async () => {
+  it("accepts the selected root and only its derived session graph", async () => {
     const bundle = await readBundleFile("fixtures/ir/v1/valid-trae-assembled.json");
     const sourceSessionId = bundle.sessions[0].sourceId;
 
     assert.equal(bundleMatchesSession(bundle, sourceSessionId), true);
+    const child = structuredClone(bundle.sessions[0]);
+    child.sourceId = "derived-child";
+    child.parentSourceId = sourceSessionId;
+    child.derivedFromSourceSessionId = sourceSessionId;
+    bundle.sessions.push(child);
+    assert.equal(bundleMatchesSession(bundle, sourceSessionId), true);
+    child.derivedFromSourceSessionId = "different-session";
+    assert.equal(bundleMatchesSession(bundle, sourceSessionId), false);
+    child.derivedFromSourceSessionId = sourceSessionId;
+    child.parentSourceId = "absent-parent";
+    assert.equal(bundleMatchesSession(bundle, sourceSessionId), false);
     assert.equal(bundleMatchesSession(bundle, "different-session"), false);
   });
 
@@ -342,12 +353,24 @@ describe("interactive migration helpers", () => {
 
   it("recognizes only terminal manifests for the selected source session", () => {
     const manifest = {
-      sessions: [{ sourceId: "session-a", state: "verified" }],
+      sessions: [{
+        sourceId: "session-a",
+        targetId: "ses_root",
+        state: "verified",
+      }, {
+        sourceId: "derived-child",
+        targetId: "ses_child",
+        parentId: "ses_root",
+        state: "verified",
+      }],
     } as unknown as MigrationManifest;
     assert.equal(isTerminalManifestForSession(manifest, "session-a"), true);
-    manifest.sessions[0].state = "failed";
+    manifest.sessions[1].state = "failed";
     assert.equal(isTerminalManifestForSession(manifest, "session-a"), false);
-    manifest.sessions[0].state = "verified";
+    manifest.sessions[1].state = "verified";
+    manifest.sessions[1].parentId = "ses_absent";
+    assert.equal(isTerminalManifestForSession(manifest, "session-a"), false);
+    manifest.sessions[1].parentId = "ses_root";
     assert.equal(isTerminalManifestForSession(manifest, "session-b"), false);
   });
 
@@ -355,13 +378,23 @@ describe("interactive migration helpers", () => {
     const manifest = replacementManifest("session-a");
     assert.equal(isReplacementManifestForSession(manifest, "session-a"), true);
     assert.equal(isReplacementManifestForSession(manifest, "session-b"), false);
+    manifest.sessions.push({
+      ...structuredClone(manifest.sessions[0]),
+      sourceId: "derived-child",
+      targetId: "ses_child",
+      parentId: "ses_target",
+    });
+    assert.equal(isReplacementManifestForSession(manifest, "session-a"), true);
 
-    manifest.sessions[0].created = false;
+    manifest.sessions[1].created = false;
     assert.equal(isReplacementManifestForSession(manifest, "session-a"), false);
-    manifest.sessions[0].created = true;
-    manifest.sessions[0].state = "skipped";
+    manifest.sessions[1].created = true;
+    manifest.sessions[1].state = "skipped";
     assert.equal(isReplacementManifestForSession(manifest, "session-a"), false);
-    manifest.sessions[0].state = "verified";
+    manifest.sessions[1].state = "verified";
+    manifest.sessions[1].parentId = "ses_absent";
+    assert.equal(isReplacementManifestForSession(manifest, "session-a"), false);
+    manifest.sessions[1].parentId = "ses_target";
     manifest.rollbackState = "in-progress";
     assert.equal(isReplacementManifestForSession(manifest, "session-a"), false);
   });

@@ -1,7 +1,9 @@
 import { hashCanonicalJson } from "../ir/canonical.js";
 import type { JsonValue } from "../ir/types.js";
 import { isRecord } from "../target/opencode/contract.js";
-import type { OpenCodeSession } from "../target/opencode/mapping.js";
+import {
+  OPENCODE_MAPPING_VERSION, type OpenCodeSession,
+} from "../target/opencode/mapping.js";
 import type { ManifestSession, MigrationManifest } from "./manifest.js";
 
 export const jsonHash = (value: unknown) =>
@@ -13,10 +15,10 @@ export function isOwnedByRun(
 ): boolean {
   const metadata = transfer.info.metadata;
   const marker = isRecord(metadata) ? metadata.trae2opencode : undefined;
-  // v1 and the current v2 format both use v8; older verified v2 manifests remain replaceable.
+  // v1 and v2 share the current mapping format; older verified manifests remain replaceable.
   const supportedMappingVersion = isRecord(marker) &&
     typeof marker.mappingVersion === "number" &&
-    marker.mappingVersion >= 1 && marker.mappingVersion <= 8 &&
+    marker.mappingVersion >= 1 && marker.mappingVersion <= OPENCODE_MAPPING_VERSION &&
     Number.isInteger(marker.mappingVersion);
   return transfer.info.id === item.targetId && isRecord(marker) &&
     marker.migrationRunId === manifest.runId && marker.sourceSessionId === item.sourceId &&

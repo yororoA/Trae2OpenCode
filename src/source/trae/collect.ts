@@ -53,9 +53,25 @@ export function selectBundle(bundle: MigrationBundle, selection: { session?: str
     const normalized = pathApi.normalize(value);
     return bundle.source.platform === "win32" ? normalized.toLowerCase() : normalized;
   };
-  const sessions = bundle.sessions.filter((session) =>
+  const selectedIds = new Set(bundle.sessions.filter((session) =>
     (!selection.session || session.sourceId === selection.session) &&
-    (!selection.project || (session.projectPath !== undefined && key(session.projectPath) === key(selection.project))));
+    (!selection.project || (session.projectPath !== undefined &&
+      key(session.projectPath) === key(selection.project))))
+    .map((session) => session.sourceId));
+  if (selection.session && selectedIds.size > 0) {
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const session of bundle.sessions) {
+        if (session.parentSourceId && selectedIds.has(session.parentSourceId) &&
+          !selectedIds.has(session.sourceId)) {
+          selectedIds.add(session.sourceId);
+          changed = true;
+        }
+      }
+    }
+  }
+  const sessions = bundle.sessions.filter((session) => selectedIds.has(session.sourceId));
   if (sessions.length === 0) throw new Trae2OpenCodeError("T2O_MIGRATION_SELECTION_EMPTY");
   const ids = new Set(sessions.map((session) => session.sourceId));
   const projects = bundle.projects.filter((project) => sessions.some((session) => session.projectSourceId === project.sourceId));
