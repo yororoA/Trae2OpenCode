@@ -9,6 +9,20 @@
 <h1 align="center">Trae2OpenCode</h1>
 
 <p align="center">
+  <strong>简体中文</strong>
+  ·
+  <a href="./README.en.md">English</a>
+  ·
+  <a href="./README.ja.md">日本語</a>
+  ·
+  <a href="./README.de.md">Deutsch</a>
+  ·
+  <a href="./README.ru.md">Русский</a>
+  ·
+  <a href="./README.zh-Hant.md">繁體中文</a>
+</p>
+
+<p align="center">
   <strong>把 TRAE 会话完整带到 OpenCode。</strong>
   <br>
   自动导出、脱敏、映射与导入，并在写入后逐项回读核验。

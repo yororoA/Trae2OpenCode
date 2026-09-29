@@ -17,6 +17,13 @@ const legacySchema = "fixtures/opencode/2.0.0/evidence/transfer.schema.json";
 const v1Schema = "fixtures/opencode/1.18.32/evidence/session.schema.json";
 const legacyV1Schema = "fixtures/opencode/1.16.0/evidence/session.schema.json";
 const sample = "fixtures/ir/v1/valid-trae-assembled.json";
+const localizedReadmes = [
+  "README.de.md",
+  "README.en.md",
+  "README.ja.md",
+  "README.ru.md",
+  "README.zh-Hant.md",
+];
 const npm = async (args: string[], cwd: string) => {
   const result = await exec(process.execPath, [npmCli, ...args], {
     cwd, timeout: 180_000, maxBuffer: 2 * 1024 * 1024,
@@ -36,12 +43,13 @@ try {
   const files = artifact.files.map((file) => file.path);
   for (const required of [
     "package.json", "README.md", "CHANGELOG.md", "LICENSE", "dist/cli/index.js",
-    schema, legacySchema, v1Schema, legacyV1Schema, sample,
+    ...localizedReadmes, schema, legacySchema, v1Schema, legacyV1Schema, sample,
   ]) {
     assert.ok(files.includes(required), `Missing package file: ${required}`);
   }
   for (const file of files) {
     const allowed = file === "package.json" || file === "README.md" ||
+      localizedReadmes.includes(file) ||
       file === "CHANGELOG.md" || file === "LICENSE" ||
       (file.startsWith("dist/") && file.endsWith(".js") && !file.includes("/__tests__/")) ||
       (file.startsWith("docs/") && file.endsWith(".md")) ||
