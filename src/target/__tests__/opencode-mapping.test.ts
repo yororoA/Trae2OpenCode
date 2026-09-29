@@ -476,6 +476,54 @@ describe("OpenCode IR mapping", () => {
     assert.equal(map(bundle, { parentId: "ses_parent" }).transfer.info.parentID, "ses_parent");
   });
 
+  it("links reconstructed subagent tools to native child sessions", () => {
+    const bundle = structuredClone(fixture);
+    const parent = bundle.sessions[0];
+    const child = structuredClone(parent);
+    child.sourceId = "session-subagent";
+    child.title = "Review the change";
+    child.parentSourceId = parent.sourceId;
+    child.derivedFromSourceSessionId = parent.sourceId;
+    bundle.sessions.push(child);
+    const event = assistant(bundle);
+    event.content.push({
+      type: "tool",
+      callId: "subagent-run",
+      name: "subagent",
+      input: {
+        agent: "Reviewer",
+        description: "Review the change",
+        prompt: "Review the change",
+      },
+      output: "Review complete",
+      status: "completed",
+      createdAt: 1_700_000_002_000,
+      completedAt: 1_700_000_003_000,
+      childSessionSourceId: child.sourceId,
+      sourceRefs: structuredClone(event.sourceRefs),
+    });
+    const sessionIds = new Map([
+      [parent.sourceId, "ses_mapping"],
+      [child.sourceId, "ses_mapping_child"],
+    ]);
+
+    const content = map(bundle, { sessionIds }).transfer.messages[1].content as JsonObject[];
+    const subagent = content.find((block) =>
+      block.type === "tool" && block.name === "subagent");
+    assert.ok(subagent && typeof subagent === "object");
+    const state = subagent.state as JsonObject;
+    assert.deepEqual(state.metadata, {
+      sessionID: "ses_mapping_child",
+      status: "completed",
+      trae2opencode: {
+        outputEncoding: "text",
+        outputSha256: hashCanonicalJson("Review complete"),
+        childSessionSourceId: child.sourceId,
+      },
+    });
+    assert.throws(() => map(bundle), expectedRejection);
+  });
+
   it("reports only safe fields in errors even for private source text", () => {
     const bundle = structuredClone(fixture);
     bundle.sessions[0].title = "private title";

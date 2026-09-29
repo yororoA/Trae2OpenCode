@@ -370,6 +370,12 @@
             "text": {
               "type": "string"
             },
+            "presentation": {
+              "enum": [
+                "progress",
+                "response"
+              ]
+            },
             "createdAt": true,
             "completedAt": true,
             "sourceRefs": true
@@ -452,6 +458,10 @@
             },
             "createdAt": true,
             "completedAt": true,
+            "childSessionSourceId": {
+              "type": "string",
+              "minLength": 1
+            },
             "sourceRefs": true
           }
         }
@@ -610,6 +620,10 @@
           "minLength": 1
         },
         "parentSourceId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "derivedFromSourceSessionId": {
           "type": "string",
           "minLength": 1
         },

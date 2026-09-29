@@ -47,6 +47,25 @@ describe("validateMigrationBundleIntegrity", () => {
     );
   });
 
+  it("accepts ancestor-backed provenance for reconstructed child sessions", () => {
+    const bundle = input();
+    const parent = bundle.sessions[0];
+    const child = structuredClone(parent);
+    child.sourceId = "subagent-child";
+    child.parentSourceId = parent.sourceId;
+    child.derivedFromSourceSessionId = parent.sourceId;
+    bundle.sessions.push(child);
+    assert.deepEqual(validateMigrationBundleIntegrity(bundle), []);
+
+    child.derivedFromSourceSessionId = "absent-source";
+    assert.deepEqual(new Set(codes(bundle)), new Set([
+      "T2O_IR_DERIVED_SOURCE_MISSING",
+      "T2O_IR_DERIVED_SOURCE_INVALID",
+      "T2O_IR_EVENT_SOURCE_MISMATCH",
+      "T2O_IR_CONTENT_SOURCE_MISMATCH",
+    ]));
+  });
+
   it("walks a deep parent chain iteratively", () => {
     const bundle = input();
     const template = bundle.sessions[0];

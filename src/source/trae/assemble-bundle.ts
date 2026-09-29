@@ -12,6 +12,7 @@ import { runtimeHash } from "./reasoning-plan.js";
 import { gradeSessionRecovery } from "./recovery-grading.js";
 import type { TraeResourceReport, TraeResourceSource } from "./resources.js";
 import type { TraeSessionMetadata, TraeSessionMetadataReport } from "./session-metadata.js";
+import type { TraeSubagentRun } from "./subagent-runs.js";
 import type { TraeUserMessage } from "./user-messages.js";
 import type { WorkspaceResolutionReport } from "./workspace-resolution.js";
 
@@ -36,7 +37,7 @@ export interface AssembleTraeBundleOptions {
 
 interface SourceIssue {
   code: string;
-  severity: "warning" | "error";
+  severity: "info" | "warning" | "error";
   message: string;
   sourceSessionId?: string;
   sourceMessageId?: string;
@@ -89,10 +90,19 @@ function resourceRef(source: TraeResourceSource): SourceRef {
   };
 }
 
-function assistantContent(message: TraeAssistantMessage, workspaces: string[]): AssistantContentIR[] {
+interface PositionedAssistantContent {
+  index: number;
+  rank: number;
+  block: AssistantContentIR;
+}
+
+function positionedAssistantContent(
+  message: TraeAssistantMessage,
+  workspaces: string[],
+): PositionedAssistantContent[] {
   const refs = (source: { locator: string; sha256: string }) =>
     runtimeRefs(message.sourceSessionId, workspaces, messageLocator(message.sourceMessageId, source.locator), source.sha256);
-  const blocks: { index: number; rank: number; block: AssistantContentIR }[] = [];
+  const blocks: PositionedAssistantContent[] = [];
   for (const text of message.textBlocks) {
     const match = /^content\.messages\[(\d+)\]/.exec(text.source.locator);
     blocks.push({
@@ -120,10 +130,112 @@ function assistantContent(message: TraeAssistantMessage, workspaces: string[]): 
       },
     });
   }
-  return blocks.sort((a, b) => a.index - b.index || a.rank - b.rank).map(({ block }) => block);
+  return blocks.sort((a, b) => a.index - b.index || a.rank - b.rank);
 }
 
-function eventIR(message: TraeUserMessage | TraeAssistantMessage, workspaces: string[]): EventIR {
+function assistantContent(message: TraeAssistantMessage, workspaces: string[]): AssistantContentIR[] {
+  return positionedAssistantContent(message, workspaces).map(({ block }) => block);
+}
+
+function subagentSessionSourceId(sourceSessionId: string, sourceRunId: string): string {
+  return `subagent-${runtimeHash({ sourceSessionId, sourceRunId }).slice(7)}`;
+}
+
+function subagentCallId(sourceSessionId: string, sourceMessageId: string, sourceRunId: string): string {
+  return `subagent-${runtimeHash({ sourceSessionId, sourceMessageId, sourceRunId }).slice(7)}`;
+}
+
+function runRefs(
+  message: TraeAssistantMessage,
+  run: TraeSubagentRun,
+  workspaces: string[],
+): SourceRef[] {
+  return uniqueRefs(run.sources.flatMap((source) =>
+    runtimeRefs(
+      message.sourceSessionId,
+      workspaces,
+      messageLocator(message.sourceMessageId, source.locator),
+      source.sha256,
+    )));
+}
+
+function subagentOutput(content: readonly AssistantContentIR[]): string | undefined {
+  const output = [...content].reverse().find((block) =>
+    block.type === "text" &&
+    (block.presentation === "response" ||
+      block.sourceRefs.some((ref) =>
+        ref.locator.value.endsWith(".plan_item.tool_call_info.params.summary"))));
+  return output?.type === "text" ? output.text : undefined;
+}
+
+interface SubagentProjection {
+  run: TraeSubagentRun;
+  sourceId: string;
+  content: AssistantContentIR[];
+  sourceRefs: SourceRef[];
+}
+
+function projectAssistantSubagents(
+  message: TraeAssistantMessage,
+  workspaces: string[],
+  runs: readonly TraeSubagentRun[] = message.subagentRuns,
+): { content: AssistantContentIR[]; subagents: SubagentProjection[] } {
+  const positioned = positionedAssistantContent(message, workspaces);
+  const childIndexes = new Set(runs.flatMap((run) => run.entryIndexes));
+  const subagents = runs.map((run): SubagentProjection => {
+    const indexes = new Set(run.entryIndexes);
+    const content = positioned
+      .filter((item) => indexes.has(item.index))
+      .map(({ index, block }) =>
+        block.type === "text" && index === run.responseEntryIndex
+          ? { ...block, presentation: "response" as const }
+          : block);
+    return {
+      run,
+      sourceId: subagentSessionSourceId(message.sourceSessionId, run.sourceRunId),
+      content,
+      sourceRefs: runRefs(message, run, workspaces),
+    };
+  });
+  const parent = positioned.filter((item) => !childIndexes.has(item.index));
+  for (const subagent of subagents) {
+    const run = subagent.run;
+    const output = subagentOutput(subagent.content);
+    parent.push({
+      index: run.entryIndexes[0],
+      rank: 2,
+      block: {
+        type: "tool",
+        callId: subagentCallId(message.sourceSessionId, message.sourceMessageId, run.sourceRunId),
+        name: "subagent",
+        input: {
+          agent: run.agentDisplayName ?? run.agentId,
+          description: run.description,
+          prompt: run.description,
+          ...(run.runMode === "background" ? { background: true } : {}),
+        },
+        ...(output === undefined ? {} : { output }),
+        status: "completed",
+        createdAt: run.createdAt,
+        completedAt: run.completedAt,
+        childSessionSourceId: subagent.sourceId,
+        sourceRefs: subagent.sourceRefs,
+      },
+    });
+  }
+  return {
+    content: parent
+      .sort((left, right) => left.index - right.index || left.rank - right.rank)
+      .map(({ block }) => block),
+    subagents,
+  };
+}
+
+function eventIR(
+  message: TraeUserMessage | TraeAssistantMessage,
+  workspaces: string[],
+  projectedContent?: AssistantContentIR[],
+): EventIR {
   const sourceRefs = message.sources.flatMap((source) =>
     runtimeRefs(message.sourceSessionId, workspaces, messageLocator(message.sourceMessageId), source.sha256));
   const base = {
@@ -142,7 +254,7 @@ function eventIR(message: TraeUserMessage | TraeAssistantMessage, workspaces: st
     ...base, type: "assistant", turnSourceId: message.turnId, replyToSourceId: message.replyToMessageId,
     status: message.status === "in-progress" ? "running" : message.status,
     ...(message.completedAt === undefined ? {} : { completedAt: message.completedAt }),
-    content: assistantContent(message, workspaces),
+    content: projectedContent ?? assistantContent(message, workspaces),
   };
 }
 
@@ -262,7 +374,17 @@ export function assembleTraeMigrationBundle(options: AssembleTraeBundleOptions):
     for (const message of parsedMessages) {
       countsById.set(message.sourceMessageId, (countsById.get(message.sourceMessageId) ?? 0) + 1);
     }
+    const subagentRunCounts = new Map<string, number>();
+    for (const message of parsed?.assistants.messages ?? []) {
+      for (const run of message.subagentRuns) {
+        subagentRunCounts.set(run.sourceRunId, (subagentRunCounts.get(run.sourceRunId) ?? 0) + 1);
+      }
+    }
+    const allSubagentRunIds = new Set(subagentRunCounts.keys());
+    const isDirectSubagent = (run: TraeSubagentRun) =>
+      !run.parentRunIds.some((parentRunId) => allSubagentRunIds.has(parentRunId));
     const events: EventIR[] = [];
+    const subagentProjections: SubagentProjection[] = [];
     let invalidMessages = 0;
     for (const message of parsedMessages) {
       const foreignSession = message.sourceSessionId !== sourceId;
@@ -276,12 +398,37 @@ export function assembleTraeMigrationBundle(options: AssembleTraeBundleOptions):
           severity: "error", message: "A runtime message identity conflicts with its session or another role.",
           sourceSessionId: sourceId, sourceMessageId: message.sourceMessageId,
         }, refs);
-      } else events.push(eventIR(message, workspaceIds));
+      } else if ("text" in message) {
+        events.push(eventIR(message, workspaceIds));
+      } else {
+        const runs = message.subagentRuns.filter((run) =>
+          subagentRunCounts.get(run.sourceRunId) === 1 && isDirectSubagent(run));
+        const projection = projectAssistantSubagents(message, workspaceIds, runs);
+        events.push(eventIR(message, workspaceIds, projection.content));
+        subagentProjections.push(...projection.subagents);
+      }
     }
     events.sort((a, b) => a.order - b.order || a.sourceId.localeCompare(b.sourceId));
     sourceRefs = uniqueRefs([...sourceRefs, ...events.flatMap((event) => event.sourceRefs)]);
     const rawRefs = read.status === "available"
       ? runtimeRefs(sourceId, workspaceIds, "runtime:getMessages#response", runtimeHash(read.value)) : [];
+    if ([...subagentRunCounts.values()].some((count) => count > 1)) {
+      warn(
+        "T2O_TRAE_SUBAGENT_RUN_SPANS_MESSAGES",
+        "A TRAE subagent run spans multiple assistant records and remains inline.",
+        sourceId,
+        rawRefs,
+      );
+    }
+    if ((parsed?.assistants.messages ?? []).some((message) =>
+      message.subagentRuns.some((run) => !isDirectSubagent(run)))) {
+      warn(
+        "T2O_TRAE_NESTED_SUBAGENT_INLINE",
+        "A nested TRAE subagent run remains inline because only direct child topology is verified.",
+        sourceId,
+        rawRefs,
+      );
+    }
     const parseIssues = [...(parsed?.users.issues ?? []), ...(parsed?.assistants.issues ?? [])];
     const eventsById = new Map(events.map((event) => [event.sourceId, event]));
     for (const issue of parseIssues) {
@@ -333,14 +480,65 @@ export function assembleTraeMigrationBundle(options: AssembleTraeBundleOptions):
       sourceCorrupt: false,
     });
     for (const reason of assessment.missingReasons) warn(reason.code, reason.message, sourceId, sourceRefs);
-    sessions.push({
+    const rootSession: SessionIR = {
       sourceId, ...(meta?.title === undefined ? {} : { title: meta.title }),
       ...(meta?.createdAt === undefined ? {} : { createdAt: meta.createdAt }),
       ...(meta?.updatedAt === undefined ? {} : { updatedAt: meta.updatedAt }),
       ...(meta?.parentSourceId === undefined ? {} : { parentSourceId: meta.parentSourceId }),
       ...(project ? { projectSourceId: project.sourceId, projectPath: project.path } : {}),
       recovery: assessment.recovery, events, resources, sourceRefs,
-    });
+    };
+    sessions.push(rootSession);
+
+    for (const projection of subagentProjections) {
+      const { run } = projection;
+      const promptId = `${projection.sourceId}:prompt`;
+      const responseId = `${projection.sourceId}:response`;
+      const assistantRefs = uniqueRefs([
+        ...projection.sourceRefs,
+        ...projection.content.flatMap((block) => block.sourceRefs),
+      ]);
+      sessions.push({
+        sourceId: projection.sourceId,
+        title: run.description,
+        ...(project ? { projectSourceId: project.sourceId, projectPath: project.path } : {}),
+        parentSourceId: sourceId,
+        derivedFromSourceSessionId: sourceId,
+        createdAt: run.createdAt,
+        updatedAt: run.completedAt,
+        recovery: "partial",
+        events: [
+          {
+            sourceId: promptId,
+            type: "user",
+            order: 0,
+            createdAt: run.createdAt,
+            text: run.description,
+            sourceRefs: projection.sourceRefs,
+          },
+          {
+            sourceId: responseId,
+            type: "assistant",
+            order: 1,
+            createdAt: run.createdAt,
+            completedAt: run.completedAt,
+            turnSourceId: run.sourceRunId,
+            replyToSourceId: promptId,
+            status: "completed",
+            content: projection.content,
+            sourceRefs: assistantRefs,
+          },
+        ],
+        resources: [],
+        sourceRefs: assistantRefs,
+      });
+      add({
+        code: "T2O_TRAE_SUBAGENT_RECONSTRUCTED",
+        severity: "info",
+        message: "An inline TRAE subagent run was reconstructed as a native child session.",
+        sourceSessionId: projection.sourceId,
+      }, projection.sourceRefs, projection.sourceId);
+    }
   }
   const bundle: MigrationBundle = {
     schemaVersion: 1, createdAt: options.collectedAt,

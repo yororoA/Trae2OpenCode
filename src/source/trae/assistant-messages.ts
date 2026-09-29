@@ -12,6 +12,11 @@ import {
   type TraeReasoningBlock,
   type TraeReasoningPlanIssueCode,
 } from "./reasoning-plan.js";
+import {
+  parseTraeSubagentRuns,
+  type TraeSubagentRun,
+  type TraeSubagentRunIssueCode,
+} from "./subagent-runs.js";
 import { parseTraeToolCalls, type TraeToolCall, type TraeToolIssueCode } from "./tool-calls.js";
 import type { TraeQueryCacheEntry } from "./user-messages.js";
 
@@ -30,6 +35,7 @@ export type TraeAssistantMessageSourceKind =
 
 export type TraeAssistantMessageIssueCode =
   | TraeReasoningPlanIssueCode
+  | TraeSubagentRunIssueCode
   | TraeToolIssueCode
   | "T2O_TRAE_ASSISTANT_MESSAGE_CONTAINER_INVALID"
   | "T2O_TRAE_ASSISTANT_MESSAGE_RECORD_INVALID"
@@ -81,6 +87,7 @@ export interface TraeAssistantMessage {
   textBlocks: TraeAssistantText[];
   reasoningBlocks: TraeReasoningBlock[];
   planItems: TraePlanItem[];
+  subagentRuns: TraeSubagentRun[];
   toolCalls: TraeToolCall[];
   sources: TraeAssistantMessageSource[];
 }
@@ -176,7 +183,10 @@ const QUERY_LONG_TEXT_PATH_FIELDS = new Set([
 ]);
 
 const ISSUE_MESSAGES: Record<
-  Exclude<TraeAssistantMessageIssueCode, TraeReasoningPlanIssueCode | TraeToolIssueCode>,
+  Exclude<
+    TraeAssistantMessageIssueCode,
+    TraeReasoningPlanIssueCode | TraeSubagentRunIssueCode | TraeToolIssueCode
+  >,
   string
 > = {
   T2O_TRAE_ASSISTANT_MESSAGE_CONTAINER_INVALID:
@@ -357,7 +367,7 @@ function parseGeneralContent(value: unknown): AssistantContentResult {
   };
 }
 
-function parseToolSummary(value: unknown): string | undefined {
+function parseToolSummary(value: unknown): { key: string; text: string } | undefined {
   if (!isRecord(value) || !isRecord(value.tool_call_info)) {
     return undefined;
   }
@@ -369,11 +379,14 @@ function parseToolSummary(value: unknown): string | undefined {
   if (!isResponseTool) return undefined;
 
   const params = parseContentRecord(toolCall.params);
-  return params &&
-    typeof params.summary === "string" &&
-    params.summary.trim().length > 0
-    ? params.summary
-    : undefined;
+  if (!params || typeof params.summary !== "string" ||
+    params.summary.trim().length === 0) return undefined;
+  return {
+    key: typeof toolCall.id === "string" && toolCall.id.length > 0
+      ? toolCall.id
+      : sha256(toolCall),
+    text: params.summary,
+  };
 }
 
 function parseChatTaskContent(
@@ -381,7 +394,7 @@ function parseChatTaskContent(
 ): AssistantContentResult {
   let valid = true;
   const thoughts: Array<{ entryIndex: number; text: TraeAssistantText }> = [];
-  let summary: { entryIndex: number; text: TraeAssistantText } | null = null;
+  const summaries = new Map<string, { entryIndex: number; text: TraeAssistantText }>();
 
   for (const [entryIndex, value] of messages.entries()) {
     if (!isRecord(value)) {
@@ -414,17 +427,18 @@ function parseChatTaskContent(
     const responseSummary = parseToolSummary(value.plan_item);
     if (responseSummary) {
       const text = createText(
-        responseSummary,
+        responseSummary.text,
         `content.messages[${entryIndex}].plan_item.tool_call_info.params.summary`,
       );
-      if (text) summary = { entryIndex, text };
+      if (text) summaries.set(responseSummary.key, { entryIndex, text });
     }
   }
 
+  const summaryTexts = new Set([...summaries.values()].map(({ text }) => text.text));
   const textBlocks = thoughts
-    .filter(({ text }) => text.text !== summary?.text.text)
+    .filter(({ text }) => !summaryTexts.has(text.text))
     .map(({ entryIndex, text }) => ({ entryIndex, rank: 0, text }));
-  if (summary) {
+  for (const summary of summaries.values()) {
     textBlocks.push({ entryIndex: summary.entryIndex, rank: 1, text: summary.text });
   }
   return {
@@ -767,6 +781,17 @@ function parseRuntimeRecord(
   })));
   const tools = parseTraeToolCalls(value.content, messageType, VERIFIED_TRAE_ASSISTANT_MESSAGE_VERSION);
   issues.push(...tools.issues.map((issue) => ({ ...issue, sourceSessionId, sourceMessageId, entryIndex })));
+  const subagents = parseTraeSubagentRuns(
+    value.content,
+    messageType,
+    VERIFIED_TRAE_ASSISTANT_MESSAGE_VERSION,
+  );
+  issues.push(...subagents.issues.map((issue) => ({
+    ...issue,
+    sourceSessionId,
+    sourceMessageId,
+    entryIndex,
+  })));
 
   return {
     sourceMessageId,
@@ -782,6 +807,7 @@ function parseRuntimeRecord(
     textBlocks: content.textBlocks,
     reasoningBlocks: reasoningPlan.reasoningBlocks,
     planItems: reasoningPlan.planItems,
+    subagentRuns: subagents.runs,
     toolCalls: tools.toolCalls,
     sources: [
       {

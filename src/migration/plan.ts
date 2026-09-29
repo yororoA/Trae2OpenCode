@@ -94,6 +94,10 @@ export async function buildMigrationPlan(
   const targetVersion = options.targetVersion ?? OPENCODE_VERSION;
   const reconciliation = targetReconciliation(dialect);
   const identities = createOpenCodeIdentityMap(bundle, namespace);
+  const sessionIds = new Map(identities.map((identity) => [
+    identity.sourceSessionId,
+    identity.sessionId,
+  ]));
   const sessions = new Map(bundle.sessions.map((session) => [session.sourceId, session]));
   const prepared = identities.map((identity) => {
     const session = sessions.get(identity.sourceSessionId)!;
@@ -109,6 +113,7 @@ export async function buildMigrationPlan(
         // Mapping snapshots the caller-owned transcript before the first async directory check.
         mapping = mapTargetSession(bundle, session.sourceId, {
           ...identity,
+          sessionIds,
           directory: process.cwd(),
           dialect, protocolRule: options.protocolRule,
           targetVersion,

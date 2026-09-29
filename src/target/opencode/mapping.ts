@@ -30,6 +30,7 @@ export interface OpenCodeTransfer extends OpenCodeSession {
 export interface OpenCodeMappingOptions {
   sessionId: string;
   messageIds: ReadonlyMap<string, string>;
+  sessionIds?: ReadonlyMap<string, string>;
   parentId?: string;
   directory: string;
 }
@@ -47,7 +48,7 @@ export const MISSING_ASSISTANT_TEXT =
   "[TRAE assistant response ended before final text was persisted]";
 export const MAX_CONTINUATION_CONTEXT_BYTES = 192 * 1024;
 export const MAX_CONTINUATION_RECENT_BYTES = 16 * 1024;
-export const OPENCODE_MAPPING_VERSION = 9;
+export const OPENCODE_MAPPING_VERSION = 10;
 
 const PARTIAL_PROJECTION_CODES = new Set([
   "T2O_IR_EVENT_TIME_INVALID",
@@ -219,18 +220,23 @@ function projectToolPresentation(block: Extract<AssistantContentIR, { type: "too
 }
 
 function isTaskProgressText(block: AssistantContentIR): boolean {
-  return block.type === "text" && block.sourceRefs.some((ref) =>
+  if (block.type !== "text") return false;
+  if (block.presentation) return block.presentation === "progress";
+  return block.sourceRefs.some((ref) =>
     ref.locator.type === "runtime-field" &&
     ref.locator.value.endsWith(".plan_item.thought"));
 }
 
 function mapContent(
   block: AssistantContentIR,
+  bundle: MigrationBundle,
   session: SessionIR,
+  options: OpenCodeMappingOptions,
   field: string,
   diagnostics: Diagnostic[],
 ): JsonObject | undefined {
-  if (!hasVerifiedRuntimeRefs(block.sourceRefs, session.sourceId)) reject(session, `${field}.sourceRefs`);
+  const evidenceSourceId = session.derivedFromSourceSessionId ?? session.sourceId;
+  if (!hasVerifiedRuntimeRefs(block.sourceRefs, evidenceSourceId)) reject(session, `${field}.sourceRefs`);
   const time = block.createdAt === undefined ? undefined : {
     created: block.createdAt,
     ...(block.completedAt === undefined ? {} : { completed: block.completedAt }),
@@ -262,6 +268,15 @@ function mapContent(
   }
   if (!isRecord(block.input)) reject(session, `${field}.input`);
   const presentation = projectToolPresentation(block);
+  let linkedSessionId: string | undefined;
+  if (block.childSessionSourceId) {
+    const child = bundle.sessions.find((candidate) =>
+      candidate.sourceId === block.childSessionSourceId);
+    linkedSessionId = options.sessionIds?.get(block.childSessionSourceId);
+    if (block.name !== "subagent" || block.status !== "completed" ||
+      child?.parentSourceId !== session.sourceId ||
+      !linkedSessionId) reject(session, `${field}.childSessionSourceId`);
+  }
   if (block.status === "running" || block.status === "unknown") {
     const hasPreservedPayload = block.output !== undefined || hasErrorPayload(block.error);
     const outputProjectedToShell = presentation.name === "shell" &&
@@ -358,12 +373,18 @@ function mapContent(
     state: {
       status: "completed", input: presentation.input,
       content: [{ type: "text", text: output.text }],
-      metadata: { trae2opencode: {
-        ...presentation.metadata,
-        outputEncoding: output.encoding,
-        outputSha256: output.sha256,
-        ...(sourceOutputMissing ? { sourceOutputMissing: true } : {}),
-      } },
+      metadata: {
+        ...(linkedSessionId ? { sessionID: linkedSessionId, status: "completed" } : {}),
+        trae2opencode: {
+          ...presentation.metadata,
+          outputEncoding: output.encoding,
+          outputSha256: output.sha256,
+          ...(sourceOutputMissing ? { sourceOutputMissing: true } : {}),
+          ...(block.childSessionSourceId
+            ? { childSessionSourceId: block.childSessionSourceId }
+            : {}),
+        },
+      },
     },
   };
 }
@@ -600,7 +621,8 @@ export function mapOpenCodeSession(
   }
   const sourceMessages = session.events.map((event, index): JsonObject => {
     const field = `events[${index}]`;
-    if (!hasVerifiedRuntimeRefs(event.sourceRefs, session.sourceId)) reject(session, `${field}.sourceRefs`);
+    const evidenceSourceId = session.derivedFromSourceSessionId ?? session.sourceId;
+    if (!hasVerifiedRuntimeRefs(event.sourceRefs, evidenceSourceId)) reject(session, `${field}.sourceRefs`);
     if (event.createdAt === undefined) reject(session, `${field}.createdAt`);
     const validReply = hasValidReply(session, event);
     if (event.type === "assistant" && !validReply) {
@@ -635,7 +657,7 @@ export function mapOpenCodeSession(
     }
     const content: JsonObject[] = [];
     event.content.forEach((block, i) => {
-      const mapped = mapContent(block, session, `${field}.content[${i}]`, diagnostics);
+      const mapped = mapContent(block, bundle, session, options, `${field}.content[${i}]`, diagnostics);
       if (!mapped) return;
       content.push(mapped);
     });
@@ -681,6 +703,9 @@ export function mapOpenCodeSession(
         unknownSourceFields: ["cost", "tokens", "agent", "model"],
         resourceCount: session.resources.length,
         sourceRecovery: session.recovery,
+        ...(session.derivedFromSourceSessionId
+          ? { derivedFromSourceSessionId: session.derivedFromSourceSessionId }
+          : {}),
         sourceDiagnosticCodes: [...new Set(issues.map((issue) => issue.code))].sort(),
         ...(projectedSourceCodes.length > 0 ? { projectedSourceCodes } : {}),
       } },

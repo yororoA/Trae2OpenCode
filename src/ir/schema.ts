@@ -280,6 +280,9 @@ export const migrationBundleSchema = {
             text: {
               type: "string",
             },
+            presentation: {
+              enum: ["progress", "response"],
+            },
             createdAt: true,
             completedAt: true,
             sourceRefs: true,
@@ -352,6 +355,7 @@ export const migrationBundleSchema = {
             },
             createdAt: true,
             completedAt: true,
+            childSessionSourceId: nonEmptyString,
             sourceRefs: true,
           },
         },
@@ -460,6 +464,7 @@ export const migrationBundleSchema = {
         projectSourceId: nonEmptyString,
         projectPath: nonEmptyString,
         parentSourceId: nonEmptyString,
+        derivedFromSourceSessionId: nonEmptyString,
         createdAt: timestamp,
         updatedAt: timestamp,
         recovery: {

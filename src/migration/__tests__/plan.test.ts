@@ -65,6 +65,43 @@ describe("migration plan", () => {
     assert.deepEqual(plan.sessions.map((item) => item.status), ["blocked", "blocked"]);
   });
 
+  it("resolves subagent tool links through the complete session identity map", async () => {
+    const bundle = await fixture();
+    const parent = bundle.sessions[0];
+    const child = structuredClone(parent);
+    child.sourceId = "subagent-child";
+    child.parentSourceId = parent.sourceId;
+    child.derivedFromSourceSessionId = parent.sourceId;
+    bundle.sessions.push(child);
+    const event = parent.events[1];
+    assert.equal(event.type, "assistant");
+    if (event.type !== "assistant") throw new Error("fixture shape changed");
+    event.content.push({
+      type: "tool",
+      callId: "subagent-call",
+      name: "subagent",
+      input: { agent: "Reviewer", description: "Review", prompt: "Review" },
+      output: "Done",
+      status: "completed",
+      createdAt: 1_700_000_002_000,
+      completedAt: 1_700_000_003_000,
+      childSessionSourceId: child.sourceId,
+      sourceRefs: structuredClone(event.sourceRefs),
+    });
+
+    const plan = await buildMigrationPlan(bundle, options);
+    assert.deepEqual(plan.sessions.map((item) => item.status), ["ready", "ready"]);
+    const parentItem = plan.sessions.find((item) => item.sourceId === parent.sourceId);
+    const childItem = plan.sessions.find((item) => item.sourceId === child.sourceId);
+    const tools = parentItem?.transfer?.messages.flatMap((message) =>
+      Array.isArray(message.content) ? message.content : []);
+    const subagent = tools?.find((block) =>
+      isRecord(block) && block.type === "tool" && block.name === "subagent");
+    assert.ok(isRecord(subagent) && isRecord(subagent.state));
+    assert.equal((subagent.state.metadata as Record<string, unknown>).sessionID, childItem?.targetId);
+    assert.equal(childItem?.parentId, parentItem?.targetId);
+  });
+
   it("isolates unimportable messages from another valid session", async () => {
     const bundle = await fixture();
     bundle.sessions.push(renamed(bundle, "valid"));
