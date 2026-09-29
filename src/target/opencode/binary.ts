@@ -97,11 +97,12 @@ export function resolveOpenCodeBinary(
   if (binary.length === 0) return binary;
   const isFile = options.isFile ?? defaultIsFile;
   if (platform !== "win32") {
+    const platformPath = path.posix;
     const env = options.env ?? process.env;
-    const directories = (env.PATH ?? "").split(path.delimiter).filter(Boolean);
-    const candidates = /[/\\]/.test(binary)
-      ? [path.resolve(binary)]
-      : directories.map((directory) => path.resolve(directory, binary));
+    const directories = (env.PATH ?? "").split(platformPath.delimiter).filter(Boolean);
+    const candidates = binary.includes("/")
+      ? [platformPath.resolve(binary)]
+      : directories.map((directory) => platformPath.resolve(directory, binary));
     const resolveRealpath = options.realpath ?? realpathSync;
     for (const candidate of candidates) {
       if (!isFile(candidate)) continue;
@@ -111,7 +112,7 @@ export function resolveOpenCodeBinary(
       } catch {
         launcher = candidate;
       }
-      const embedded = path.join(path.dirname(launcher), ".opencode");
+      const embedded = platformPath.join(platformPath.dirname(launcher), ".opencode");
       if (isFile(embedded)) return embedded;
       return binary;
     }

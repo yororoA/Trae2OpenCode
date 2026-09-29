@@ -56,14 +56,14 @@ describe("resolveOpenCodeBinary", () => {
   });
 
   it("resolves the embedded native binary used by older POSIX Node launchers", () => {
-    const directory = path.join("/", "synthetic", "opencode-ai", "bin");
-    const launcher = path.join(directory, "opencode");
-    const linked = path.join("/", "synthetic", "bin", "opencode");
-    const embedded = path.join(directory, ".opencode");
+    const directory = path.posix.join("/", "synthetic", "opencode-ai", "bin");
+    const launcher = path.posix.join(directory, "opencode");
+    const linked = path.posix.join("/", "synthetic", "bin", "opencode");
+    const embedded = path.posix.join(directory, ".opencode");
     const existing = new Set([linked, launcher, embedded]);
     assert.equal(resolveOpenCodeBinary("opencode", {
       platform: "darwin",
-      env: { PATH: path.dirname(linked) },
+      env: { PATH: path.posix.dirname(linked) },
       isFile: (candidate) => existing.has(candidate),
       realpath: (candidate) => candidate === linked ? launcher : candidate,
     }), embedded);
