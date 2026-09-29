@@ -327,6 +327,10 @@ npm install -g @opencode/cli@2.0.16
 或出现无法安全脱敏的字段。保留本地产物，阅读[故障排查](troubleshooting.md)中对应的
 `T2O_*` 错误码；不要通过编辑 JSON 补造字段。
 
+当前 mapping v9 能识别 subagent 历史中的空工具占位符；TRAE 若为这类历史保留了
+早于消息创建时间的实际执行窗口，迁移会显式归一目标时间，并将原始时间和投影原因
+保存在 metadata 中。其他缺失时间、无效身份或无法验证的工具数据仍会安全停止。
+
 ### 看到“已自动将疑似凭据替换为脱敏占位符”
 
 这是正常提示。可安全识别的凭据会被替换为 `[REDACTED_SECRET]`，迁移继续进行且会话
@@ -343,7 +347,7 @@ bundle 内容来缩小文件。
 
 这是旧 mapping v6 生成的无序消息 ID 或无界历史上下文造成的兼容问题。更新本仓库后
 重新运行 `npm run migrate:local`，选择同一会话并按提示输入 `OVERWRITE`，让工具以
-mapping v8 重新导入。v8 还会将 checkpoint 的角色化上下文放入不直接展示的 `recent`
+当前 mapping v9 重新导入。v9 延续 v8 的 checkpoint 设计，并将角色化上下文放入不直接展示的 `recent`
 字段，避免 `[User]`、`[Assistant]` 摘录在时间线中重复显示。
 
 如果该目标会话已在 OpenCode 中继续过对话，受保护覆盖会拒绝删除它。先保留或导出新增

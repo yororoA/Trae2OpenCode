@@ -40,7 +40,7 @@ Changelog 一致。Release PR 由 Actions token 创建时不会自然触发其�
 | --- | ---: | --- |
 | `schemaVersion` | 1 | TRAE 中间格式（IR）结构 |
 | `manifestVersion` | 1 | 迁移记录、续跑与回滚结构 |
-| `mappingVersion` | 8 | IR 到 OpenCode 的映射语义 |
+| `mappingVersion` | 9 | IR 到 OpenCode 的映射语义 |
 | `reportVersion` | 3 | OpenCode 独立验证报告结构 |
 
 格式版本只在对应结构或语义变化时递增。一次产品发布可以不改变任何格式版本，也可以
